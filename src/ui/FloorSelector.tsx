@@ -2,7 +2,15 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { MapPackage } from '../map/package';
 
-export function FloorSelector({ pkg, floorSel, setFloor }: { pkg: MapPackage; floorSel: Record<string, string>; setFloor: (b: string, f: string) => void }) {
+export function FloorSelector({
+  pkg,
+  floorSel,
+  setFloor,
+}: {
+  pkg: MapPackage;
+  floorSel: Record<string, string>;
+  setFloor: (b: string, f: string) => void;
+}) {
   const withFloors = pkg.buildings.filter((b) => pkg.floors.some((f) => f.buildingKey === b.key));
   if (!withFloors.length) return <Text style={s.none}>층 자료 있는 건물 없음</Text>;
   return (

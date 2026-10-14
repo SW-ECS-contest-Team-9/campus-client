@@ -24,18 +24,43 @@ export default function SettingsScreen() {
           <P>가벼운 3D 지도</P>
           <P tone="muted">구조물·이름표를 빼서 오래된 휴대폰에서도 부드럽게</P>
         </View>
-        <Switch value={app.settings.light} onValueChange={(v) => app.updateSettings({ light: v })} trackColor={{ true: T.primary }} accessibilityLabel="가벼운 3D 지도" />
+        <Switch
+          value={app.settings.light}
+          onValueChange={(v) => app.updateSettings({ light: v })}
+          trackColor={{ true: T.primary }}
+          accessibilityLabel="가벼운 3D 지도"
+        />
       </Card>
       <Section>위치 권한</Section>
-      <Card><P tone="muted">"내 위치"를 누를 때만 위치를 읽어요. 위치 기록은 기기 밖으로 보내지 않아요.</P></Card>
+      <Card>
+        <P tone="muted">{'"내 위치"를 누를 때만 위치를 읽어요. 위치 기록은 기기 밖으로 보내지 않아요.'}</P>
+      </Card>
       <Section>지도 서버(개발용)</Section>
-      <TextInput style={s.input} value={server} onChangeText={setServer} placeholder={DEFAULT_SERVER_URL} autoCapitalize="none" autoCorrect={false} accessibilityLabel="지도 서버 주소" />
-      <TextInput style={s.input} value={map3d} onChangeText={setMap3d} placeholder={DEFAULT_MAP3D_URL} autoCapitalize="none" autoCorrect={false} accessibilityLabel="3D 지도 주소" />
+      <TextInput
+        style={s.input}
+        value={server}
+        onChangeText={setServer}
+        placeholder={DEFAULT_SERVER_URL}
+        autoCapitalize="none"
+        autoCorrect={false}
+        accessibilityLabel="지도 서버 주소"
+      />
+      <TextInput
+        style={s.input}
+        value={map3d}
+        onChangeText={setMap3d}
+        placeholder={DEFAULT_MAP3D_URL}
+        autoCapitalize="none"
+        autoCorrect={false}
+        accessibilityLabel="3D 지도 주소"
+      />
       <Btn label="주소 저장" onPress={() => app.updateSettings({ serverUrl: server.trim(), map3dUrl: map3d.trim() })} />
       <Btn kind="soft" label="지도 갱신 확인" onPress={app.checkUpdate} />
       {app.updateStatus ? <P tone="caution">{app.updateStatus}</P> : null}
       <Section>개인정보</Section>
-      <Card><P tone="muted">저장한 장소·최근 경로·설정은 이 기기에만 있어요(계정 없음).</P></Card>
+      <Card>
+        <P tone="muted">저장한 장소·최근 경로·설정은 이 기기에만 있어요(계정 없음).</P>
+      </Card>
     </Screen>
   );
 }
@@ -43,5 +68,14 @@ export default function SettingsScreen() {
 const s = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  input: { minHeight: 52, borderRadius: 14, borderWidth: 1, borderColor: T.line, backgroundColor: T.card, paddingHorizontal: 16, fontSize: T.small, color: T.text },
+  input: {
+    minHeight: 52,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: T.line,
+    backgroundColor: T.card,
+    paddingHorizontal: 16,
+    fontSize: T.small,
+    color: T.text,
+  },
 });

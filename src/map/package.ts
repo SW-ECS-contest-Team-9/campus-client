@@ -4,15 +4,7 @@
 export const SCHEMA_VERSION = 1 as const;
 
 export type Location = 'outdoor' | 'indoor';
-export type EdgeKind =
-  | 'walkway'
-  | 'sidewalk'
-  | 'crossing'
-  | 'corridor'
-  | 'stairs'
-  | 'ramp'
-  | 'elevator'
-  | 'vehicle_road';
+export type EdgeKind = 'walkway' | 'sidewalk' | 'crossing' | 'corridor' | 'stairs' | 'ramp' | 'elevator' | 'vehicle_road';
 export type Direction = 'both' | 'forward' | 'backward';
 export type Access = 'allowed' | 'prohibited' | 'unknown';
 export type XYZ = [number, number, number];
@@ -162,8 +154,7 @@ export function validatePackage(input: unknown): ValidationResult {
   }
   const located = (o: any, name: string) => {
     if (!LOCATIONS.includes(o.location)) err(`${name} ${o.key}: location`);
-    if (o.location === 'outdoor' && (o.floorKey != null || o.buildingKey != null))
-      err(`${name} ${o.key}: outdoor 인데 건물·층 있음`);
+    if (o.location === 'outdoor' && (o.floorKey != null || o.buildingKey != null)) err(`${name} ${o.key}: outdoor 인데 건물·층 있음`);
     if (o.location === 'indoor' && !bKeys.has(o.buildingKey)) err(`${name} ${o.key}: indoor 인데 건물 없음`);
     if (o.floorKey != null && !fKeys.has(o.floorKey)) err(`${name} ${o.key}: 층 없음 ${o.floorKey}`);
     if (!isNum(o.x) || !isNum(o.y) || !isNum(o.z)) err(`${name} ${o.key}: 좌표`);

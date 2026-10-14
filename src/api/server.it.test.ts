@@ -13,7 +13,12 @@ const mem = new Map<string, string>();
 const deps: Deps = {
   fetch: (...a) => fetch(...a),
   sha256Hex: async (t) => createHash('sha256').update(t, 'utf8').digest('hex'),
-  store: { getItem: async (k: string) => mem.get(k) ?? null, setItem: async (k: string, v: string) => { mem.set(k, v); } },
+  store: {
+    getItem: async (k: string) => mem.get(k) ?? null,
+    setItem: async (k: string, v: string) => {
+      mem.set(k, v);
+    },
+  },
   fixture: fixture as unknown as MapPackage,
 };
 

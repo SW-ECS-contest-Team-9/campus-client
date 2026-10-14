@@ -64,7 +64,8 @@ export async function checkForUpdate(base: string, current: LoadedPackage, d: De
     return keep(`서버 연결 실패: ${String(e)}`);
   }
   if (info.schemaVersion !== SCHEMA_VERSION) return keep(`앱이 모르는 형식 schemaVersion ${info.schemaVersion}`);
-  if (current.info && current.source !== 'fixture' && current.info.version >= info.version) return { ...current, error: null, updated: false };
+  if (current.info && current.source !== 'fixture' && current.info.version >= info.version)
+    return { ...current, error: null, updated: false };
 
   let text: string;
   try {

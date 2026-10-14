@@ -13,4 +13,3 @@ export async function getFix(isIndoor: (x: number, y: number) => boolean = () =>
   const { x, y } = wgs84To5186(p.coords.longitude, p.coords.latitude);
   return toFix(p.coords.longitude, p.coords.latitude, p.coords.accuracy ?? null, p.timestamp, isIndoor(x, y));
 }
-

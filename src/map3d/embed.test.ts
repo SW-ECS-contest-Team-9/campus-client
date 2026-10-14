@@ -18,8 +18,16 @@ describe('3D 페이지 메시지', () => {
     expect(c.type).toBe('setRoute');
     if (c.type !== 'setRoute') return;
     expect(c.points.length).toBeGreaterThan(r.ok ? r.nodeKeys.length : 0);
-    for (const p of c.points) { expect(p[0]).toBeGreaterThan(150000); expect(p[1]).toBeGreaterThan(500000); expect(Number.isFinite(p[2])).toBe(true); }
-    expect(c.points[0]).toEqual([pkg.nodes.find((n) => n.key === gate)!.x, pkg.nodes.find((n) => n.key === gate)!.y, pkg.nodes.find((n) => n.key === gate)!.z]);
+    for (const p of c.points) {
+      expect(p[0]).toBeGreaterThan(150000);
+      expect(p[1]).toBeGreaterThan(500000);
+      expect(Number.isFinite(p[2])).toBe(true);
+    }
+    expect(c.points[0]).toEqual([
+      pkg.nodes.find((n) => n.key === gate)!.x,
+      pkg.nodes.find((n) => n.key === gate)!.y,
+      pkg.nodes.find((n) => n.key === gate)!.z,
+    ]);
     expect(c.floorChanges.map((f) => f.label)).toEqual(['→ 8F']);
   });
 
@@ -27,13 +35,22 @@ describe('3D 페이지 메시지', () => {
     const ok = toFix(127.0136, 37.6151, 6, 0, false);
     const c = locationCommand(ok, { buildingKey: 'b:북악관', floorCode: '7F', z: 149.2 });
     expect(c).toMatchObject({ type: 'setLocation', state: 'ok', building: '북악관', floor: '7F', z: 149.2 });
-    if (c.type === 'setLocation') { expect(c.lon).toBeCloseTo(127.0136, 6); expect(c.lat).toBeCloseTo(37.6151, 6); }
+    if (c.type === 'setLocation') {
+      expect(c.lon).toBeCloseTo(127.0136, 6);
+      expect(c.lat).toBeCloseTo(37.6151, 6);
+    }
     const bad = locationCommand(toFix(127.0136, 37.6151, 40, 0, false), { buildingKey: 'b:북악관', floorCode: '7F', z: 149.2 });
     expect(bad).toMatchObject({ state: 'uncertain', building: null, floor: null, z: null, accuracyM: 40 });
   });
 
   it('층 고르기·key 바꾸기·주소', () => {
-    expect(floorCommand(pkg, 'b:북악관', 'f:북악관:5F')).toEqual({ v: 1, type: 'setFloor', building: '북악관', floor: '5F', explode: false });
+    expect(floorCommand(pkg, 'b:북악관', 'f:북악관:5F')).toEqual({
+      v: 1,
+      type: 'setFloor',
+      building: '북악관',
+      floor: '5F',
+      explode: false,
+    });
     expect(floorCommand(pkg, 'b:북악관', 'all')).toMatchObject({ floor: null });
     expect(sceneBuildingId('b:은주관#2관')).toBe('은주관#2관');
     expect(packagePlaceKey('abc')).toBe('p:abc');

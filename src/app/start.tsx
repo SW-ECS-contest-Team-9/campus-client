@@ -17,7 +17,11 @@ export default function StartScreen() {
   const useHere = async () => {
     setMsg('위치 읽는 중…');
     let f = null;
-    try { f = await getFix(); } catch { f = null; }
+    try {
+      f = await getFix();
+    } catch {
+      f = null;
+    }
     if (!f) return setMsg('현재 위치를 확인하지 못했어요');
     app.setFix(f);
     if (f.uncertain) return setMsg(`현재 위치가 정확하지 않아요 (${f.reason})`);
@@ -31,17 +35,29 @@ export default function StartScreen() {
   const startTitle = st ? (st.type === 'place' ? placeName(st.placeKey) : st.label) : null;
   const tone = msg ? 'caution' : st?.type === 'node' ? 'confirmed' : 'primary';
   return (
-    <Screen title="출발점 확인" scroll={false}
-      footer={<>
-        <Btn label="이 위치에서 경로 보기" disabled={!st} onPress={() => router.push('/options')} />
-        <View style={s.two}>
-          <Btn kind="soft" label="위치 다시 읽기" onPress={useHere} style={{ flex: 1 }} />
-          <Btn kind="soft" label="장소로 고르기" onPress={() => router.push({ pathname: '/search', params: { mode: 'start' } })} style={{ flex: 1 }} />
-        </View>
-      </>}>
+    <Screen
+      title="출발점 확인"
+      scroll={false}
+      footer={
+        <>
+          <Btn label="이 위치에서 경로 보기" disabled={!st} onPress={() => router.push('/options')} />
+          <View style={s.two}>
+            <Btn kind="soft" label="위치 다시 읽기" onPress={useHere} style={{ flex: 1 }} />
+            <Btn
+              kind="soft"
+              label="장소로 고르기"
+              onPress={() => router.push({ pathname: '/search', params: { mode: 'start' } })}
+              style={{ flex: 1 }}
+            />
+          </View>
+        </>
+      }
+    >
       <H>어디에서 출발하나요?</H>
       {msg ? <Badge tone="caution" text={msg} /> : null}
-      <View style={s.map}><CampusMap pickPlaces={false} /></View>
+      <View style={s.map}>
+        <CampusMap pickPlaces={false} />
+      </View>
       <Card>
         <P tone="muted">{st?.type === 'node' ? '현재 위치에서 출발' : st ? '사용자가 지정한 출발점' : '출발점을 골라 주세요'}</P>
         <P>{startTitle ?? '아직 고르지 않음'}</P>

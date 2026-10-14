@@ -21,9 +21,17 @@ export interface Settings {
 /** 개발 기본값. 운영 주소는 나중에 정함. */
 export const DEFAULT_SERVER_URL = `http://${DEV_HOST}:8010`;
 const DEFAULT_SETTINGS: Settings = { serverUrl: DEFAULT_SERVER_URL, map3dUrl: '', light: false };
-export interface RecentRoute { startLabel: string; destKey: string; condition: RouteCondition; at: string }
+export interface RecentRoute {
+  startLabel: string;
+  destKey: string;
+  condition: RouteCondition;
+  at: string;
+}
 /** 사용자가 확인한 지금 층(위치 다시 확인 CT09). 보는 층과 다름. */
-export interface ConfirmedFloor { buildingKey: string; floorKey: string }
+export interface ConfirmedFloor {
+  buildingKey: string;
+  floorKey: string;
+}
 export type StartPoint = { type: 'place'; placeKey: string } | { type: 'node'; nodeKey: string; label: string };
 
 const SETTINGS_KEY = 'settings.v1';
@@ -88,7 +96,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const [s, f, r] = await Promise.all([AsyncStorage.getItem(SETTINGS_KEY), AsyncStorage.getItem(FAVORITES_KEY), AsyncStorage.getItem(RECENT_KEY)]);
+      const [s, f, r] = await Promise.all([
+        AsyncStorage.getItem(SETTINGS_KEY),
+        AsyncStorage.getItem(FAVORITES_KEY),
+        AsyncStorage.getItem(RECENT_KEY),
+      ]);
       const st: Settings = { ...DEFAULT_SETTINGS, ...(s ? (JSON.parse(s) as Partial<Settings>) : {}) };
       setSettings(st);
       if (f) setFavorites(JSON.parse(f) as string[]);
@@ -105,20 +117,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  const setServerUrl = useCallback(async (serverUrl: string) => {
-    const next = { ...settings, serverUrl: serverUrl.trim() };
-    setSettings(next);
-    await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
-  }, [settings]);
+  const setServerUrl = useCallback(
+    async (serverUrl: string) => {
+      const next = { ...settings, serverUrl: serverUrl.trim() };
+      setSettings(next);
+      await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+    },
+    [settings],
+  );
 
-  const updateSettings = useCallback(async (patch: Partial<Settings>) => {
-    const next = { ...settings, ...patch };
-    setSettings(next);
-    await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
-  }, [settings]);
-  const saveRecent = (next: typeof recent) => { setRecent(next); void AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next)); };
+  const updateSettings = useCallback(
+    async (patch: Partial<Settings>) => {
+      const next = { ...settings, ...patch };
+      setSettings(next);
+      await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+    },
+    [settings],
+  );
+  const saveRecent = (next: typeof recent) => {
+    setRecent(next);
+    void AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  };
   const addRecentSearch = (q: string) => saveRecent({ ...recent, searches: [q, ...recent.searches.filter((x) => x !== q)].slice(0, 5) });
-  const addRecentRoute = (r: RecentRoute) => saveRecent({ ...recent, routes: [r, ...recent.routes.filter((x) => x.destKey !== r.destKey || x.startLabel !== r.startLabel)].slice(0, 5) });
+  const addRecentRoute = (r: RecentRoute) =>
+    saveRecent({
+      ...recent,
+      routes: [r, ...recent.routes.filter((x) => x.destKey !== r.destKey || x.startLabel !== r.startLabel)].slice(0, 5),
+    });
 
   const checkUpdate = useCallback(async () => {
     if (!loaded) return;
@@ -128,11 +153,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUpdateStatus(r.updated ? `새 지도 v${r.pkg.release.version} 받음` : r.error ? `갱신 안 됨: ${r.error}` : '최신 지도임');
   }, [loaded, settings.serverUrl]);
 
-  const toggleFavorite = useCallback(async (key: string) => {
-    const next = favorites.includes(key) ? favorites.filter((k) => k !== key) : [...favorites, key];
-    setFavorites(next);
-    await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
-  }, [favorites]);
+  const toggleFavorite = useCallback(
+    async (key: string) => {
+      const next = favorites.includes(key) ? favorites.filter((k) => k !== key) : [...favorites, key];
+      setFavorites(next);
+      await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+    },
+    [favorites],
+  );
 
   const pkg = loaded?.pkg ?? null;
   const graph = useMemo(() => (pkg ? buildGraph(pkg) : null), [pkg]);
@@ -153,10 +181,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setFloor = useCallback((b: string, f: string) => setFloorSel((s) => ({ ...s, [b]: f })), []);
 
   const value: AppState = {
-    loaded, pkg, graph, settings, setServerUrl, updateSettings, updateStatus,
-    recentSearches: recent.searches, addRecentSearch, recentRoutes: recent.routes, addRecentRoute, confirmedFloor, setConfirmedFloor, guideStep, setGuideStep, checkUpdate, favorites, toggleFavorite,
-    start, setStart, destKey, setDestKey, condition, setCondition, route, startNodeKey, fix, setFix, floorSel, setFloor,
+    loaded,
+    pkg,
+    graph,
+    settings,
+    setServerUrl,
+    updateSettings,
+    updateStatus,
+    recentSearches: recent.searches,
+    addRecentSearch,
+    recentRoutes: recent.routes,
+    addRecentRoute,
+    confirmedFloor,
+    setConfirmedFloor,
+    guideStep,
+    setGuideStep,
+    checkUpdate,
+    favorites,
+    toggleFavorite,
+    start,
+    setStart,
+    destKey,
+    setDestKey,
+    condition,
+    setCondition,
+    route,
+    startNodeKey,
+    fix,
+    setFix,
+    floorSel,
+    setFloor,
   };
+  // eslint-disable-next-line react-hooks/immutability -- 개발 빌드 시험 손잡이(전역)
   if (__DEV__) (globalThis as { __app?: AppState }).__app = value; // 개발 중 화면 시험용(갈무리 스크립트)
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

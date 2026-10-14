@@ -7,10 +7,15 @@ import { Btn, Card, H, P, Screen, T } from '../ui/kit';
 export default function UnsavedScreen() {
   const app = useApp();
   return (
-    <Screen title="지도 저장이 필요해요" footer={<>
-      <Btn label="오프라인 지도 관리" onPress={() => router.replace('/offline')} />
-      <Btn kind="soft" label="지금 지도로 계속 보기" onPress={() => router.back()} />
-    </>}>
+    <Screen
+      title="지도 저장이 필요해요"
+      footer={
+        <>
+          <Btn label="오프라인 지도 관리" onPress={() => router.replace('/offline')} />
+          <Btn kind="soft" label="지금 지도로 계속 보기" onPress={() => router.back()} />
+        </>
+      }
+    >
       <Text style={{ fontSize: 34, color: T.caution, marginTop: 8 }}>⚠</Text>
       <H>캠퍼스 지도를{'\n'}아직 받지 않았어요.</H>
       <P>지금은 앱에 들어 있는 개발용 지도(v{app.pkg?.release.version})를 쓰고 있어요. 인터넷에 연결해 최신 지도를 받아 주세요.</P>

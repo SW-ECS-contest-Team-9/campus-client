@@ -23,7 +23,12 @@ export default function PreviewScreen() {
     const from = st.type === 'place' ? st.placeKey : n ? `${n.x},${n.y},${n.z}` : '';
     void serverRoute(app.settings.serverUrl, from, dest.key, app.condition).then(setServer);
   }, [pkg, st, dest, r, app.condition, app.settings.serverUrl]);
-  if (!pkg || !r) return <Screen title="경로 미리보기"><P>출발과 도착을 먼저 골라 주세요.</P></Screen>;
+  if (!pkg || !r)
+    return (
+      <Screen title="경로 미리보기">
+        <P>출발과 도착을 먼저 골라 주세요.</P>
+      </Screen>
+    );
   if (!r.ok) return <Redirect href="/no-route" />;
   const stairs = r.steps.filter((s) => s.kind === 'stairs').length;
   const changes = r.steps.filter((s) => s.floorChange);
@@ -31,23 +36,49 @@ export default function PreviewScreen() {
   const path = [startLabel, ...changes.map((c) => c.toFloor), dest?.name].filter(Boolean).join(' → ');
   const offline = app.loaded?.source !== 'server';
   return (
-    <Screen title="경로 미리보기" scroll={false} footer={<View style={s.two}>
-      <Btn kind="soft" label="경로 옵션" onPress={() => router.back()} style={{ flex: 1 }} />
-      <Btn label="안내 시작" onPress={() => {
-        app.setGuideStep(0);
-        if (dest && startLabel) app.addRecentRoute({ startLabel, destKey: dest.key, condition: app.condition, at: new Date().toISOString() });
-        router.push('/guide');
-      }} style={{ flex: 2 }} />
-    </View>}>
-      <View style={s.map}><CampusMap commands={[cmd]} routeNodeKeys={r.nodeKeys} pickPlaces={false} /></View>
+    <Screen
+      title="경로 미리보기"
+      scroll={false}
+      footer={
+        <View style={s.two}>
+          <Btn kind="soft" label="경로 옵션" onPress={() => router.back()} style={{ flex: 1 }} />
+          <Btn
+            label="안내 시작"
+            onPress={() => {
+              app.setGuideStep(0);
+              if (dest && startLabel)
+                app.addRecentRoute({ startLabel, destKey: dest.key, condition: app.condition, at: new Date().toISOString() });
+              router.push('/guide');
+            }}
+            style={{ flex: 2 }}
+          />
+        </View>
+      }
+    >
+      <View style={s.map}>
+        <CampusMap commands={[cmd]} routeNodeKeys={r.nodeKeys} pickPlaces={false} />
+      </View>
       <ScrollView contentContainerStyle={{ gap: 8 }}>
         <Card style={s.sum}>
-          <Text style={s.t}>{app.condition === 'avoidStairs' ? '계단 없는 경로' : app.condition === 'preferElevator' ? '승강기 우선 경로' : '최단 경로'} · 약 {minutes(r.totalLengthM)}분</Text>
-          <P tone="muted">{Math.round(r.totalLengthM)} m · 계단 {stairs}곳 · 층 이동 {changes.length}번</P>
+          <Text style={s.t}>
+            {app.condition === 'avoidStairs' ? '계단 없는 경로' : app.condition === 'preferElevator' ? '승강기 우선 경로' : '최단 경로'} ·
+            약 {minutes(r.totalLengthM)}분
+          </Text>
+          <P tone="muted">
+            {Math.round(r.totalLengthM)} m · 계단 {stairs}곳 · 층 이동 {changes.length}번
+          </P>
           <Text style={s.path}>{path}</Text>
         </Card>
         <Badge tone={offline ? 'primary' : 'confirmed'} text={offline ? '저장된 지도로 계산' : '방금 받은 지도로 계산'} />
-        {server ? <P tone="muted">{server.ok ? `서버 계산과 비교: ${Math.round(server.distanceM)} m${Math.abs(server.distanceM - r.totalLengthM) > 5 ? ' (기기 계산과 다름)' : ' (같음)'}` : server.code === 'no_route' ? '서버도 같은 조건의 경로가 없다고 해요' : '서버와 비교하지 못했어요(오프라인)'}</P> : null}
+        {server ? (
+          <P tone="muted">
+            {server.ok
+              ? `서버 계산과 비교: ${Math.round(server.distanceM)} m${Math.abs(server.distanceM - r.totalLengthM) > 5 ? ' (기기 계산과 다름)' : ' (같음)'}`
+              : server.code === 'no_route'
+                ? '서버도 같은 조건의 경로가 없다고 해요'
+                : '서버와 비교하지 못했어요(오프라인)'}
+          </P>
+        ) : null}
       </ScrollView>
     </Screen>
   );

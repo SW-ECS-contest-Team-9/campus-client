@@ -13,17 +13,32 @@ export default function SearchScreen() {
   const hits = useMemo(() => (app.pkg ? searchPlaces(app.pkg, q) : []), [app.pkg, q]);
   const pick = (key: string) => {
     if (q.trim()) app.addRecentSearch(q.trim());
-    if (params.mode === 'start') { app.setStart({ type: 'place', placeKey: key }); router.back(); }
-    else router.push({ pathname: '/place/[key]', params: { key } });
+    if (params.mode === 'start') {
+      app.setStart({ type: 'place', placeKey: key });
+      router.back();
+    } else router.push({ pathname: '/place/[key]', params: { key } });
   };
-  const sub = (key: string, nodeKey: string | null) => `${app.pkg ? placeSubtitle(app.pkg, key) : ''}${nodeKey ? '' : ' · 길에 붙지 않아 길찾기 불가'}`;
+  const sub = (key: string, nodeKey: string | null) =>
+    `${app.pkg ? placeSubtitle(app.pkg, key) : ''}${nodeKey ? '' : ' · 길에 붙지 않아 길찾기 불가'}`;
   const offline = app.loaded?.source !== 'server';
   return (
     <Screen title={params.mode === 'start' ? '출발 장소 고르기' : '장소 검색'}>
-      <TextInput style={s.input} value={q} onChangeText={setQ} placeholder="건물, 강의실, 시설 검색" autoFocus={!params.q} returnKeyType="search" accessibilityLabel="검색어" />
-      <P tone="muted">{offline ? '저장된 지도에서 검색 중' : '방금 받은 지도에서 검색 중'} · 지도 v{app.pkg?.release.version}</P>
+      <TextInput
+        style={s.input}
+        value={q}
+        onChangeText={setQ}
+        placeholder="건물, 강의실, 시설 검색"
+        autoFocus={!params.q}
+        returnKeyType="search"
+        accessibilityLabel="검색어"
+      />
+      <P tone="muted">
+        {offline ? '저장된 지도에서 검색 중' : '방금 받은 지도에서 검색 중'} · 지도 v{app.pkg?.release.version}
+      </P>
       {q ? <Section>검색 결과 {hits.length}</Section> : null}
-      {hits.map((h) => <Row key={h.place.key} icon="▦" title={h.place.name} sub={sub(h.place.key, h.place.nodeKey)} onPress={() => pick(h.place.key)} />)}
+      {hits.map((h) => (
+        <Row key={h.place.key} icon="▦" title={h.place.name} sub={sub(h.place.key, h.place.nodeKey)} onPress={() => pick(h.place.key)} />
+      ))}
       {!q && app.recentSearches.length ? <Section>최근 검색</Section> : null}
       {!q ? app.recentSearches.map((r) => <Row key={r} icon="↺" title={r} onPress={() => setQ(r)} />) : null}
       {q && !hits.length ? (
@@ -37,5 +52,14 @@ export default function SearchScreen() {
 }
 
 const s = StyleSheet.create({
-  input: { minHeight: 52, borderRadius: 14, borderWidth: 1, borderColor: T.line, backgroundColor: T.card, paddingHorizontal: 16, fontSize: T.small + 1, color: T.text },
+  input: {
+    minHeight: 52,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: T.line,
+    backgroundColor: T.card,
+    paddingHorizontal: 16,
+    fontSize: T.small + 1,
+    color: T.text,
+  },
 });

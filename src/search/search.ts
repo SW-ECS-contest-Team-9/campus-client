@@ -28,7 +28,12 @@ export function searchPlaces(pkg: MapPackage, query: string, limit = 30): Search
     const b = place.buildingKey ? buildings.get(place.buildingKey) : undefined;
     const f = place.floorKey ? floors.get(place.floorKey) : undefined;
     const name = normalize(place.name);
-    const fields = [name, ...place.aliases.map(normalize), ...(b ? [normalize(b.name), ...b.aliases.map(normalize)] : []), ...(f ? [normalize(f.code)] : [])];
+    const fields = [
+      name,
+      ...place.aliases.map(normalize),
+      ...(b ? [normalize(b.name), ...b.aliases.map(normalize)] : []),
+      ...(f ? [normalize(f.code)] : []),
+    ];
     const hay = fields.join('|');
     let score = 0;
     let all = true;
@@ -38,7 +43,10 @@ export function searchPlaces(pkg: MapPackage, query: string, limit = 30): Search
       else if (name.includes(t)) score += 6;
       else if (hay.includes(t)) score += 4;
       else if (hay.includes(ts) || floorMatch(t, f?.code)) score += 2;
-      else { all = false; break; }
+      else {
+        all = false;
+        break;
+      }
     }
     if (all) hits.push({ place, score: score - name.length / 100, buildingName: b?.name ?? null, floorCode: f?.code ?? null });
   }

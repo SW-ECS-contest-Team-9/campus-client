@@ -10,20 +10,30 @@ export default function OfflineScreen() {
   if (!l || !pkg) return null;
   const kb = Math.round(JSON.stringify(pkg).length / 1024);
   const indoor = pkg.buildings.filter((b) => pkg.floors.some((f) => f.buildingKey === b.key));
-  const src = l.source === 'server' ? '방금 서버에서 받음' : l.source === 'stored' ? '기기에 저장됨' : '저장된 지도 없음 · 앱에 들어 있는 개발 지도';
+  const src =
+    l.source === 'server' ? '방금 서버에서 받음' : l.source === 'stored' ? '기기에 저장됨' : '저장된 지도 없음 · 앱에 들어 있는 개발 지도';
   return (
     <View style={{ flex: 1 }}>
       <Screen title="오프라인 지도" back={false}>
         <H>인터넷 없이도{'\n'}저장한 범위에서 길찾기</H>
         <P tone="muted">저장된 지도 안의 장소와 길만 안내해요.</P>
         <Card>
-          <View style={s.line}><P>지도 크기</P><Text style={s.big}>{kb} KB</Text></View>
+          <View style={s.line}>
+            <P>지도 크기</P>
+            <Text style={s.big}>{kb} KB</Text>
+          </View>
         </Card>
         <Card>
           <Text style={s.t}>캠퍼스 지도 v{pkg.release.version}</Text>
-          <P tone="muted">{src} · {pkg.release.createdAt.slice(0, 10)} 만듦</P>
-          <Text style={s.scope}>바깥 길 전체 + 층 자료 {indoor.length}개 건물({indoor.map((b) => b.name).join(', ') || '없음'})</Text>
-          <P tone="muted">장소 {pkg.places.length} · 길 {pkg.edges.length} · 층 {pkg.floors.length}</P>
+          <P tone="muted">
+            {src} · {pkg.release.createdAt.slice(0, 10)} 만듦
+          </P>
+          <Text style={s.scope}>
+            바깥 길 전체 + 층 자료 {indoor.length}개 건물({indoor.map((b) => b.name).join(', ') || '없음'})
+          </Text>
+          <P tone="muted">
+            장소 {pkg.places.length} · 길 {pkg.edges.length} · 층 {pkg.floors.length}
+          </P>
         </Card>
         <Card tone={l.source === 'fixture' ? 'caution' : undefined}>
           <Text style={s.t}>3D 지도</Text>

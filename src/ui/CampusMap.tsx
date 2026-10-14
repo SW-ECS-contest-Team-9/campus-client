@@ -17,7 +17,14 @@ interface Props {
   minimal?: boolean;
 }
 
-export function CampusMap({ commands = [], routeNodeKeys = null, highlightPlaceKeys = [], focus, pickPlaces = true, minimal = false }: Props) {
+export function CampusMap({
+  commands = [],
+  routeNodeKeys = null,
+  highlightPlaceKeys = [],
+  focus,
+  pickPlaces = true,
+  minimal = false,
+}: Props) {
   const app = useApp();
   const pkg = app.pkg!;
   const loc = useMemo<Map3dCommand | null>(() => {
@@ -38,8 +45,17 @@ export function CampusMap({ commands = [], routeNodeKeys = null, highlightPlaceK
           if (pkg.places.some((p) => p.key === key)) router.push({ pathname: '/place/[key]', params: { key } });
         }
       }}
-      fallback={<MapView pkg={pkg} floorSel={app.floorSel} routeNodeKeys={routeNodeKeys} highlightPlaceKeys={highlightPlaceKeys} me={app.fix} focus={focus}
-        onPlacePress={pickPlaces ? (key) => router.push({ pathname: '/place/[key]', params: { key } }) : undefined} />}
+      fallback={
+        <MapView
+          pkg={pkg}
+          floorSel={app.floorSel}
+          routeNodeKeys={routeNodeKeys}
+          highlightPlaceKeys={highlightPlaceKeys}
+          me={app.fix}
+          focus={focus}
+          onPlacePress={pickPlaces ? (key) => router.push({ pathname: '/place/[key]', params: { key } }) : undefined}
+        />
+      }
     />
   );
 }

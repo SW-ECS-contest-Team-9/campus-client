@@ -5,21 +5,49 @@ import { buildGraph, findRoute } from './route';
 import fixture from '../map/fixture/campus-fixture.json';
 
 const node = (key: string, x: number, floorKey: string | null = null): MapNode => ({
-  key, location: floorKey ? 'indoor' : 'outdoor', buildingKey: floorKey ? 'b:A' : null, floorKey, kind: 'junction', x, y: 0, z: 0, estimated: false,
+  key,
+  location: floorKey ? 'indoor' : 'outdoor',
+  buildingKey: floorKey ? 'b:A' : null,
+  floorKey,
+  kind: 'junction',
+  x,
+  y: 0,
+  z: 0,
+  estimated: false,
 });
 const edge = (key: string, from: string, to: string, kind: Edge['kind'], lengthM: number, direction: Edge['direction'] = 'both'): Edge => ({
-  key, from, to, name: null, kind, direction, pedestrianAccess: 'allowed', wheelchairAccess: 'unknown', lengthM, stepCount: null, widthM: null,
-  geometry: [[0, 0, 0], [1, 0, 0]], estimated: false,
+  key,
+  from,
+  to,
+  name: null,
+  kind,
+  direction,
+  pedestrianAccess: 'allowed',
+  wheelchairAccess: 'unknown',
+  lengthM,
+  stepCount: null,
+  widthM: null,
+  geometry: [
+    [0, 0, 0],
+    [1, 0, 0],
+  ],
+  estimated: false,
 });
 function pkg(nodes: MapNode[], edges: Edge[]): MapPackage {
   return {
-    schemaVersion: 1, release: { version: 1, createdAt: '2026-10-15', source: 'test' }, campus: { code: 't', name: 't', crs: 5186 },
+    schemaVersion: 1,
+    release: { version: 1, createdAt: '2026-10-15', source: 'test' },
+    campus: { code: 't', name: 't', crs: 5186 },
     buildings: [{ key: 'b:A', name: 'A관', aliases: [], center: null, footprint: null }],
     floors: [
       { key: 'f:1', buildingKey: 'b:A', code: '1F', sortOrder: 1, floorZ: null, zEstimated: true },
       { key: 'f:3', buildingKey: 'b:A', code: '3F', sortOrder: 3, floorZ: null, zEstimated: true },
     ],
-    nodes, edges, places: [], walkAreas: [], walkAreaNodes: [],
+    nodes,
+    edges,
+    places: [],
+    walkAreas: [],
+    walkAreaNodes: [],
   };
 }
 
@@ -69,8 +97,10 @@ describe('findRoute', () => {
     expect(r.totalLengthM).toBe(13);
   });
   it('층 모르는 노드를 지나도 층 바뀜을 잡는다', () => {
-    const p = pkg([node('a', 0, 'f:1'), { ...node('m', 1, 'f:1'), floorKey: null }, node('b', 2, 'f:3')],
-      [edge('s1', 'a', 'm', 'stairs', 3), edge('s2', 'm', 'b', 'stairs', 3)]);
+    const p = pkg(
+      [node('a', 0, 'f:1'), { ...node('m', 1, 'f:1'), floorKey: null }, node('b', 2, 'f:3')],
+      [edge('s1', 'a', 'm', 'stairs', 3), edge('s2', 'm', 'b', 'stairs', 3)],
+    );
     const r = findRoute(buildGraph(p), 'a', 'b', 'shortest');
     expect(r.ok && r.steps.some((s) => s.floorChange && s.text === '계단으로 A관 1F → A관 3F')).toBe(true);
   });
@@ -87,10 +117,14 @@ describe('fixture', () => {
     const g = buildGraph(p);
     const keys = p.places.filter((x) => x.nodeKey).map((x) => x.nodeKey!);
     let found = 0;
-    for (const a of keys.slice(0, 15)) for (const b of keys.slice(15, 30)) {
-      const r = findRoute(g, a, b, 'avoidStairs');
-      if (r.ok) { found++; expect(r.steps.some((s) => s.kind === 'stairs')).toBe(false); }
-    }
+    for (const a of keys.slice(0, 15))
+      for (const b of keys.slice(15, 30)) {
+        const r = findRoute(g, a, b, 'avoidStairs');
+        if (r.ok) {
+          found++;
+          expect(r.steps.some((s) => s.kind === 'stairs')).toBe(false);
+        }
+      }
     expect(found).toBeGreaterThan(0);
   });
 });

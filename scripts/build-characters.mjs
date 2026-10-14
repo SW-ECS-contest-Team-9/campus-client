@@ -3,5 +3,7 @@
 import fs from 'node:fs';
 const dir = new URL('../assets/characters/', import.meta.url);
 const url = (f) => 'data:image/png;base64,' + fs.readFileSync(new URL(f, dir)).toString('base64');
-fs.writeFileSync(new URL('../src/ui/characterImages.ts', import.meta.url),
-  `// 만든 파일: scripts/build-characters.mjs (assets/characters, SKU Power Friends — 사용자 제공 2026-10-15)\nexport const CHARACTER_OK = '${url('location-ok.png')}';\nexport const CHARACTER_UNCERTAIN = '${url('location-uncertain.png')}';\n`);
+fs.writeFileSync(
+  new URL('../src/ui/characterImages.ts', import.meta.url),
+  `// 만든 파일: scripts/build-characters.mjs (assets/characters, SKU Power Friends — 사용자 제공 2026-10-15)\nexport const CHARACTER_OK = '${url('location-ok.png')}';\nexport const CHARACTER_UNCERTAIN = '${url('location-uncertain.png')}';\n`,
+);

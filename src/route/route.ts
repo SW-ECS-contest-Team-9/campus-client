@@ -49,7 +49,7 @@ export function buildGraph(pkg: MapPackage): Graph {
   const floorLabel = (nodeKey: string) => {
     const n = nodes.get(nodeKey);
     if (!n || n.location === 'outdoor') return null;
-    const b = n.buildingKey ? buildings.get(n.buildingKey)?.name ?? '' : '';
+    const b = n.buildingKey ? (buildings.get(n.buildingKey)?.name ?? '') : '';
     const f = n.floorKey ? floors.get(n.floorKey)?.code : null;
     return f ? `${b} ${f}`.trim() : null;
   };
@@ -64,7 +64,8 @@ function cost(e: Edge, cond: RouteCondition): number {
 }
 
 export function findRoute(g: Graph, fromKey: string, toKey: string, cond: RouteCondition): RouteResult {
-  if (!g.nodes.has(fromKey) || !g.nodes.has(toKey)) return { ok: false, reason: 'unknown_node', message: '출발 또는 도착이 길에 붙어 있지 않음' };
+  if (!g.nodes.has(fromKey) || !g.nodes.has(toKey))
+    return { ok: false, reason: 'unknown_node', message: '출발 또는 도착이 길에 붙어 있지 않음' };
   if (fromKey === toKey) return { ok: false, reason: 'same_point', message: '출발과 도착이 같음' };
 
   const dist = new Map<string, number>([[fromKey, 0]]);
@@ -93,7 +94,7 @@ export function findRoute(g: Graph, fromKey: string, toKey: string, cond: RouteC
   if (!prev.has(toKey)) return { ok: false, reason: 'no_route', message: '길 없음' };
 
   const arcs: { from: string; arc: Arc }[] = [];
-  for (let k = toKey; k !== fromKey; ) {
+  for (let k = toKey; k !== fromKey;) {
     const p = prev.get(k)!;
     arcs.unshift({ from: p.node, arc: p.arc });
     k = p.node;
@@ -142,7 +143,14 @@ function makeStep(g: Graph, from: string, arc: Arc, lastFloor: string | null): R
   };
 }
 
-export function stepText(kind: EdgeKind, lengthM: number, name: string | null, fromFloor: string | null, toFloor: string | null, floorChange: boolean): string {
+export function stepText(
+  kind: EdgeKind,
+  lengthM: number,
+  name: string | null,
+  fromFloor: string | null,
+  toFloor: string | null,
+  floorChange: boolean,
+): string {
   const k = KIND_KO[kind];
   if (floorChange) return `${k}${ro(k)} ${fromFloor} → ${toFloor}`;
   if (kind === 'elevator' || kind === 'stairs') return `${k} 이용${name ? ` (${name})` : ''}`;
@@ -161,9 +169,28 @@ function mergeSteps(steps: RouteStep[]): RouteStep[] {
       const toFloor = s.toFloor ?? last.toFloor;
       const floorChange = fromFloor !== null && toFloor !== null && fromFloor !== toFloor;
       const name = last.name === s.name ? s.name : null;
-      out[out.length - 1] = { ...last, name, lengthM, toFloor, floorChange, text: stepText(s.kind, lengthM, name, fromFloor, toFloor, floorChange) };
-    } else if (last && !s.floorChange && !last.floorChange && last.kind === s.kind && last.name === s.name && last.toFloor === s.fromFloor) {
-      out[out.length - 1] = { ...last, lengthM, toFloor: s.toFloor, text: stepText(last.kind, lengthM, last.name, last.fromFloor, s.toFloor, false) };
+      out[out.length - 1] = {
+        ...last,
+        name,
+        lengthM,
+        toFloor,
+        floorChange,
+        text: stepText(s.kind, lengthM, name, fromFloor, toFloor, floorChange),
+      };
+    } else if (
+      last &&
+      !s.floorChange &&
+      !last.floorChange &&
+      last.kind === s.kind &&
+      last.name === s.name &&
+      last.toFloor === s.fromFloor
+    ) {
+      out[out.length - 1] = {
+        ...last,
+        lengthM,
+        toFloor: s.toFloor,
+        text: stepText(last.kind, lengthM, last.name, last.fromFloor, s.toFloor, false),
+      };
     } else out.push(s);
   }
   return out;

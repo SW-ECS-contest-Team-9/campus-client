@@ -3,7 +3,13 @@ import type { RouteCondition } from '../route/route';
 
 export type ServerRoute = { ok: true; distanceM: number; stairsEdges: number } | { ok: false; code: string };
 
-export async function serverRoute(base: string, from: string, to: string, mode: RouteCondition, f: typeof fetch = fetch): Promise<ServerRoute> {
+export async function serverRoute(
+  base: string,
+  from: string,
+  to: string,
+  mode: RouteCondition,
+  f: typeof fetch = fetch,
+): Promise<ServerRoute> {
   if (!base) return { ok: false, code: 'no_server' };
   const u = `${base.replace(/\/$/, '')}/v1/routes?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&mode=${mode}`;
   try {

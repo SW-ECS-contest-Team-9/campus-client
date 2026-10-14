@@ -4,6 +4,7 @@ import type { MapPackage, XYZ } from '../map/package';
 import type { Graph, RouteResult } from '../route/route';
 import type { Fix } from '../location/fix';
 import { epsg5186ToWgs84 } from '../location/projection';
+import { DEV_HOST } from '../config/devHost';
 
 export const V = 1;
 
@@ -94,4 +95,4 @@ export function pageUrl(base: string, light = false, minimal = false): string {
   const q = [light ? 'light=1' : '', minimal ? 'ui=min' : ''].filter(Boolean).join('&');
   return q ? `${u}${u.includes('?') ? '&' : '?'}${q}` : u;
 }
-export const DEFAULT_MAP3D_URL = 'http://127.0.0.1:5273/client3d.html';
+export const DEFAULT_MAP3D_URL = `http://${DEV_HOST}:5273/client3d.html`;

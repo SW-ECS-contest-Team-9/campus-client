@@ -7,6 +7,7 @@ import type { MapPackage } from '../map/package';
 import fixtureJson from '../map/fixture/campus-fixture.json';
 import { buildGraph, findRoute, type Graph, type RouteCondition, type RouteResult } from '../route/route';
 import type { Fix } from '../location/fix';
+import { DEV_HOST } from '../config/devHost';
 
 const fixture = fixtureJson as unknown as MapPackage;
 
@@ -18,7 +19,7 @@ export interface Settings {
   light: boolean;
 }
 /** 개발 기본값. 운영 주소는 나중에 정함. */
-export const DEFAULT_SERVER_URL = 'http://127.0.0.1:8010';
+export const DEFAULT_SERVER_URL = `http://${DEV_HOST}:8010`;
 const DEFAULT_SETTINGS: Settings = { serverUrl: DEFAULT_SERVER_URL, map3dUrl: '', light: false };
 export interface RecentRoute { startLabel: string; destKey: string; condition: RouteCondition; at: string }
 /** 사용자가 확인한 지금 층(위치 다시 확인 CT09). 보는 층과 다름. */

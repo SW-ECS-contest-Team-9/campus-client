@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "campus-client",
+    "name": "서경 캠퍼스 길찾기",
     "slug": "campus-client",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -19,7 +19,19 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "현재 위치를 지도에 표시하고 출발점으로 쓰기 위해 위치를 사용합니다."
+        }
+      ]
+    ],
+    "scheme": "campusclient"
   }
 }

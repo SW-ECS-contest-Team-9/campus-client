@@ -149,13 +149,20 @@ export function stepText(kind: EdgeKind, lengthM: number, name: string | null, f
   return `${name ?? k} ${Math.round(lengthM)} m`;
 }
 
-/** 같은 종류·이름·층의 이어진 단계는 하나로 합친다(층 바뀜은 합치지 않음). */
+/** 이어진 같은 단계는 하나로: 계단·승강기는 이름과 무관하게 층을 이어 붙이고, 나머지는 같은 종류·이름·층일 때. */
 function mergeSteps(steps: RouteStep[]): RouteStep[] {
   const out: RouteStep[] = [];
+  const vertical = (k: EdgeKind) => k === 'stairs' || k === 'elevator';
   for (const s of steps) {
     const last = out[out.length - 1];
-    if (last && !s.floorChange && !last.floorChange && last.kind === s.kind && last.name === s.name && last.toFloor === s.fromFloor) {
-      const lengthM = Math.round((last.lengthM + s.lengthM) * 10) / 10;
+    const lengthM = last ? Math.round((last.lengthM + s.lengthM) * 10) / 10 : 0;
+    if (last && vertical(s.kind) && last.kind === s.kind) {
+      const fromFloor = last.fromFloor;
+      const toFloor = s.toFloor ?? last.toFloor;
+      const floorChange = fromFloor !== null && toFloor !== null && fromFloor !== toFloor;
+      const name = last.name === s.name ? s.name : null;
+      out[out.length - 1] = { ...last, name, lengthM, toFloor, floorChange, text: stepText(s.kind, lengthM, name, fromFloor, toFloor, floorChange) };
+    } else if (last && !s.floorChange && !last.floorChange && last.kind === s.kind && last.name === s.name && last.toFloor === s.fromFloor) {
       out[out.length - 1] = { ...last, lengthM, toFloor: s.toFloor, text: stepText(last.kind, lengthM, last.name, last.fromFloor, s.toFloor, false) };
     } else out.push(s);
   }

@@ -1,26 +1,102 @@
 # campus-client
 
 서경대학교 사용자용 캠퍼스 길찾기 앱 MVP (React Native + Expo SDK 57 + expo-router, TypeScript).
-수집 앱이 아님. 백엔드는 campus-backend (FastAPI).
+수집 앱이 아님. 백엔드는 campus-backend (FastAPI), 3D 지도는 campus-tracker 의 `client3d.html`.
 
-## 실행
+## 처음 시작하기
+
+### 준비물
+
+| 도구        | 버전                                                      | 용도           |
+| ----------- | --------------------------------------------------------- | -------------- |
+| Node.js     | 22 (LTS)                                                  | 전부           |
+| JDK         | 17 또는 21                                                | Android 빌드   |
+| Android SDK | platform 36, NDK 27.1.12297006, CMake 3.22.1, build-tools | Android 빌드   |
+| Chrome      | 최신                                                      | 웹 실행·갈무리 |
+
+Android Studio 의 SDK Manager 또는 `sdkmanager "platforms;android-36" "ndk;27.1.12297006" "cmake;3.22.1"` 로 설치.
+
+### 환경 변수
+
+| 이름                   | 예                                        | 설명                                                                                          |
+| ---------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `ANDROID_HOME`         | `C:\Users\<나>\AppData\Local\Android\Sdk` | Android SDK 위치                                                                              |
+| `EXPO_PUBLIC_DEV_HOST` | `192.168.0.12`                            | 개발 서버가 도는 PC 주소. 비우면 웹·iOS 시뮬레이터 `127.0.0.1`, Android 에뮬레이터 `10.0.2.2` |
+
+### 설치와 확인
 
 ```
-npm install
-npm test            # 단위 시험 (vitest)
-npx tsc --noEmit    # 타입 검사
-npx expo start --web
-npx expo export --platform web   # dist/ 에 정적 웹
+npm install          # 의존성 + git pre-commit 훅(simple-git-hooks: 바뀐 파일만 eslint --fix·prettier)
+npm run typecheck    # tsc
+npm run lint         # eslint (expo 설정)
+npm run format       # prettier 로 고침 (확인만: npm run format:check)
+npm test             # 단위 시험 (vitest)
 ```
 
-iOS·Android 는 개발 빌드(`npx expo run:ios` / `run:android` 또는 EAS) 필요. 위치 권한 문구는 app.json 에 있음.
+연동 시험(지도 서버가 떠 있을 때): `CLIENT_SERVER=http://127.0.0.1:8010 npx vitest run src/api/server.it.test.ts`.
+VS Code 는 `.vscode/extensions.json` 의 권장 확장(ESLint·Prettier·EditorConfig·Expo·Vitest)을 설치. 줄 끝은 LF(`.gitattributes`).
+
+### 개발 서버(같은 PC)
+
+| 서버                                | 주소                                   | 비고                            |
+| ----------------------------------- | -------------------------------------- | ------------------------------- |
+| 지도 서버(FastAPI, campus-backend)  | `http://<DEV_HOST>:8010`               | 꾸러미 받기·경로 교차 확인      |
+| 3D 지도 페이지(campus-tracker vite) | `http://<DEV_HOST>:5273/client3d.html` | 없으면 앱이 평면 지도로 보여 줌 |
+
+앱 설정 화면에서 두 주소를 바꿀 수 있음(개발용).
+
+### 웹으로 실행
+
+```
+npm run web          # http://localhost:8081
+```
+
+### Android 에뮬레이터
+
+```
+$env:ANDROID_HOME="C:\Users\<나>\AppData\Local\Android\Sdk"
+npx expo prebuild --platform android      # android/ 생성(생성물, 손으로 고치지 않음)
+npx expo run:android
+```
+
+에뮬레이터는 PC 를 `10.0.2.2` 로 봄(기본값). 소프트웨어 GPU 에뮬레이터에서는 3D(Cesium)가 안 그려질 수 있음 → 평면 지도로 확인.
+
+### 실기기(Galaxy S21 등) 개발 주소
+
+1. PC 와 휴대폰을 같은 Wi-Fi 에 연결.
+2. PC 의 망 IP 확인: `ipconfig` → "무선 LAN 어댑터 Wi-Fi" 의 IPv4 주소(예 `192.168.0.12`).
+3. 개발 서버를 바깥에서 받게 띄움: FastAPI `--host 0.0.0.0 --port 8010`, vite `--host 0.0.0.0 --port 5273`. Windows 방화벽에서 두 포트(개인 네트워크) 허용.
+4. 그 IP 로 빌드: `$env:EXPO_PUBLIC_DEV_HOST="192.168.0.12"` 후 `npx expo prebuild --platform android` → APK 빌드(아래).
+   - 앱 기본 주소가 그 IP 가 되고, Android 평문 HTTP 허용 목록(`network_security_config`)에도 그 IP 만 더해짐(`plugins/withDevCleartext.js`).
+   - IP 가 바뀌면 다시 빌드하거나, 앱 설정 화면에서 주소를 바꿈(평문 허용은 빌드 때 넣은 주소뿐이므로 다른 IP 는 HTTPS 필요).
+
+### APK 만들기(JS 내장, Metro 없이 실행)
+
+```
+cd android
+.\gradlew.bat assembleDebug -PreactNativeArchitectures=arm64-v8a   # S21 등 64비트 ARM 만 → 약 88 MB
+# 모든 ABI(에뮬레이터 포함): .\gradlew.bat assembleDebug           → 약 250 MB
+```
+
+결과: `android/app/build/outputs/apk/debug/app-debug.apk`. 설치: `adb install -r <apk>`.
+처음 빌드는 10~15분, JS 만 바꾼 재빌드는 1~2분.
+
+### 웹 정적 내보내기
+
+```
+npx expo export --platform web   # dist/
+```
 
 ## 구조
 
 - `src/map/package.ts` 지도 꾸러미 형식 v1 타입·검증 (`docs/map-package-v1.md`)
 - `src/map/fixture/` 개발용 꾸러미 (`npm run build:fixture -- <dump.sql>` 로 다시 만듦) + 변환 보고서
-- `src/route/` 기기 안 경로 (Dijkstra; 최단·계단 피하기·승강기 우선)
+- `src/route/` 기기 안 경로 (Dijkstra; 최단·계단 피하기·승강기 우선), 경로 없음 문구(`noRouteCopy.ts`)
 - `src/search/` 장소 검색
 - `src/api/` 꾸러미 받기 (sha256·검증·이전 것 유지·fixture 대체)
 - `src/location/` 위치, WGS84↔EPSG:5186, `snapToNetwork()` 자리(아직 원래 점 반환)
-- `src/ui/`, `src/app/` 화면 (지도, 검색 결과, 장소, 길찾기, 즐겨찾기, 설정)
+- `src/map3d/embed.ts` 3D 지도 페이지 메시지 v1
+- `src/ui/components.tsx` Figma 컴포넌트 대응 부품(Button·IconButton·SearchInput·ResultRow·FloorItem·StatusChip·MapPin·TabBar·MapPack)과 토큰, Lucide 아이콘
+- `src/ui/Map3D.tsx` 앱 전체가 함께 쓰는 3D 지도 하나(`Map3DHost`)와 화면의 자리(`MapSlot`)
+- `src/app/` 화면(expo-router)
+- `.github/workflows/ci.yml` 원격을 붙이면 push·PR 마다 typecheck·lint·format:check·test

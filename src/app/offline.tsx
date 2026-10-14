@@ -1,6 +1,7 @@
 // CT11 오프라인 지도: 기기에 저장된 지도 꾸러미(버전·크기·날짜·범위)와 갱신. 3D 지도는 인터넷이 있어야 보임(없으면 평면 지도).
 import { StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../state/AppState';
+import { MapPackCard } from '../ui/components';
 import { Btn, Card, H, P, Screen, T, TabBar } from '../ui/kit';
 
 export default function OfflineScreen() {
@@ -17,24 +18,19 @@ export default function OfflineScreen() {
       <Screen title="오프라인 지도" back={false}>
         <H>인터넷 없이도{'\n'}저장한 범위에서 길찾기</H>
         <P tone="muted">저장된 지도 안의 장소와 길만 안내해요.</P>
-        <Card>
-          <View style={s.line}>
-            <P>지도 크기</P>
-            <Text style={s.big}>{kb} KB</Text>
-          </View>
-        </Card>
-        <Card>
-          <Text style={s.t}>캠퍼스 지도 v{pkg.release.version}</Text>
-          <P tone="muted">
-            {src} · {pkg.release.createdAt.slice(0, 10)} 만듦
-          </P>
-          <Text style={s.scope}>
-            바깥 길 전체 + 층 자료 {indoor.length}개 건물({indoor.map((b) => b.name).join(', ') || '없음'})
-          </Text>
-          <P tone="muted">
-            장소 {pkg.places.length} · 길 {pkg.edges.length} · 층 {pkg.floors.length}
-          </P>
-        </Card>
+        <MapPackCard
+          state={l.source === 'fixture' ? 'queued' : 'stored'}
+          title={`캠퍼스 지도 v${pkg.release.version}`}
+          detail={`${src} · ${pkg.release.createdAt.slice(0, 10)} 만듦 · ${kb} KB`}
+          action={
+            l.source === 'fixture'
+              ? '인터넷에 연결해 최신 지도를 받아 주세요'
+              : `바깥 길 전체 + 층 자료 ${indoor.length}개 건물(${indoor.map((b) => b.name).join(', ') || '없음'})`
+          }
+        />
+        <P tone="muted">
+          장소 {pkg.places.length} · 길 {pkg.edges.length} · 층 {pkg.floors.length}
+        </P>
         <Card tone={l.source === 'fixture' ? 'caution' : undefined}>
           <Text style={s.t}>3D 지도</Text>
           <P tone="muted">3D 화면은 인터넷이 있어야 보여요. 없으면 같은 지도를 평면으로 보여 드려요.</P>
@@ -49,8 +45,5 @@ export default function OfflineScreen() {
 }
 
 const s = StyleSheet.create({
-  line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  big: { fontSize: T.title, fontWeight: '800', color: T.text },
   t: { fontSize: T.body, fontWeight: '800', color: T.text },
-  scope: { fontSize: T.small, fontWeight: '700', color: T.primary },
 });

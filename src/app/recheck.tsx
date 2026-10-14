@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../state/AppState';
+import { FloorItem } from '../ui/components';
 import { Btn, Card, Chip, P, Screen, Section, T } from '../ui/kit';
 
 export default function RecheckScreen() {
@@ -49,10 +50,11 @@ export default function RecheckScreen() {
         <Text style={s.q}>{withFloors.find((b) => b.key === building)?.name ?? ''} 몇 층에 있나요?</Text>
         <View style={s.chips}>
           {floors.map((f) => (
-            <Chip
+            <FloorItem
               key={f.key}
               label={f.code}
-              on={last?.floorKey === f.key}
+              state={last?.floorKey === f.key ? 'current' : 'idle'}
+              a11yLabel={last?.floorKey === f.key ? `${f.code}, 마지막으로 확인한 층` : f.code}
               onPress={() => {
                 app.setConfirmedFloor({ buildingKey: f.buildingKey, floorKey: f.key });
                 app.setFloor(f.buildingKey, f.key); // 보는 층도 그 층으로 옮김(사용자가 바꿀 수 있음)

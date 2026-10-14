@@ -1,5 +1,6 @@
 // CT12 저장한 장소 + 최근 이용 경로.
 import { router } from 'expo-router';
+import { Building } from 'lucide-react-native';
 import { View } from 'react-native';
 import { placeSubtitle, useApp } from '../state/AppState';
 import { Btn, H, P, Row, Screen, Section, TabBar } from '../ui/kit';
@@ -20,7 +21,7 @@ export default function SavedScreen() {
             return (
               <Row
                 key={k}
-                icon="▦"
+                icon={Building}
                 title={p ? p.name : '없어진 장소'}
                 sub={p ? placeSubtitle(pkg, k) : '지금 지도에 없음'}
                 onPress={p ? () => router.push({ pathname: '/place/[key]', params: { key: k } }) : () => app.toggleFavorite(k)}

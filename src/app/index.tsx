@@ -6,7 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getFix } from '../location/location';
 import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
+import { IconButton, PressScale, SearchInput } from '../ui/components';
 import { Badge, Card, T, TabBar } from '../ui/kit';
+import { Navigation, Settings } from 'lucide-react-native';
 
 export default function Home() {
   const app = useApp();
@@ -41,43 +43,48 @@ export default function Home() {
           <Text style={s.brand}>서경대 캠퍼스 길찾기</Text>
           <Text style={s.tag}>건물 밖에서 강의실 앞까지</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="설정" style={s.iconBtn} onPress={() => router.push('/settings')}>
-          <Text style={s.icon}>⚙</Text>
-        </Pressable>
+        <IconButton icon={Settings} label="설정" onPress={() => router.push('/settings')} />
       </View>
-      <Pressable accessibilityRole="search" style={s.search} onPress={() => router.push('/search')}>
-        <Text style={s.searchI}>⌕</Text>
-        <Text style={s.searchT}>건물, 강의실, 시설 검색</Text>
-      </Pressable>
+      <View style={s.search}>
+        <SearchInput onPress={() => router.push('/search')} />
+      </View>
       <View style={s.map}>
-        <CampusMap />
-        <Pressable accessibilityRole="button" accessibilityLabel="내 위치" style={s.locate} onPress={locate}>
-          <Text style={s.locateI}>➤</Text>
-        </Pressable>
-        {locMsg ? (
-          <View style={s.locMsg}>
-            <Badge text={locMsg} tone={app.fix && !app.fix.uncertain ? 'confirmed' : 'caution'} />
-          </View>
-        ) : null}
-        {app.loaded?.source === 'fixture' ? (
-          <Pressable style={s.unsaved} onPress={() => router.push('/unsaved')}>
-            <Badge text="저장된 지도 없음 · 내장 개발 지도 사용 중" tone="caution" />
-          </Pressable>
-        ) : null}
+        <CampusMap
+          overlay={
+            <>
+              <IconButton icon={Navigation} label="내 위치" onPress={locate} size={52} iconColor={T.route} style={s.locate} />
+              {locMsg ? (
+                <View style={s.locMsg} pointerEvents="none">
+                  <Badge text={locMsg} tone={app.fix && !app.fix.uncertain ? 'confirmed' : 'caution'} />
+                </View>
+              ) : null}
+              {app.loaded?.source === 'fixture' ? (
+                <Pressable style={s.unsaved} accessibilityRole="button" onPress={() => router.push('/unsaved')}>
+                  <Badge text="저장된 지도 없음 · 내장 개발 지도 사용 중" tone="caution" />
+                </Pressable>
+              ) : null}
+            </>
+          }
+        />
       </View>
       <Card style={s.sheet}>
         <Text style={s.sheetT}>어디로 갈까요?</Text>
         <View style={s.quick}>
           {shortcuts.map((p) => (
-            <Pressable key={p.key} style={s.quickB} onPress={() => router.push({ pathname: '/place/[key]', params: { key: p.key } })}>
+            <PressScale
+              key={p.key}
+              accessibilityLabel={p.name}
+              style={(on) => [s.quickB, on && { backgroundColor: '#E0E3FF' }]}
+              onPress={() => router.push({ pathname: '/place/[key]', params: { key: p.key } })}
+            >
               <Text style={s.quickT} numberOfLines={2}>
                 {p.name}
               </Text>
-            </Pressable>
+            </PressScale>
           ))}
-          <Pressable style={[s.quickB, s.quickGhost]} onPress={() => router.push('/search')}>
+          <PressScale style={[s.quickB, s.quickGhost]} onPress={() => router.push('/search')}>
             <Text style={s.quickT}>장소 찾기</Text>
-          </Pressable>
+          </PressScale>
         </View>
       </Card>
       <TabBar at="map" />
@@ -90,47 +97,9 @@ const s = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: T.margin, paddingTop: 8 },
   brand: { fontSize: T.title, fontWeight: '800', color: T.text },
   tag: { fontSize: T.caption, color: T.sub, marginTop: 2 },
-  iconBtn: {
-    width: T.touch,
-    height: T.touch,
-    borderRadius: 14,
-    backgroundColor: T.card,
-    borderWidth: 1,
-    borderColor: T.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  icon: { fontSize: 20, color: T.text },
-  search: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginHorizontal: T.margin,
-    marginVertical: 12,
-    minHeight: 52,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: T.line,
-    backgroundColor: T.card,
-    paddingHorizontal: 16,
-  },
-  searchI: { fontSize: 20, color: T.text },
-  searchT: { fontSize: T.small + 1, color: T.sub },
+  search: { marginHorizontal: T.margin, marginVertical: 12 },
   map: { flex: 1 },
-  locate: {
-    position: 'absolute',
-    left: 12,
-    bottom: 12,
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: T.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: T.line,
-  },
-  locateI: { fontSize: 20, color: T.route, transform: [{ rotate: '-45deg' }] },
+  locate: { position: 'absolute', left: 12, bottom: 12, borderRadius: 16 },
   locMsg: { position: 'absolute', left: 12, right: 76, top: 12 },
   unsaved: { position: 'absolute', left: 12, right: 76, top: 56 },
   sheet: {
@@ -147,7 +116,7 @@ const s = StyleSheet.create({
   quickB: {
     flex: 1,
     minHeight: 52,
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: T.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',

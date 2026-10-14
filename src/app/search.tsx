@@ -1,10 +1,11 @@
 // CT02 장소 검색. mode=start 면 고른 장소를 출발점으로(CT04 로 돌아감), 아니면 장소 상세(CT03)로.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { StyleSheet, TextInput } from 'react-native';
+import { Building, Search } from 'lucide-react-native';
 import { searchPlaces } from '../search/search';
 import { placeSubtitle, useApp } from '../state/AppState';
-import { Card, P, Row, Screen, Section, T } from '../ui/kit';
+import { SearchInput } from '../ui/components';
+import { Badge, Card, P, Row, Screen, Section } from '../ui/kit';
 
 export default function SearchScreen() {
   const params = useLocalSearchParams<{ q?: string; mode?: string }>();
@@ -23,24 +24,23 @@ export default function SearchScreen() {
   const offline = app.loaded?.source !== 'server';
   return (
     <Screen title={params.mode === 'start' ? '출발 장소 고르기' : '장소 검색'}>
-      <TextInput
-        style={s.input}
-        value={q}
-        onChangeText={setQ}
-        placeholder="건물, 강의실, 시설 검색"
-        autoFocus={!params.q}
-        returnKeyType="search"
-        accessibilityLabel="검색어"
+      <SearchInput value={q} onChangeText={setQ} autoFocus={!params.q} returnKeyType="search" accessibilityLabel="검색어" />
+      <Badge
+        tone={offline ? 'offline' : 'primary'}
+        text={`${offline ? '저장된 지도에서 검색 중' : '방금 받은 지도에서 검색 중'} · 지도 v${app.pkg?.release.version}`}
       />
-      <P tone="muted">
-        {offline ? '저장된 지도에서 검색 중' : '방금 받은 지도에서 검색 중'} · 지도 v{app.pkg?.release.version}
-      </P>
       {q ? <Section>검색 결과 {hits.length}</Section> : null}
       {hits.map((h) => (
-        <Row key={h.place.key} icon="▦" title={h.place.name} sub={sub(h.place.key, h.place.nodeKey)} onPress={() => pick(h.place.key)} />
+        <Row
+          key={h.place.key}
+          icon={Building}
+          title={h.place.name}
+          sub={sub(h.place.key, h.place.nodeKey)}
+          onPress={() => pick(h.place.key)}
+        />
       ))}
       {!q && app.recentSearches.length ? <Section>최근 검색</Section> : null}
-      {!q ? app.recentSearches.map((r) => <Row key={r} icon="↺" title={r} onPress={() => setQ(r)} />) : null}
+      {!q ? app.recentSearches.map((r) => <Row key={r} icon={Search} title={r} onPress={() => setQ(r)} />) : null}
       {q && !hits.length ? (
         <Card tone="primary">
           <P>찾는 장소가 없나요?</P>
@@ -50,16 +50,3 @@ export default function SearchScreen() {
     </Screen>
   );
 }
-
-const s = StyleSheet.create({
-  input: {
-    minHeight: 52,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: T.line,
-    backgroundColor: T.card,
-    paddingHorizontal: 16,
-    fontSize: T.small + 1,
-    color: T.text,
-  },
-});

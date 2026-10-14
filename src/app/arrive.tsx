@@ -2,6 +2,7 @@
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { placeSubtitle, useApp } from '../state/AppState';
+import { Check } from 'lucide-react-native';
 import { Btn, Card, H, P, Screen, T } from '../ui/kit';
 
 export default function ArriveScreen() {
@@ -30,7 +31,7 @@ export default function ArriveScreen() {
       }
     >
       <View style={s.mark}>
-        <Text style={s.markT}>✓</Text>
+        <Check size={36} color={T.confirmed} strokeWidth={2} />
       </View>
       <H>
         {dest?.name ?? '목적지'}에{'\n'}도착하셨나요?
@@ -58,7 +59,6 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 16,
   },
-  markT: { fontSize: 36, color: T.confirmed },
   k: { fontSize: T.small, fontWeight: '700', color: T.primary },
   v: { fontSize: T.title, fontWeight: '800', color: T.text },
 });

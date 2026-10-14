@@ -69,7 +69,7 @@ export default function PreviewScreen() {
           </P>
           <Text style={s.path}>{path}</Text>
         </Card>
-        <Badge tone={offline ? 'primary' : 'confirmed'} text={offline ? '저장된 지도로 계산' : '방금 받은 지도로 계산'} />
+        <Badge tone={offline ? 'offline' : 'confirmed'} text={offline ? '저장된 지도로 계산' : '방금 받은 지도로 계산'} />
         {server ? (
           <P tone="muted">
             {server.ok

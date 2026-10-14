@@ -42,7 +42,7 @@ export default function NoRouteScreen() {
         </>
       }
     >
-      <Icon size={34} color={T.caution} strokeWidth={2} style={s.icon} accessibilityElementsHidden />
+      <Icon size={34} color={T.caution} strokeWidth={2} style={s.icon} />
       <H>{copy.title}</H>
       <P>{copy.body}</P>
       <Card tone="caution">

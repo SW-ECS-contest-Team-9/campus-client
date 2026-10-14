@@ -1,17 +1,14 @@
 import { Stack } from 'expo-router';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider } from '../state/AppState';
 
+// 머리는 각 화면이 직접 그림(ui/kit Screen). 흐름: 지도 → 검색 → 장소 → 출발점 → 옵션 → 미리보기 → 안내 → 도착.
 export default function RootLayout() {
   return (
-    <AppProvider>
-      <Stack screenOptions={{ headerTitleStyle: { fontSize: 17 } }}>
-        <Stack.Screen name="index" options={{ title: '서경대 지도' }} />
-        <Stack.Screen name="search" options={{ title: '검색 결과' }} />
-        <Stack.Screen name="place/[key]" options={{ title: '장소' }} />
-        <Stack.Screen name="route" options={{ title: '길찾기' }} />
-        <Stack.Screen name="favorites" options={{ title: '즐겨찾기' }} />
-        <Stack.Screen name="settings" options={{ title: '설정' }} />
-      </Stack>
-    </AppProvider>
+    <SafeAreaProvider>
+      <AppProvider>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F6F8FB' } }} />
+      </AppProvider>
+    </SafeAreaProvider>
   );
 }

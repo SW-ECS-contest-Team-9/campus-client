@@ -22,7 +22,8 @@ export default function GuideScreen() {
   const cf = app.confirmedFloor;
   const cfText = cf ? `${pkg.buildings.find((b) => b.key === cf.buildingKey)?.name ?? ''} ${pkg.floors.find((f) => f.key === cf.floorKey)?.code ?? ''}`.trim() : null;
   const unsure = !app.fix || app.fix.uncertain;
-  const where = unsure ? (app.fix ? '현재 위치 불확실' : '현재 위치 모름') : cfText ? `현재 위치: ${cfText} (확인함)` : `현재 위치: ${step.fromFloor ?? '바깥'} (추정)`;
+  // 보는 층·경로 단계의 층·내가 확인한 층을 섞지 않음(제품 규칙 01): 확인한 층이 없으면 "단계 기준"이라고 밝힘
+  const where = unsure ? (app.fix ? '현재 위치 불확실' : '현재 위치 모름') : cfText ? `내 위치: ${cfText} (내가 확인함)` : `이 단계 출발: ${step.fromFloor ?? '바깥'} · 내 층 확인`;
   return (
     <Screen title="안내 중" scroll={false} footer={<>
       <View style={s.two}>
@@ -46,7 +47,7 @@ export default function GuideScreen() {
         </View>
       )}
       <Pressable accessibilityRole="button" style={s.where} onPress={() => router.push('/recheck')}>
-        <Text style={s.whereT}>{where} · 확인</Text>
+        <Text style={s.whereT}>{where}</Text>
       </Pressable>
       <View style={s.map}><CampusMap commands={[cmd]} routeNodeKeys={r.nodeKeys} pickPlaces={false} /></View>
       <View style={s.foot}>

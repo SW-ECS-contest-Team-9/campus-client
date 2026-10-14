@@ -110,7 +110,7 @@ export const s = StyleSheet.create({
   card: { borderRadius: T.radius, padding: 16, gap: 4 },
   badge: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   badgeT: { fontSize: T.caption + 1, fontWeight: '600' },
-  chip: { minHeight: T.touch, minWidth: T.touch, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, borderColor: T.line, backgroundColor: T.card, alignItems: 'center', justifyContent: 'center', flexGrow: 1 },
+  chip: { minHeight: T.touch, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, borderColor: T.line, backgroundColor: T.card, alignItems: 'center', justifyContent: 'center', minWidth: 64 },
   chipOn: { backgroundColor: T.primary, borderColor: T.primary },
   chipT: { fontSize: T.small, fontWeight: '600', color: T.text },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64 },

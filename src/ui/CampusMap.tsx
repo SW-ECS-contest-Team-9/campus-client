@@ -13,9 +13,11 @@ interface Props {
   focus?: { x: number; y: number }[];
   /** 누른 장소로 가기(기본 켬) */
   pickPlaces?: boolean;
+  /** 3D 페이지 자체의 층 판을 숨김(이 화면이 층 고르기를 보여 줄 때) */
+  minimal?: boolean;
 }
 
-export function CampusMap({ commands = [], routeNodeKeys = null, highlightPlaceKeys = [], focus, pickPlaces = true }: Props) {
+export function CampusMap({ commands = [], routeNodeKeys = null, highlightPlaceKeys = [], focus, pickPlaces = true, minimal = false }: Props) {
   const app = useApp();
   const pkg = app.pkg!;
   const loc = useMemo<Map3dCommand | null>(() => {
@@ -28,7 +30,7 @@ export function CampusMap({ commands = [], routeNodeKeys = null, highlightPlaceK
   const floors = useMemo(() => Object.entries(app.floorSel).map(([b, f]) => floorCommand(pkg, b, f)), [app.floorSel, pkg]);
   return (
     <Map3D
-      url={pageUrl(app.settings.map3dUrl, app.settings.light)}
+      url={pageUrl(app.settings.map3dUrl, app.settings.light, minimal)}
       commands={[loc, ...floors, ...commands]}
       onEvent={(e) => {
         if (pickPlaces && e.type === 'pick' && e.kind === 'place' && e.id) {

@@ -8,7 +8,7 @@ import { CampusMap } from '../../ui/CampusMap';
 import { Badge, Btn, Card, Chip, P, Screen, T } from '../../ui/kit';
 
 const CATEGORY: Record<string, string> = {
-  building_entrance: '건물 입구', landmark: '주요 지점', parking: '주차', bus_stop: '버스 정류장', facility: '편의 시설', other: '기타',
+  building_entrance: '건물 입구', entrance: '건물 입구', landmark: '주요 지점', parking: '주차', bus_stop: '버스 정류장', facility: '편의 시설', other: '기타',
 };
 
 export default function PlaceScreen() {
@@ -28,7 +28,7 @@ export default function PlaceScreen() {
         <Btn kind="soft" label={fav ? '저장됨' : '장소 저장'} onPress={() => app.toggleFavorite(p.key)} style={{ flex: 1 }} />
         <Btn label="여기로 길찾기" disabled={!p.nodeKey} onPress={() => { app.setDestKey(p.key); router.push('/start'); }} style={{ flex: 2 }} />
       </View>}>
-      <View style={s.map}><CampusMap commands={cmds} highlightPlaceKeys={[p.key]} focus={[{ x: p.x, y: p.y }]} pickPlaces={false} /></View>
+      <View style={s.map}><CampusMap commands={cmds} highlightPlaceKeys={[p.key]} focus={[{ x: p.x, y: p.y }]} pickPlaces={false} minimal /></View>
       <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 4 }}>
         <Text style={s.name}>{floorName ? `${floorName} ` : ''}{p.name}</Text>
         <P tone="muted">{CATEGORY[p.category] ?? p.category} · {placeSubtitle(pkg, p.key)}</P>

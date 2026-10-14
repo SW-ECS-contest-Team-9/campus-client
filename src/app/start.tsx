@@ -35,7 +35,7 @@ export default function StartScreen() {
       footer={<>
         <Btn label="이 위치에서 경로 보기" disabled={!st} onPress={() => router.push('/options')} />
         <View style={s.two}>
-          <Btn kind="soft" label="현재 위치 다시 확인" onPress={useHere} style={{ flex: 1 }} />
+          <Btn kind="soft" label="위치 다시 읽기" onPress={useHere} style={{ flex: 1 }} />
           <Btn kind="soft" label="장소로 고르기" onPress={() => router.push({ pathname: '/search', params: { mode: 'start' } })} style={{ flex: 1 }} />
         </View>
       </>}>

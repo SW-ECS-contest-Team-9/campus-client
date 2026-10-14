@@ -156,6 +156,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     recentSearches: recent.searches, addRecentSearch, recentRoutes: recent.routes, addRecentRoute, confirmedFloor, setConfirmedFloor, guideStep, setGuideStep, checkUpdate, favorites, toggleFavorite,
     start, setStart, destKey, setDestKey, condition, setCondition, route, startNodeKey, fix, setFix, floorSel, setFloor,
   };
+  if (__DEV__) (globalThis as { __app?: AppState }).__app = value; // 개발 중 화면 시험용(갈무리 스크립트)
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

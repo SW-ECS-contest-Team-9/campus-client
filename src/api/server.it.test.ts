@@ -1,0 +1,46 @@
+// 실제 지도 서버와 맞춰 보기(선택). CLIENT_SERVER=http://127.0.0.1:8010 npx vitest run src/api/server.it.test.ts
+import { createHash } from 'node:crypto';
+import { describe, expect, it } from 'vitest';
+import fixture from '../map/fixture/campus-fixture.json';
+import type { MapPackage } from '../map/package';
+import { buildGraph, findRoute } from '../route/route';
+import { searchPlaces } from '../search/search';
+import { checkForUpdate, loadLocal, type Deps } from './mapRelease';
+import { serverRoute } from './serverRoute';
+
+const BASE = process.env.CLIENT_SERVER ?? '';
+const mem = new Map<string, string>();
+const deps: Deps = {
+  fetch: (...a) => fetch(...a),
+  sha256Hex: async (t) => createHash('sha256').update(t, 'utf8').digest('hex'),
+  store: { getItem: async (k) => mem.get(k) ?? null, setItem: async (k, v) => { mem.set(k, v); }, removeItem: async (k) => { mem.delete(k); } } as Deps['store'],
+  fixture: fixture as unknown as MapPackage,
+};
+
+describe.skipIf(!BASE)('지도 서버', () => {
+  it('꾸러미를 받아 sha256 이 맞고 저장되며, 검색·길찾기가 됨', async () => {
+    const r = await checkForUpdate(BASE, await loadLocal(deps), deps);
+    expect(r.error).toBeNull();
+    expect(r.updated).toBe(true);
+    expect(r.source).toBe('server');
+    const again = await loadLocal(deps);
+    expect(again.source).toBe('stored');
+    const pkg = r.pkg;
+    console.log(`v${pkg.release.version} 장소 ${pkg.places.length} 길 ${pkg.edges.length} 층 ${pkg.floors.length}`);
+    expect(searchPlaces(pkg, '북악관').length).toBeGreaterThan(0);
+    const g = buildGraph(pkg);
+    const gate = pkg.places.find((p) => p.name === '정문')!;
+    const dest = searchPlaces(pkg, '북악관 입구').find((h) => h.place.nodeKey)!.place;
+    const mine = findRoute(g, gate.nodeKey!, dest.nodeKey!, 'shortest');
+    const theirs = await serverRoute(BASE, gate.key, dest.key, 'shortest');
+    expect(mine.ok && theirs.ok).toBe(true);
+    if (mine.ok && theirs.ok) {
+      console.log(`정문 → ${dest.name}: 기기 ${mine.totalLengthM} m, 서버 ${theirs.distanceM} m`);
+      // 서버는 장소→노드 잇는 몫 등으로 몇 m 다를 수 있음(2026-10-15: 388.8 vs 391.8 m)
+      expect(Math.abs(mine.totalLengthM - theirs.distanceM) / theirs.distanceM).toBeLessThan(0.02);
+    }
+    // 알려진 자료 한계: 정문에서 계단 없이 가는 길 없음
+    expect(findRoute(g, gate.nodeKey!, dest.nodeKey!, 'avoidStairs').ok).toBe(false);
+    expect((await serverRoute(BASE, gate.key, dest.key, 'avoidStairs')).ok).toBe(false);
+  });
+});

@@ -11,6 +11,7 @@
     "expo-location": "57.0.21",
     "expo-router": "57.0.26",
     "expo-status-bar": "57.0.1",
+    "lucide-react-native": "1.57.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
@@ -22,6 +23,12 @@
   },
   "devDependencies": {
     "@types/react": "19.2.18",
+    "eslint": "9.39.5",
+    "eslint-config-expo": "57.0.2",
+    "eslint-config-prettier": "10.1.8",
+    "lint-staged": "17.6.0",
+    "prettier": "3.9.10",
+    "simple-git-hooks": "2.14.0",
     "typescript": "6.0.3",
     "vitest": "3.2.4"
   },
@@ -32,7 +39,22 @@
     "web": "expo start --web",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "build:fixture": "node scripts/build-fixture.mjs"
+    "build:fixture": "node scripts/build-fixture.mjs",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "simple-git-hooks"
   },
-  "private": true
+  "private": true,
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml}": "prettier --write"
+  }
 }

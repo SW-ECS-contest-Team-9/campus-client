@@ -1,0 +1,8 @@
+dist
+android
+ios
+.expo
+node_modules
+package-lock.json
+src/map/fixture
+src/ui/characterImages.ts.claude

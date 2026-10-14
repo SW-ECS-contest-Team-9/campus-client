@@ -1,0 +1,8 @@
+# 캐릭터
+
+서경대학교 "SKU Power Friends" 이모티콘. 사용자가 2026-10-15에 준 묶음(`sku_power_friends_emoticon_png.zip`)에서 두 장만 가져왔다.
+
+| 파일 | 원래 이름 | 쓰는 곳 |
+|---|---|---|
+| `location-ok.png` | 002.png (초록 전원 단추 고양이, 서 있음) | 3D 지도 현재 위치 |
+| `location-uncertain.png` | 016.png (물음표 캐릭터) | 3D 지도 현재 위치(불확실) |

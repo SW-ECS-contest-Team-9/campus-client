@@ -71,8 +71,13 @@ export default function Home() {
                 </View>
               ) : null}
               {app.loaded?.source === 'fixture' ? (
-                <Pressable accessibilityRole="button" onPress={() => router.push('/unsaved')} style={s.unsaved}>
-                  <Badge text="저장된 지도 없음 · 내장 개발 지도 사용 중" tone="caution" />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="저장된 지도 없음, 내장 개발 지도 사용 중. 자세히 보기"
+                  onPress={() => router.push('/unsaved')}
+                  style={s.unsaved}
+                >
+                  <Badge text="저장된 지도 없음" tone="caution" />
                 </Pressable>
               ) : null}
             </View>

@@ -37,6 +37,9 @@ const DEFAULT_SETTINGS: Settings = {
   autoTier: null,
   autoTier3dChecked: false,
 };
+/** 갱신 실패 문구: 개발용 오류 글(TypeError 등)을 그대로 보이지 않음(카카오 디자인: 진단 정보 분리). */
+const failText = (e: string) =>
+  /fetch|network|서버 연결/i.test(e) ? '서버에 연결하지 못했어요(인터넷·서버 주소 확인)' : `갱신 안 됨: ${e}`;
 const detectTier = (): DeviceTier =>
   chooseTier({ os: Platform.OS, apiLevel: Device.platformApiLevel ?? null, totalMemory: Device.totalMemory ?? null });
 export interface RecentRoute {
@@ -137,7 +140,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const u = await checkForUpdate(st.serverUrl, local, deps);
         setLoaded(u);
         if (u.updated) setUpdateStatus(`새 지도 v${u.pkg.release.version} 받음`);
-        else if (u.error) setUpdateStatus(`갱신 안 됨: ${u.error}`);
+        else if (u.error) setUpdateStatus(failText(u.error));
       }
     })();
   }, []);
@@ -162,7 +165,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   /** 3D 첫 화면까지 걸린 시간(앱 켠 뒤 한 번). 자동 등급이면 느릴 때 한 단계 낮춤. */
   const noteFirst3dReady = useCallback((ms: number) => {
     setSettings((cur) => {
-      if (cur.autoTier3dChecked || cur.autoTier == null) return cur;
+      // 웹은 첫 화면 시간이 망·타일 받기에 좌우되어 기기 성능을 뜻하지 않음 → Android 만
+      if (Platform.OS !== 'android' || cur.autoTier3dChecked || cur.autoTier == null) return cur;
       const next = { ...cur, autoTier: adjustForFirst3d(cur.autoTier, ms), autoTier3dChecked: true };
       void AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
       return next;
@@ -184,7 +188,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUpdateStatus('확인 중…');
     const r = await checkForUpdate(settings.serverUrl, loaded, deps);
     setLoaded(r);
-    setUpdateStatus(r.updated ? `새 지도 v${r.pkg.release.version} 받음` : r.error ? `갱신 안 됨: ${r.error}` : '최신 지도임');
+    setUpdateStatus(r.updated ? `새 지도 v${r.pkg.release.version} 받음` : r.error ? failText(r.error) : '최신 지도임');
   }, [loaded, settings.serverUrl]);
 
   const toggleFavorite = useCallback(

@@ -51,7 +51,7 @@ export default function SavedScreen() {
             />
           );
         })}
-        <Btn kind="soft" label="다른 장소 찾아보기" onPress={() => router.push('/search')} />
+        <Btn kind={app.favorites.length ? 'soft' : 'primary'} label="다른 장소 찾아보기" onPress={() => router.push('/search')} />
       </Screen>
       <TabBar at="saved" />
     </View>

@@ -1,12 +1,13 @@
 // CT01 캠퍼스 지도(V3): 3D 지도가 화면 전체(V3-1), 위에 유리 검색 알약, 아래 끄는 시트("어디로 갈까요?"), 떠 있는 탭 캡슐.
 // 지도 위 부품은 모두 overlay 로 공용 3D 지도와 함께 그림(3D 가 화면 위에 겹쳐 있어서).
 import { router } from 'expo-router';
-import { Bookmark, Clock, MapPin, Navigation, Search, Settings } from 'lucide-react-native';
+import { Bookmark, Clock, House, Layers, MapPin, Navigation, Search, Settings } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
+import { useMap3dControls } from '../ui/Map3D';
 import { IconButton, PressScale, SearchInput } from '../ui/components';
 import { Badge, T, TabBar } from '../ui/kit';
 import { color, gradient, shape } from '../ui/theme';
@@ -18,6 +19,8 @@ export default function Home() {
   const app = useApp();
   const inset = useSafeAreaInsets();
   const [locMsg, setLocMsg] = useState<string | null>(null);
+  const [exploded, setExploded] = useState(false);
+  const map = useMap3dControls();
   if (!app.pkg)
     return (
       <View style={s.loading}>
@@ -31,6 +34,7 @@ export default function Home() {
     setLocMsg('위치 읽는 중…');
     app.setConfirmedFloor(null);
     if (!(await app.enableLocation())) setLocMsg('위치 권한이 없어요 · 출발점을 직접 골라 주세요');
+    map.focusMe();
   };
   // 위치 보정 상태(통로에 맞춘 점). 불확실은 꼬리표일 뿐 점은 계속 통로 위에 있음.
   const fix = app.fix;
@@ -54,14 +58,17 @@ export default function Home() {
     .filter((x, i, a) => a.findIndex((q) => q.p.key === x.p.key) === i)
     .slice(0, 4);
   const bottom = inset.bottom + TAB_H;
+  // 지도 단추 세로 묶음(오른쪽, 시트 위): 네이티브 3D 면 층 펼치기·처음 시점·내 위치, 웹 3D 면 내 위치만(페이지 자체 단추가 있음)
+  const ctlBottom = bottom + PEEK + 12;
 
   return (
     <View style={s.root}>
       <CampusMap
+        padding={{ top: inset.top + 128, bottom: bottom + PEEK }}
         overlay={
           <>
             {/* 위: 이름 알약 + 설정, 검색 알약 */}
-            <View style={[s.top, { paddingTop: inset.top + 8 }]} pointerEvents="box-none">
+            <View style={[s.top, { paddingTop: inset.top + 8, right: map.available ? 16 : 92 }]} pointerEvents="box-none">
               <View style={s.brandRow} pointerEvents="box-none">
                 <Glass dark radius={shape.pill} style={s.brand}>
                   <View style={s.brandDot}>
@@ -99,15 +106,27 @@ export default function Home() {
                 </Pressable>
               ) : null}
             </View>
-            {/* 내 위치: 시트 엿보기 위 왼쪽 */}
-            <IconButton
-              icon={Navigation}
-              label="내 위치"
-              onPress={locate}
-              size={52}
-              iconColor={T.route}
-              style={[s.locate, { bottom: bottom + PEEK + 12 }]}
-            />
+            <View style={[s.ctl, { bottom: ctlBottom }]} pointerEvents="box-none">
+              {map.available ? (
+                <>
+                  <IconButton
+                    icon={Layers}
+                    label={exploded ? '층 접기' : '층 펼치기(가운데 건물)'}
+                    tone={exploded ? 'primary' : 'surface'}
+                    onPress={() => setExploded(map.toggleExplode())}
+                  />
+                  <IconButton
+                    icon={House}
+                    label="처음 시점"
+                    onPress={() => {
+                      if (exploded) setExploded(map.toggleExplode());
+                      map.home();
+                    }}
+                  />
+                </>
+              ) : null}
+              <IconButton icon={Navigation} label="내 위치" onPress={locate} iconColor={T.route} />
+            </View>
             <Sheet snaps={[PEEK, 300]} bottomOffset={bottom}>
               <View style={s.sheet}>
                 <View style={s.sheetHead}>
@@ -166,7 +185,7 @@ const s = StyleSheet.create({
   brandDot: { width: 12, height: 12, borderRadius: 6, overflow: 'hidden' },
   brandT: { color: '#FFFFFF', fontSize: T.small, fontWeight: '800', letterSpacing: -0.2 },
   unsaved: { alignSelf: 'flex-start' },
-  locate: { position: 'absolute', left: 16 },
+  ctl: { position: 'absolute', right: 16, gap: 10, alignItems: 'center' },
   sheet: { paddingHorizontal: 20, gap: 14 },
   sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   sheetT: { fontSize: T.title - 2, fontWeight: '800', color: T.text, letterSpacing: -0.5, flex: 1 },

@@ -42,6 +42,8 @@ interface Slot {
   minimal: boolean;
   onEvent?: (e: Map3dEvent) => void;
   overlay?: ReactNode;
+  /** 지도 위·아래를 가리는 카드 높이(dp) */
+  padding?: { top: number; bottom: number };
 }
 interface Api {
   put: (s: Slot) => void;
@@ -51,6 +53,16 @@ interface Api {
 const ApiCtx = createContext<Api | null>(null);
 
 const StatusCtx = createContext<Status>('loading');
+
+/** 앱이 가진 지도 단추(네이티브 3D 일 때만): 처음 시점·층 펼치기·내 위치로 */
+export interface Map3dControls {
+  available: boolean;
+  home: () => void;
+  toggleExplode: () => boolean;
+  focusMe: () => void;
+}
+const ControlsCtx = createContext<Map3dControls>({ available: false, home: () => {}, toggleExplode: () => false, focusMe: () => {} });
+export const useMap3dControls = () => useContext(ControlsCtx);
 
 /** 앱 뿌리에 한 번. children(화면들) 위에 3D 지도 하나를 겹쳐 둠. */
 export function Map3DHost({
@@ -98,6 +110,15 @@ export function Map3DHost({
     [],
   );
   const slot = active ? slots[active] : undefined;
+  const controls = useMemo<Map3dControls>(
+    () => ({
+      available: useNative && status === 'ready',
+      home: () => native.current?.home(),
+      toggleExplode: () => native.current?.toggleExplode() ?? false,
+      focusMe: () => native.current?.focusMe(),
+    }),
+    [useNative, status],
+  );
 
   const post = useCallback((msg: Map3dCommand | { v: 1; type: 'setMode'; light?: boolean; ui: 'min' | 'full' }) => {
     if (Platform.OS === 'web') frame.current?.contentWindow?.postMessage(msg, '*');
@@ -195,66 +216,69 @@ export function Map3DHost({
   if (rect && (rect.x !== r.x || rect.y !== r.y || rect.w !== r.w || rect.h !== r.h)) setR(rect);
   return (
     <ApiCtx.Provider value={api}>
-      <StatusCtx.Provider value={status}>
-        <View ref={rootRef} style={s.root} onLayout={() => rootRef.current?.measureInWindow((x, y) => setOrigin({ x, y }))}>
-          {children}
-          <View
-            pointerEvents={shown ? 'box-none' : 'none'}
-            style={[s.host, { left: r.x - origin.x, top: r.y - origin.y, width: r.w, height: r.h, opacity: shown ? 1 : 0 }]}
-            accessibilityElementsHidden={!shown}
-            importantForAccessibility={shown ? 'auto' : 'no-hide-descendants'}
-          >
-            {Platform.OS === 'web' ? (
-              <iframe
-                ref={frame}
-                src={url}
-                title="3D 캠퍼스 지도"
-                style={{ border: 0, width: '100%', height: '100%', display: 'block', pointerEvents: shown ? 'auto' : 'none' }}
-              />
-            ) : (
-              <BlurTargetView ref={blurTarget} style={s.fill}>
-                {useNative ? (
-                  <Campus3DView
-                    key={source}
-                    ref={native}
-                    light={light}
-                    places={places}
-                    style={s.fill}
-                    logFrames
-                    onStats={note3dStat}
-                    onEvent={(e) => receive(e)}
-                  />
-                ) : (
-                  <WebView
-                    ref={web}
-                    source={{ uri: url }}
-                    style={s.fill}
-                    originWhitelist={['*']}
-                    javaScriptEnabled
-                    onMessage={(e) => receive(e.nativeEvent.data)}
-                    onError={() => setStatus('failed')}
-                    onHttpError={() => setStatus('failed')}
-                    // GPU 렌더러가 죽으면(메모리·드라이버) 앱 전체가 죽지 않게 평면 지도로
-                    onRenderProcessGone={() => setStatus('failed')}
-                    androidLayerType="hardware"
-                    webviewDebuggingEnabled={__DEV__}
-                    setSupportMultipleWindows={false}
-                  />
-                )}
-              </BlurTargetView>
-            )}
-            {status === 'loading' ? (
-              <View style={s.loading} pointerEvents="none">
-                <View style={s.loadingPill}>
-                  <Character name="loading" size={30} />
-                  <Text style={s.loadingT}>3D 지도를 불러오는 중…</Text>
+      <ControlsCtx.Provider value={controls}>
+        <StatusCtx.Provider value={status}>
+          <View ref={rootRef} style={s.root} onLayout={() => rootRef.current?.measureInWindow((x, y) => setOrigin({ x, y }))}>
+            {children}
+            <View
+              pointerEvents={shown ? 'box-none' : 'none'}
+              style={[s.host, { left: r.x - origin.x, top: r.y - origin.y, width: r.w, height: r.h, opacity: shown ? 1 : 0 }]}
+              accessibilityElementsHidden={!shown}
+              importantForAccessibility={shown ? 'auto' : 'no-hide-descendants'}
+            >
+              {Platform.OS === 'web' ? (
+                <iframe
+                  ref={frame}
+                  src={url}
+                  title="3D 캠퍼스 지도"
+                  style={{ border: 0, width: '100%', height: '100%', display: 'block', pointerEvents: shown ? 'auto' : 'none' }}
+                />
+              ) : (
+                <BlurTargetView ref={blurTarget} style={s.fill}>
+                  {useNative ? (
+                    <Campus3DView
+                      key={source}
+                      ref={native}
+                      light={light}
+                      places={places}
+                      padding={slot?.padding}
+                      style={s.fill}
+                      logFrames
+                      onStats={note3dStat}
+                      onEvent={(e) => receive(e)}
+                    />
+                  ) : (
+                    <WebView
+                      ref={web}
+                      source={{ uri: url }}
+                      style={s.fill}
+                      originWhitelist={['*']}
+                      javaScriptEnabled
+                      onMessage={(e) => receive(e.nativeEvent.data)}
+                      onError={() => setStatus('failed')}
+                      onHttpError={() => setStatus('failed')}
+                      // GPU 렌더러가 죽으면(메모리·드라이버) 앱 전체가 죽지 않게 평면 지도로
+                      onRenderProcessGone={() => setStatus('failed')}
+                      androidLayerType="hardware"
+                      webviewDebuggingEnabled={__DEV__}
+                      setSupportMultipleWindows={false}
+                    />
+                  )}
+                </BlurTargetView>
+              )}
+              {status === 'loading' ? (
+                <View style={s.loading} pointerEvents="none">
+                  <View style={s.loadingPill}>
+                    <Character name="loading" size={30} />
+                    <Text style={s.loadingT}>3D 지도를 불러오는 중…</Text>
+                  </View>
                 </View>
-              </View>
-            ) : null}
-            <BlurTargetCtx.Provider value={blurTarget}>{shown ? slot?.overlay : null}</BlurTargetCtx.Provider>
+              ) : null}
+              <BlurTargetCtx.Provider value={blurTarget}>{shown ? slot?.overlay : null}</BlurTargetCtx.Provider>
+            </View>
           </View>
-        </View>
-      </StatusCtx.Provider>
+        </StatusCtx.Provider>
+      </ControlsCtx.Provider>
     </ApiCtx.Provider>
   );
 }
@@ -267,7 +291,10 @@ export function MapSlot({
   overlay,
   fallback,
   style,
+  padding,
 }: {
+  /** 지도 위·아래를 가리는 카드 높이(dp): 네이티브 3D 가 보이는 부분 가운데에 맞춤 */
+  padding?: { top: number; bottom: number };
   commands: (Map3dCommand | null)[];
   onEvent?: (e: Map3dEvent) => void;
   minimal?: boolean;
@@ -286,7 +313,7 @@ export function MapSlot({
   const measure = useCallback(() => ref.current?.measureInWindow((x, y, w, h) => w > 0 && h > 0 && setRect({ x, y, w, h })), []);
 
   useEffect(() => {
-    api?.put({ id, rect, commands: list, minimal, onEvent, overlay });
+    api?.put({ id, rect, commands: list, minimal, onEvent, overlay, padding });
   });
   useFocusEffect(
     useCallback(() => {

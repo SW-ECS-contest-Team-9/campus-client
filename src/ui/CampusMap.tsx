@@ -18,6 +18,8 @@ interface Props {
   minimal?: boolean;
   /** 지도 위 단추·배지 */
   overlay?: ReactNode;
+  /** 지도 위·아래를 가리는 카드 높이(dp) */
+  padding?: { top: number; bottom: number };
 }
 
 export function CampusMap({
@@ -28,6 +30,7 @@ export function CampusMap({
   pickPlaces = true,
   minimal = false,
   overlay,
+  padding,
 }: Props) {
   const app = useApp();
   const pkg = app.pkg!;
@@ -57,6 +60,7 @@ export function CampusMap({
       commands={all}
       minimal={minimal}
       overlay={overlay}
+      padding={padding}
       onEvent={(e) => {
         if (pickPlaces && e.type === 'pick' && e.kind === 'place' && e.id) {
           const key = packagePlaceKey(e.id);

@@ -86,6 +86,7 @@ export default function GuideScreen() {
           routeNodeKeys={r.nodeKeys}
           pickPlaces={false}
           minimal
+          padding={{ top: 68, bottom: 20 }}
           overlay={
             <>
               <FloorCapsule buildingKey={dest?.buildingKey} style={s.floors} />

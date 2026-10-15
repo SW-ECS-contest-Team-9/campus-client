@@ -64,6 +64,7 @@ export default function PreviewScreen() {
           routeNodeKeys={r.nodeKeys}
           pickPlaces={false}
           minimal
+          padding={{ top: 72, bottom: 236 }}
           overlay={
             <>
               <FloorCapsule buildingKey={dest?.buildingKey} style={s.floors} />

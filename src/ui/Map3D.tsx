@@ -90,6 +90,8 @@ export function Map3DHost({
   const [slots, setSlots] = useState<Record<string, Slot>>({});
   const [active, setActive] = useState<string | null>(null);
   const [origin, setOrigin] = useState({ x: 0, y: 0 });
+  // 앱 뿌리 크기(네이티브 3D 표면은 이 크기로 고정하고, 자리 밖은 잘라 보임 — 표면 크기를 바꾸면 Android TextureView 가 옛 크기 버퍼를 늘여 보임)
+  const [root, setRoot] = useState<{ w: number; h: number } | null>(null);
   const rootRef = useRef<View | null>(null);
   const frame = useRef<HTMLIFrameElement | null>(null);
   const web = useRef<WebView | null>(null);
@@ -218,7 +220,15 @@ export function Map3DHost({
     <ApiCtx.Provider value={api}>
       <ControlsCtx.Provider value={controls}>
         <StatusCtx.Provider value={status}>
-          <View ref={rootRef} style={s.root} onLayout={() => rootRef.current?.measureInWindow((x, y) => setOrigin({ x, y }))}>
+          <View
+            ref={rootRef}
+            style={s.root}
+            onLayout={(e) => {
+              const { width, height } = e.nativeEvent.layout;
+              setRoot((cur) => (cur && cur.w === width && cur.h === height ? cur : { w: width, h: height }));
+              rootRef.current?.measureInWindow((x, y) => setOrigin({ x, y }));
+            }}
+          >
             {children}
             <View
               pointerEvents={shown ? 'box-none' : 'none'}
@@ -236,17 +246,28 @@ export function Map3DHost({
               ) : (
                 <BlurTargetView ref={blurTarget} style={s.fill}>
                   {useNative ? (
-                    <Campus3DView
-                      key={source}
-                      ref={native}
-                      light={light}
-                      places={places}
-                      padding={slot?.padding}
-                      style={s.fill}
-                      logFrames
-                      onStats={note3dStat}
-                      onEvent={(e) => receive(e)}
-                    />
+                    root ? (
+                      <View
+                        style={{ position: 'absolute', left: -(r.x - origin.x), top: -(r.y - origin.y), width: root.w, height: root.h }}
+                      >
+                        <Campus3DView
+                          key={source}
+                          ref={native}
+                          light={light}
+                          places={places}
+                          padding={{
+                            top: r.y - origin.y + (slot?.padding?.top ?? 0),
+                            bottom: root.h - (r.y - origin.y + r.h) + (slot?.padding?.bottom ?? 0),
+                            left: r.x - origin.x,
+                            right: root.w - (r.x - origin.x + r.w),
+                          }}
+                          style={s.fill}
+                          logFrames
+                          onStats={note3dStat}
+                          onEvent={(e) => receive(e)}
+                        />
+                      </View>
+                    ) : null
                   ) : (
                     <WebView
                       ref={web}

@@ -150,7 +150,7 @@ export async function createCampusScene(o: SceneOptions) {
     ends.forEach((p, i) => { const s = new THREE.Mesh(dot, new THREE.MeshBasicMaterial({ color: i ? COLOR.change : COLOR.ok, depthTest: false })); s.position.copy(p).setY(p.y + 1); s.scale.setScalar(1.3); s.renderOrder = 11; routeGroup.add(s); });
     // 경로 전체가 보이게
     const bb = new THREE.Box3().setFromPoints(pts);
-    bb.getCenter(cam.target); cam.dist = Math.max(80, bb.getSize(new THREE.Vector3()).length() * 1.3);
+    bb.getCenter(cam.target); cam.dist = Math.max(170, bb.getSize(new THREE.Vector3()).length() * 1.6); // campus-client: 짧은 경로도 둘레가 보이게(80 → 170)
     follow.paused = true;
     dirty();
   }
@@ -279,7 +279,7 @@ export async function createCampusScene(o: SceneOptions) {
   const rotate = (rad: number) => { cam.heading += rad; dirty(); };
   const tilt = (dy: number) => { cam.pitch += dy * 0.004; dirty(); };
 
-  function resize(w: number, h: number) { o.width = w; o.height = h; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false); if (typeof applyPadding === 'function' && (pad.top || pad.bottom)) applyPadding(); dirty(); }
+  function resize(w: number, h: number) { o.width = w; o.height = h; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false); if (typeof applyPadding === 'function' && (pad.top || pad.bottom || pad.left || pad.right)) applyPadding(); dirty(); }
   /** 그릴 것이 있으면 그리고 true. 앱의 rAF 고리가 매 프레임 부름. */
   function frameTick() {
     if (!needs) return false;
@@ -309,19 +309,22 @@ export async function createCampusScene(o: SceneOptions) {
   const toScene = (x: number, y: number, z: number | null) => { const v = fromTm(x, y, z ?? 0); if (z === null || !Number.isFinite(z)) v.y = groundAt(v.x, v.z); return v; };
 
   // ---------- 앱이 가진 지도 단추·가림(campus-client 추가) ----------
-  /** 화면 위·아래를 카드가 가릴 때(px): 보이는 부분 가운데가 장면 가운데가 되게 투영을 옮김 */
-  let pad = { top: 0, bottom: 0 };
+  /** 화면 가장자리를 카드·다른 화면이 가릴 때(px): 보이는 부분 가운데가 장면 가운데가 되게 투영을 옮김 */
+  let pad = { top: 0, bottom: 0, left: 0, right: 0 };
   function applyPadding() {
-    const d = pad.bottom - pad.top;
-    // 늘린 가상 화면(높이 h+|d|) 전체가 fov·aspect 를 가지고, 그중 실제 화면 부분만 그림 → 찌그러짐 없음
-    camera.aspect = o.width / (o.height + Math.abs(d));
-    if (!d) { camera.aspect = o.width / o.height; camera.clearViewOffset(); }
-    else camera.setViewOffset(o.width, o.height + Math.abs(d), 0, d > 0 ? d : 0, o.width, o.height);
+    const dy = pad.bottom - pad.top, dx = pad.right - pad.left;
+    // 늘린 가상 화면(너비 w+|dx|, 높이 h+|dy|) 전체가 fov·aspect 를 가지고, 그중 실제 화면 부분만 그림 → 찌그러짐 없음
+    const vw = o.width + Math.abs(dx), vh = o.height + Math.abs(dy);
+    camera.aspect = vw / vh;
+    if (!dx && !dy) camera.clearViewOffset();
+    else camera.setViewOffset(vw, vh, dx > 0 ? dx : 0, dy > 0 ? dy : 0, o.width, o.height);
+    camera.updateProjectionMatrix();
     dirty();
   }
-  function setPadding(top: number, bottom: number) {
-    if (top === pad.top && bottom === pad.bottom) return;
-    pad = { top: Math.max(0, top), bottom: Math.max(0, bottom) };
+  function setPadding(top: number, bottom: number, left = 0, right = 0) {
+    const n = { top: Math.max(0, top), bottom: Math.max(0, bottom), left: Math.max(0, left), right: Math.max(0, right) };
+    if (n.top === pad.top && n.bottom === pad.bottom && n.left === pad.left && n.right === pad.right) return;
+    pad = n;
     applyPadding();
   }
   /** 층 펼치기: 펼쳐져 있으면 접고, 아니면 화면 가운데에서 가장 가까운(층 있는) 건물을 펼침. 펼쳤으면 true. */

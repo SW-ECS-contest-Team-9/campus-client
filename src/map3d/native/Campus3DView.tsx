@@ -41,7 +41,7 @@ export interface Campus3DProps {
   onEvent?: (e: PageEvent) => void;
   places?: Campus3DPlace[];
   /** 위·아래를 앱 카드가 가리는 높이(dp). 보이는 부분 가운데로 장면을 맞춤 */
-  padding?: { top: number; bottom: number };
+  padding?: { top: number; bottom: number; left?: number; right?: number };
   /** 가벼운 모드: 선 끔 + 해상도 2/3 (tier 2) */
   light?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -103,8 +103,8 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       const x = sp.x / k, y = sp.y / k;
       const r = [x - l.w / 2, y - h + below, x + l.w / 2, y + below];
       // 앱 카드가 가리는 위·아래 띠에는 이름표를 두지 않음
-      const H = layoutSize.current?.h ?? Infinity;
-      if (r[1] < (padRef.current?.top ?? 0) || r[3] > H - (padRef.current?.bottom ?? 0)) return null;
+      const H = layoutSize.current?.h ?? Infinity, W = layoutSize.current?.w ?? Infinity, q = padRef.current;
+      if (r[1] < (q?.top ?? 0) || r[3] > H - (q?.bottom ?? 0) || r[0] < (q?.left ?? 0) || r[2] > W - (q?.right ?? 0)) return null;
       if (rects.some((q) => r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1])) return null;
       rects.push(r); out.push(l); pos.push([l.key, x, y]);
       return { x, y };
@@ -129,7 +129,8 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
     else queue.current.push(msg);
   }, []);
   const padRef = useRef(padding);
-  useEffect(() => { padRef.current = padding; labelsDirty.current = true; sceneRef.current?.setPadding((padding?.top ?? 0) * scale.current, (padding?.bottom ?? 0) * scale.current); }, [padding?.top, padding?.bottom]); // eslint-disable-line react-hooks/exhaustive-deps
+  const applyPad = () => { const q = padRef.current, k = scale.current; sceneRef.current?.setPadding((q?.top ?? 0) * k, (q?.bottom ?? 0) * k, (q?.left ?? 0) * k, (q?.right ?? 0) * k); };
+  useEffect(() => { padRef.current = padding; labelsDirty.current = true; applyPad(); }, [padding?.top, padding?.bottom, padding?.left, padding?.right]); // eslint-disable-line react-hooks/exhaustive-deps
   useImperativeHandle(ref, () => ({
     post,
     home: () => sceneRef.current?.home(),
@@ -157,7 +158,7 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       sceneRef.current = scene;
       // campus-client: 앱은 3D 보기 하나를 화면마다 다른 크기 자리로 옮김 → 보기 크기에 맞춰 다시 맞춤
       if (layoutSize.current) scene.resize(Math.round(layoutSize.current.w * scale.current), Math.round(layoutSize.current.h * scale.current));
-      scene.setPadding((padRef.current?.top ?? 0) * scale.current, (padRef.current?.bottom ?? 0) * scale.current);
+      applyPad();
       for (const m of queue.current.splice(0)) scene.command(m);
       stat(`LOAD3D asset ${tAsset - t0} ms, scene ${Date.now() - tAsset} ms, total ${Date.now() - t0} ms, buffer ${w}x${h}`);
       let first = true;

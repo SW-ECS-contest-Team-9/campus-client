@@ -290,10 +290,29 @@ export async function createCampusScene(o: SceneOptions) {
     sendCamera();
     return true;
   }
+  // ---------- 이름표 자리(campus-client 추가): 건물 이름(지붕 가운데 위), 화면 좌표 ----------
+  const anchors = [...buildings.values()].filter((b) => baseId(b.id) === b.id).map((b) => {
+    const bb = new THREE.Box3();
+    for (const x of blocksOf(b.id)) bb.expandByObject(x.node);
+    const c = bb.getCenter(new THREE.Vector3());
+    c.y = bb.max.y + 3;
+    return { id: b.id, name: b.name, p: c };
+  });
+  const tmp = new THREE.Vector3();
+  /** 장면 점 → 화면 px(그리기 버퍼 기준). 카메라 뒤·화면 밖이면 null. */
+  function screenOf(p: THREE.Vector3) {
+    tmp.copy(p).project(camera);
+    if (tmp.z > 1 || tmp.x < -1.05 || tmp.x > 1.05 || tmp.y < -1.05 || tmp.y > 1.05) return null;
+    return { x: ((tmp.x + 1) / 2) * o.width, y: ((1 - tmp.y) / 2) * o.height };
+  }
+  /** EPSG:5186 → 장면 점(z 를 모르면 땅 높이) */
+  const toScene = (x: number, y: number, z: number | null) => { const v = fromTm(x, y, z ?? 0); if (z === null || !Number.isFinite(z)) v.y = groundAt(v.x, v.z); return v; };
+
   resize(o.width, o.height);
   const info = () => ({ ...renderer.info.render, geometries: renderer.info.memory.geometries });
   emit({ type: 'ready', buildings: [...buildings.values()].filter((b) => baseId(b.id) === b.id).map((b) => ({ id: b.id, name: b.name })), light });
-  return { command, frameTick, resize, pan, zoom, rotate, tilt, tap, home, markerScreen, info, resumeFollow: () => { follow.paused = false; } };
+  return { command, frameTick, resize, pan, zoom, rotate, tilt, tap, home, markerScreen, info, resumeFollow: () => { follow.paused = false; },
+    buildingAnchors: () => anchors, screenOf, toScene, cameraDistance: () => cam.dist };
 }
 
 export type CampusScene = Awaited<ReturnType<typeof createCampusScene>>;

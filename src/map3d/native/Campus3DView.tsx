@@ -5,7 +5,7 @@ import { Asset } from 'expo-asset';
 import { File } from 'expo-file-system';
 import { GLView, type ExpoWebGLRenderingContext } from 'expo-gl';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Animated, Image, PanResponder, PixelRatio, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Image, PanResponder, PixelRatio, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import * as THREE from 'three';
 import { createCampusScene, type CampusScene } from './campusScene';
 import type { PageEvent } from './protocol';
@@ -28,8 +28,14 @@ export interface Campus3DHandle {
   /** client3d 와 같은 명령(객체 또는 JSON 문자열) */
   post: (msg: unknown) => void;
 }
+/** 장소 점(campus-client 추가): 꾸러미 장소, EPSG:5186. 누르면 pick(kind 'place', id). */
+export interface Campus3DPlace { id: string; name: string; x: number; y: number; z: number }
+type Label = { key: string; kind: 'building' | 'place' | 'change'; text: string; w: number; id: string; tm?: Campus3DPlace };
+const labelWidth = (t: string) => Math.min(150, 14 + t.length * 13);
+
 export interface Campus3DProps {
   onEvent?: (e: PageEvent) => void;
+  places?: Campus3DPlace[];
   /** 가벼운 모드: 선 끔 + 해상도 2/3 (tier 2) */
   light?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -51,7 +57,7 @@ async function loadGlb(): Promise<ArrayBuffer> {
   }
 }
 
-export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function Campus3DView({ onEvent, light = false, style, logFrames = false, onStats }, ref) {
+export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function Campus3DView({ onEvent, places, light = false, style, logFrames = false, onStats }, ref) {
   const sceneRef = useRef<CampusScene | null>(null);
   const queue = useRef<unknown[]>([]);
   const handler = useRef(onEvent);
@@ -63,10 +69,49 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
   const markerPos = useRef(new Animated.ValueXY({ x: -999, y: -999 })).current;
   const scale = useRef(1);
 
+  // ---------- 이름표(campus-client 추가): 건물 이름·장소 점·층 바뀜 글을 RN 으로 화면 위에. 화면에서 겹치면 뒤 순서를 뺌 ----------
+  const [labels, setLabels] = useState<Label[]>([]);
+  const labelXY = useRef(new Map<string, Animated.ValueXY>()).current;
+  const labelKeys = useRef('');
+  const labelsDirty = useRef(true);
+  const placeList = useRef(places);
+  const placeAnchors = useRef<{ pl: Campus3DPlace; p: THREE.Vector3 }[] | null>(null);
+  const changes = useRef<{ at: number[]; label: string | null }[]>([]);
+  const changeAnchors = useRef<{ label: string; p: THREE.Vector3 }[] | null>(null);
+  const shownPlaces = useRef<{ pl: Campus3DPlace; x: number; y: number }[]>([]);
+  useEffect(() => { placeList.current = places; placeAnchors.current = null; labelsDirty.current = true; }, [places]);
+  const layoutLabels = useCallback((sc: CampusScene) => {
+    const k = scale.current;
+    if (!placeAnchors.current) placeAnchors.current = (placeList.current ?? []).map((pl) => ({ pl, p: sc.toScene(pl.x, pl.y, pl.z) }));
+    if (!changeAnchors.current) changeAnchors.current = changes.current.filter((c) => c.label).map((c) => ({ label: c.label!, p: sc.toScene(c.at[0], c.at[1], Number.isFinite(c.at[2]) ? c.at[2] : null) }));
+    const rects: number[][] = [];
+    const out: Label[] = [];
+    const pos: [string, number, number][] = [];
+    const put = (l: Label, p: THREE.Vector3, h: number, below: number) => {
+      const sp = sc.screenOf(p);
+      if (!sp) return null;
+      const x = sp.x / k, y = sp.y / k;
+      const r = [x - l.w / 2, y - h + below, x + l.w / 2, y + below];
+      if (rects.some((q) => r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1])) return null;
+      rects.push(r); out.push(l); pos.push([l.key, x, y]);
+      return { x, y };
+    };
+    changeAnchors.current.forEach((c, i) => put({ key: `c:${i}:${c.label}`, kind: 'change', text: c.label, w: labelWidth(c.label), id: '' }, c.p, 26, 0));
+    for (const b of sc.buildingAnchors()) put({ key: `b:${b.id}`, kind: 'building', text: b.name, w: labelWidth(b.name), id: b.id }, b.p, 26, 0);
+    const shown: { pl: Campus3DPlace; x: number; y: number }[] = [];
+    // 장소 점은 가까이 볼 때만(멀면 건물 이름만)
+    if (sc.cameraDistance() < 520) for (const a of placeAnchors.current) { const at = put({ key: `p:${a.pl.id}`, kind: 'place', text: a.pl.name, w: 18, id: a.pl.id, tm: a.pl }, a.p, 18, 9); if (at) shown.push({ pl: a.pl, ...at }); }
+    shownPlaces.current = shown;
+    for (const [key, x, y] of pos) { let v = labelXY.get(key); if (!v) { v = new Animated.ValueXY({ x, y }); labelXY.set(key, v); } else v.setValue({ x, y }); }
+    const keys = out.map((l) => l.key).join('|');
+    if (keys !== labelKeys.current) { labelKeys.current = keys; setLabels(out); }
+  }, [labelXY]);
+
   const post = useCallback((msg: unknown) => {
     let m: any = msg;
     if (typeof msg === 'string') { try { m = JSON.parse(msg); } catch { /* scene 이 오류 사건을 보냄 */ } }
     if (m && m.type === 'setMarkerImages') setMarkers({ ok: m.ok ?? null, uncertain: m.uncertain ?? null });
+    if (m && (m.type === 'setRoute' || m.type === 'clearRoute')) { changes.current = m.type === 'setRoute' && Array.isArray(m.floorChanges) ? m.floorChanges : []; changeAnchors.current = null; labelsDirty.current = true; }
     if (sceneRef.current) sceneRef.current.command(msg);
     else queue.current.push(msg);
   }, []);
@@ -101,6 +146,7 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
           if (first) { first = false; stat(`FIRST_FRAME ${Date.now() - t0} ms ${JSON.stringify(scene.info())}`); }
           if (logFrames) frames.push(Date.now());
         }
+        if (drew || labelsDirty.current) { labelsDirty.current = false; layoutLabels(scene); }
         const p = scene.markerScreen();
         if (p) { markerPos.setValue({ x: p.x / scale.current, y: p.y / scale.current }); setMarkerState((s) => (s === p.state ? s : p.state)); }
         else setMarkerState((s) => (s === null ? s : null));
@@ -117,7 +163,7 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       console.error('3D 실패', err);
       handler.current?.({ v: 1, type: 'error', error: `native3d: ${String((err as Error)?.message ?? err)}` });
     }
-  }, [light, logFrames, markerPos]);
+  }, [light, logFrames, markerPos, layoutLabels]);
 
   // 손 조작: 한 손가락 끌기 = 이동, 두 손가락 = 확대·회전(함께 위아래로 = 기울이기), 짧게 누름 = 고르기
   const g = useRef({ x: 0, y: 0, d: 0, a: 0, my: 0, n: 0, moved: 0, t: 0 }).current;
@@ -146,7 +192,13 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       }
     },
     onPanResponderRelease: (e) => {
-      if (g.moved < 8 && Date.now() - g.t < 350 && sceneRef.current) sceneRef.current.tap(e.nativeEvent.locationX * scale.current, e.nativeEvent.locationY * scale.current);
+      if (g.moved < 8 && Date.now() - g.t < 350 && sceneRef.current) {
+        // 장소 점 가까이(22 dp)를 누르면 그 장소
+        const lx = e.nativeEvent.locationX, ly = e.nativeEvent.locationY;
+        const hit = shownPlaces.current.find((q) => Math.hypot(q.x - lx, q.y - ly) < 22);
+        if (hit) handler.current?.({ v: 1, type: 'pick', kind: 'place', id: hit.pl.id, name: hit.pl.name, x: hit.pl.x, y: hit.pl.y, z: hit.pl.z });
+        else sceneRef.current.tap(lx * scale.current, ly * scale.current);
+      }
     },
   })).current;
   function two(t: any) { g.d = Math.hypot(t[1].pageX - t[0].pageX, t[1].pageY - t[0].pageY); g.a = Math.atan2(t[1].pageY - t[0].pageY, t[1].pageX - t[0].pageX); g.my = (t[0].pageY + t[1].pageY) / 2; }
@@ -155,6 +207,16 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
   return (
     <View style={[s.fill, style]} {...pan.panHandlers}>
       <GLView style={s.fill} onContextCreate={onContextCreate} />
+      {labels.map((l) => {
+        const v = labelXY.get(l.key);
+        if (!v) return null;
+        if (l.kind === 'place') return <Animated.View key={l.key} pointerEvents="none" style={[s.pdot, { transform: [{ translateX: Animated.subtract(v.x, 7) }, { translateY: Animated.subtract(v.y, 7) }] }]} />;
+        return (
+          <Animated.View key={l.key} pointerEvents="none" importantForAccessibility="no-hide-descendants" style={[s.label, l.kind === 'change' && s.labelChange, { width: l.w, transform: [{ translateX: Animated.subtract(v.x, l.w / 2) }, { translateY: Animated.subtract(v.y, 26) }] }]}>
+            <Text style={s.labelT} numberOfLines={1}>{l.text}</Text>
+          </Animated.View>
+        );
+      })}
       {markerState ? (
         <Animated.View pointerEvents="none" style={[s.marker, { transform: [{ translateX: Animated.subtract(markerPos.x, 32) }, { translateY: Animated.subtract(markerPos.y, 64) }] }]}>
           {img ? <Image source={{ uri: img }} style={s.markerImg} /> : <View style={[s.dot, markerState === 'uncertain' && s.dotU]} />}
@@ -170,4 +232,8 @@ const s = StyleSheet.create({
   markerImg: { width: 64, height: 64, resizeMode: 'contain' },
   dot: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#0F766E', borderWidth: 4, borderColor: '#fff', marginBottom: 4 },
   dotU: { backgroundColor: '#B45309' },
+  label: { position: 'absolute', left: 0, top: 0, height: 22, borderRadius: 11, backgroundColor: 'rgba(20,27,58,0.84)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  labelChange: { backgroundColor: '#DB2777' },
+  labelT: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  pdot: { position: 'absolute', left: 0, top: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: '#4F46E5', borderWidth: 2.5, borderColor: '#fff' },
 });

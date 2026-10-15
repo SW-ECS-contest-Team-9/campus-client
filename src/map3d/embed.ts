@@ -138,7 +138,8 @@ export function floorCommand(pkg: MapPackage, buildingKey: string, floorKey: str
 /** 페이지 주소 + 가벼운 모드(light=1) + 페이지 자체 층 판 숨김(ui=min: 앱이 층 고르기를 보여 줄 때). */
 export function pageUrl(base: string, light = false, minimal = false): string {
   const u = base.trim() || DEFAULT_MAP3D_URL;
-  const q = [light ? 'light=1' : '', minimal ? 'ui=min' : ''].filter(Boolean).join('&');
+  // 가벼운(tier 2): 구조물·이름표 빼고 MSAA 끔(FXAA) — client3d-android.patch 의 msaa 쿼리
+  const q = [light ? 'light=1&msaa=1' : '', minimal ? 'ui=min' : ''].filter(Boolean).join('&');
   return q ? `${u}${u.includes('?') ? '&' : '?'}${q}` : u;
 }
 export const DEFAULT_MAP3D_URL = `http://${DEV_HOST}:5273/client3d.html`;

@@ -13,7 +13,8 @@ import { parseEvent, type Map3dCommand, type Map3dEvent } from '../map3d/embed';
 import { CHARACTER_OK, CHARACTER_UNCERTAIN } from './characterImages';
 import { color } from './components';
 
-const READY_TIMEOUT_MS = 25_000;
+// S21 실기기 첫 표시 17 s(전체)·16 s(가벼운) 측정(2026-10-15, USB). 저사양·느린 망 여유를 두고 60 s.
+const READY_TIMEOUT_MS = 60_000;
 type Status = 'loading' | 'ready' | 'failed';
 interface Rect {
   x: number;
@@ -192,6 +193,11 @@ export function Map3DHost({
                   onMessage={(e) => receive(e.nativeEvent.data)}
                   onError={() => setStatus('failed')}
                   onHttpError={() => setStatus('failed')}
+                  // GPU 렌더러가 죽으면(메모리·드라이버) 앱 전체가 죽지 않게 평면 지도로
+                  onRenderProcessGone={() => setStatus('failed')}
+                  androidLayerType="hardware"
+                  webviewDebuggingEnabled={__DEV__}
+                  setSupportMultipleWindows={false}
                 />
               </BlurTargetView>
             )}

@@ -55,8 +55,8 @@ describe('3D 페이지 메시지', () => {
     expect(sceneBuildingId('b:은주관#2관')).toBe('은주관#2관');
     expect(packagePlaceKey('abc')).toBe('p:abc');
     expect(pageUrl('')).toBe('http://127.0.0.1:5273/client3d.html');
-    expect(pageUrl('https://x/client3d.html', true)).toBe('https://x/client3d.html?light=1');
-    expect(pageUrl('https://x/client3d.html?a=1', true, true)).toBe('https://x/client3d.html?a=1&light=1&ui=min');
+    expect(pageUrl('https://x/client3d.html', true)).toBe('https://x/client3d.html?light=1&msaa=1');
+    expect(pageUrl('https://x/client3d.html?a=1', true, true)).toBe('https://x/client3d.html?a=1&light=1&msaa=1&ui=min');
   });
 
   it('받은 사건: v 1 과 모양만 받음', () => {

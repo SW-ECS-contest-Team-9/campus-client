@@ -1,7 +1,7 @@
 // 실제 센서: expo-location(위치·나침반), expo-sensors(걸음 Pedometer, 기압 Barometer). 앞쪽(전경)에서만 씀.
 import * as Location from 'expo-location';
 import { Barometer, Pedometer } from 'expo-sensors';
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import type { SensorSources } from './sensors';
 
 const safe = async <T>(f: () => Promise<T>): Promise<T | null> => {
@@ -18,6 +18,22 @@ export async function hasLocationPermission(): Promise<boolean> {
 }
 export async function requestLocationPermission(): Promise<boolean> {
   return (await safe(async () => (await Location.requestForegroundPermissionsAsync()).status === 'granted')) ?? false;
+}
+
+/** 걸음(신체 활동) 권한: 처음 물을 때 왜 쓰는지 짧게 알린 뒤 시스템 창. 거부해도 길찾기는 됨. */
+async function stepsPermission(): Promise<boolean> {
+  const cur = await Pedometer.getPermissionsAsync();
+  if (cur.status === 'granted') return true;
+  if (!cur.canAskAgain) return false;
+  await new Promise<void>((done) =>
+    Alert.alert(
+      '걸음 수를 써도 될까요?',
+      '건물 안처럼 GPS 가 약한 곳에서 걸음 수로 내 위치를 길 위에 더 정확히 맞춰요. 걸음 기록은 기기 밖으로 보내지 않아요. 허용하지 않아도 길찾기는 돼요.',
+      [{ text: '계속', onPress: () => done() }],
+      { cancelable: true, onDismiss: () => done() },
+    ),
+  );
+  return (await Pedometer.requestPermissionsAsync()).status === 'granted';
 }
 
 export const expoSensors: SensorSources = {
@@ -47,7 +63,7 @@ export const expoSensors: SensorSources = {
   steps: (cb) =>
     safe(async () => {
       if (!(await Pedometer.isAvailableAsync())) return null;
-      if ((await Pedometer.requestPermissionsAsync()).status !== 'granted') return null;
+      if (!(await stepsPermission())) return null; // 거부하면 걸음 없이(위치·기압만)
       const sub = Pedometer.watchStepCount((r) => cb(r.steps));
       return () => sub.remove();
     }),

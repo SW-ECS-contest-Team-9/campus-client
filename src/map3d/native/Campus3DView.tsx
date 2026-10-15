@@ -27,6 +27,10 @@ const CAMPUS_GLB = require('../../../assets/3d/campus.glb');
 export interface Campus3DHandle {
   /** client3d 와 같은 명령(객체 또는 JSON 문자열) */
   post: (msg: unknown) => void;
+  /** 앱이 가진 지도 단추(campus-client 추가): 처음 시점, 층 펼치기(펼쳤으면 true), 내 위치로 */
+  home: () => void;
+  toggleExplode: () => boolean;
+  focusMe: () => void;
 }
 /** 장소 점(campus-client 추가): 꾸러미 장소, EPSG:5186. 누르면 pick(kind 'place', id). */
 export interface Campus3DPlace { id: string; name: string; x: number; y: number; z: number }
@@ -36,6 +40,8 @@ const labelWidth = (t: string) => Math.min(150, 14 + t.length * 13);
 export interface Campus3DProps {
   onEvent?: (e: PageEvent) => void;
   places?: Campus3DPlace[];
+  /** 위·아래를 앱 카드가 가리는 높이(dp). 보이는 부분 가운데로 장면을 맞춤 */
+  padding?: { top: number; bottom: number };
   /** 가벼운 모드: 선 끔 + 해상도 2/3 (tier 2) */
   light?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -57,7 +63,7 @@ async function loadGlb(): Promise<ArrayBuffer> {
   }
 }
 
-export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function Campus3DView({ onEvent, places, light = false, style, logFrames = false, onStats }, ref) {
+export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function Campus3DView({ onEvent, places, padding, light = false, style, logFrames = false, onStats }, ref) {
   const sceneRef = useRef<CampusScene | null>(null);
   const queue = useRef<unknown[]>([]);
   const handler = useRef(onEvent);
@@ -67,7 +73,8 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
   const [markers, setMarkers] = useState<{ ok: string | null; uncertain: string | null }>({ ok: null, uncertain: null });
   const [markerState, setMarkerState] = useState<'ok' | 'uncertain' | null>(null);
   const markerPos = useRef(new Animated.ValueXY({ x: -999, y: -999 })).current;
-  const scale = useRef(1);
+  const scale = useRef(PixelRatio.get());
+  const layoutSize = useRef<{ w: number; h: number } | null>(null);
 
   // ---------- 이름표(campus-client 추가): 건물 이름·장소 점·층 바뀜 글을 RN 으로 화면 위에. 화면에서 겹치면 뒤 순서를 뺌 ----------
   const [labels, setLabels] = useState<Label[]>([]);
@@ -85,6 +92,9 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
     if (!placeAnchors.current) placeAnchors.current = (placeList.current ?? []).map((pl) => ({ pl, p: sc.toScene(pl.x, pl.y, pl.z) }));
     if (!changeAnchors.current) changeAnchors.current = changes.current.filter((c) => c.label).map((c) => ({ label: c.label!, p: sc.toScene(c.at[0], c.at[1], Number.isFinite(c.at[2]) ? c.at[2] : null) }));
     const rects: number[][] = [];
+    // 캐릭터(현재 위치 그림 64 dp) 자리는 비워 둠
+    const me = sc.markerScreen();
+    if (me) rects.push([me.x / k - 32, me.y / k - 64, me.x / k + 32, me.y / k]);
     const out: Label[] = [];
     const pos: [string, number, number][] = [];
     const put = (l: Label, p: THREE.Vector3, h: number, below: number) => {
@@ -92,6 +102,9 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       if (!sp) return null;
       const x = sp.x / k, y = sp.y / k;
       const r = [x - l.w / 2, y - h + below, x + l.w / 2, y + below];
+      // 앱 카드가 가리는 위·아래 띠에는 이름표를 두지 않음
+      const H = layoutSize.current?.h ?? Infinity;
+      if (r[1] < (padRef.current?.top ?? 0) || r[3] > H - (padRef.current?.bottom ?? 0)) return null;
       if (rects.some((q) => r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1])) return null;
       rects.push(r); out.push(l); pos.push([l.key, x, y]);
       return { x, y };
@@ -115,12 +128,20 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
     if (sceneRef.current) sceneRef.current.command(msg);
     else queue.current.push(msg);
   }, []);
-  useImperativeHandle(ref, () => ({ post }), [post]);
+  const padRef = useRef(padding);
+  useEffect(() => { padRef.current = padding; labelsDirty.current = true; sceneRef.current?.setPadding((padding?.top ?? 0) * scale.current, (padding?.bottom ?? 0) * scale.current); }, [padding?.top, padding?.bottom]); // eslint-disable-line react-hooks/exhaustive-deps
+  useImperativeHandle(ref, () => ({
+    post,
+    home: () => sceneRef.current?.home(),
+    toggleExplode: () => sceneRef.current?.toggleExplode() ?? false,
+    focusMe: () => sceneRef.current?.focusMe(),
+  }), [post]);
 
   const onContextCreate = useCallback(async (gl: ExpoWebGLRenderingContext) => {
     const t0 = Date.now();
     try {
-      const k = light ? 2 / 3 : 1;
+      // campus-client: 가벼운 모드도 해상도는 그대로(TextureView 표면은 보기 크기라 작은 viewport 는 왼쪽 아래에만 그려짐). 선만 끔
+      const k = 1;
       const w = Math.round(gl.drawingBufferWidth * k), h = Math.round(gl.drawingBufferHeight * k);
       scale.current = (PixelRatio.get() * k);
       const canvas: any = { width: w, height: h, style: {}, clientWidth: w, clientHeight: h, addEventListener: () => {}, removeEventListener: () => {}, getContext: () => gl };
@@ -134,6 +155,9 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       const tAsset = Date.now();
       const scene = await createCampusScene({ renderer, width: w, height: h, glb, light, emit: (e) => handler.current?.(e) });
       sceneRef.current = scene;
+      // campus-client: 앱은 3D 보기 하나를 화면마다 다른 크기 자리로 옮김 → 보기 크기에 맞춰 다시 맞춤
+      if (layoutSize.current) scene.resize(Math.round(layoutSize.current.w * scale.current), Math.round(layoutSize.current.h * scale.current));
+      scene.setPadding((padRef.current?.top ?? 0) * scale.current, (padRef.current?.bottom ?? 0) * scale.current);
       for (const m of queue.current.splice(0)) scene.command(m);
       stat(`LOAD3D asset ${tAsset - t0} ms, scene ${Date.now() - tAsset} ms, total ${Date.now() - t0} ms, buffer ${w}x${h}`);
       let first = true;
@@ -205,7 +229,17 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
 
   const img = markerState === 'ok' ? markers.ok : markerState === 'uncertain' ? markers.uncertain : null;
   return (
-    <View style={[s.fill, style]} {...pan.panHandlers}>
+    <View
+      style={[s.fill, style]}
+      {...pan.panHandlers}
+      onLayout={(e) => {
+        const { width, height } = e.nativeEvent.layout;
+        if (!width || !height) return;
+        layoutSize.current = { w: width, h: height };
+        sceneRef.current?.resize(Math.round(width * scale.current), Math.round(height * scale.current));
+        labelsDirty.current = true;
+      }}
+    >
       <GLView style={s.fill} onContextCreate={onContextCreate} />
       {labels.map((l) => {
         const v = labelXY.get(l.key);

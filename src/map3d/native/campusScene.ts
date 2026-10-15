@@ -279,7 +279,7 @@ export async function createCampusScene(o: SceneOptions) {
   const rotate = (rad: number) => { cam.heading += rad; dirty(); };
   const tilt = (dy: number) => { cam.pitch += dy * 0.004; dirty(); };
 
-  function resize(w: number, h: number) { o.width = w; o.height = h; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false); dirty(); }
+  function resize(w: number, h: number) { o.width = w; o.height = h; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false); if (typeof applyPadding === 'function' && (pad.top || pad.bottom)) applyPadding(); dirty(); }
   /** 그릴 것이 있으면 그리고 true. 앱의 rAF 고리가 매 프레임 부름. */
   function frameTick() {
     if (!needs) return false;
@@ -308,11 +308,47 @@ export async function createCampusScene(o: SceneOptions) {
   /** EPSG:5186 → 장면 점(z 를 모르면 땅 높이) */
   const toScene = (x: number, y: number, z: number | null) => { const v = fromTm(x, y, z ?? 0); if (z === null || !Number.isFinite(z)) v.y = groundAt(v.x, v.z); return v; };
 
+  // ---------- 앱이 가진 지도 단추·가림(campus-client 추가) ----------
+  /** 화면 위·아래를 카드가 가릴 때(px): 보이는 부분 가운데가 장면 가운데가 되게 투영을 옮김 */
+  let pad = { top: 0, bottom: 0 };
+  function applyPadding() {
+    const d = pad.bottom - pad.top;
+    // 늘린 가상 화면(높이 h+|d|) 전체가 fov·aspect 를 가지고, 그중 실제 화면 부분만 그림 → 찌그러짐 없음
+    camera.aspect = o.width / (o.height + Math.abs(d));
+    if (!d) { camera.aspect = o.width / o.height; camera.clearViewOffset(); }
+    else camera.setViewOffset(o.width, o.height + Math.abs(d), 0, d > 0 ? d : 0, o.width, o.height);
+    dirty();
+  }
+  function setPadding(top: number, bottom: number) {
+    if (top === pad.top && bottom === pad.bottom) return;
+    pad = { top: Math.max(0, top), bottom: Math.max(0, bottom) };
+    applyPadding();
+  }
+  /** 층 펼치기: 펼쳐져 있으면 접고, 아니면 화면 가운데에서 가장 가까운(층 있는) 건물을 펼침. 펼쳤으면 true. */
+  function toggleExplode(): boolean {
+    if (floorState?.explode) { setFloorView(null, null, false); return false; }
+    let best: Building | null = null, bd = Infinity;
+    for (const b of buildings.values()) {
+      if (!b.floors.length || baseId(b.id) !== b.id) continue;
+      const c = new THREE.Box3().setFromObject(b.node).getCenter(new THREE.Vector3());
+      const d = Math.hypot(c.x - cam.target.x, c.z - cam.target.z);
+      if (d < bd) { bd = d; best = b; }
+    }
+    if (!best) return false;
+    command({ v: PROTOCOL_VERSION, type: 'setFloor', building: best.id, floor: null, explode: true });
+    return true;
+  }
+  /** 내 위치로(따라가기 다시) */
+  function focusMe() {
+    follow.paused = false;
+    if (loc) { cam.target.copy(here.position); cam.dist = Math.min(cam.dist, 170); dirty(); }
+  }
+
   resize(o.width, o.height);
   const info = () => ({ ...renderer.info.render, geometries: renderer.info.memory.geometries });
   emit({ type: 'ready', buildings: [...buildings.values()].filter((b) => baseId(b.id) === b.id).map((b) => ({ id: b.id, name: b.name })), light });
   return { command, frameTick, resize, pan, zoom, rotate, tilt, tap, home, markerScreen, info, resumeFollow: () => { follow.paused = false; },
-    buildingAnchors: () => anchors, screenOf, toScene, cameraDistance: () => cam.dist };
+    buildingAnchors: () => anchors, screenOf, toScene, cameraDistance: () => cam.dist, setPadding, toggleExplode, focusMe, exploded: () => !!floorState?.explode };
 }
 
 export type CampusScene = Awaited<ReturnType<typeof createCampusScene>>;

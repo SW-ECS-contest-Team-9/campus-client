@@ -160,7 +160,9 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       if (layoutSize.current) scene.resize(Math.round(layoutSize.current.w * scale.current), Math.round(layoutSize.current.h * scale.current));
       applyPad();
       for (const m of queue.current.splice(0)) scene.command(m);
-      stat(`LOAD3D asset ${tAsset - t0} ms, scene ${Date.now() - tAsset} ms, total ${Date.now() - t0} ms, buffer ${w}x${h}`);
+      // 그리기 버퍼 비트(R/G/B/A, 깊이, 스텐실) — expo-gl 이 고른 EGL 설정 확인용
+      const bits = [gl.RED_BITS, gl.GREEN_BITS, gl.BLUE_BITS, gl.ALPHA_BITS, gl.DEPTH_BITS, gl.STENCIL_BITS].map((p) => gl.getParameter(p)).join('/');
+      stat(`LOAD3D asset ${tAsset - t0} ms, scene ${Date.now() - tAsset} ms, total ${Date.now() - t0} ms, buffer ${w}x${h}, bits ${bits}`);
       let first = true;
       const frames: number[] = [];
       let lastLog = Date.now();

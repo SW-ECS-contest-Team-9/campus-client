@@ -137,14 +137,14 @@ export function WaveEdge({ color, height = 26, flip }: { color: string; height?:
 }
 
 const CHAR: Record<string, { still: ImageSourcePropType; moving?: ImageSourcePropType }> = {
-  arrive: { still: require('../../assets/characters/arrive.png'), moving: require('../../assets/characters/arrive.gif') },
-  noRoute: { still: require('../../assets/characters/no-route.png'), moving: require('../../assets/characters/no-route.gif') },
+  arrive: { still: require('../../assets/characters/arrive.png'), moving: require('../../assets/characters/arrive-anim.gif') },
+  noRoute: { still: require('../../assets/characters/no-route.png'), moving: require('../../assets/characters/no-route-anim.gif') },
   emptySearch: { still: require('../../assets/characters/empty-search.png') },
-  offline: { still: require('../../assets/characters/offline-pack.png'), moving: require('../../assets/characters/offline-pack.gif') },
-  loading: { still: require('../../assets/characters/loading.png'), moving: require('../../assets/characters/loading.gif') },
+  offline: { still: require('../../assets/characters/offline-pack.png'), moving: require('../../assets/characters/offline-pack-anim.gif') },
+  loading: { still: require('../../assets/characters/loading.png'), moving: require('../../assets/characters/loading-anim.gif') },
   uncertain: {
     still: require('../../assets/characters/location-uncertain.png'),
-    moving: require('../../assets/characters/location-uncertain.gif'),
+    moving: require('../../assets/characters/location-uncertain-anim.gif'),
   },
 };
 export type CharacterName = keyof typeof CHAR;

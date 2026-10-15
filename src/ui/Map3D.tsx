@@ -5,6 +5,7 @@ import { useFocusEffect } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurTargetView } from 'expo-blur';
 import { BlurTargetCtx } from './look';
 import { Character } from './v3';
@@ -214,6 +215,7 @@ export function MapSlot({
 }) {
   const api = useContext(ApiCtx);
   const status = useContext(StatusCtx);
+  const inset = useSafeAreaInsets();
   const id = useId();
   const ref = useRef<View | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
@@ -236,7 +238,8 @@ export function MapSlot({
       {status === 'failed' ? (
         <>
           {/* 알림은 지도 위에 겹치지 않고 위쪽 줄로(짧은 경로가 가려지던 문제) */}
-          <View style={s.notice}>
+          {/* 지도가 화면 맨 위까지 깔린 화면(홈)에서는 상태 표시줄 아래로 */}
+          <View style={[s.notice, rect && rect.y < inset.top ? { paddingTop: inset.top + 8 } : null]}>
             <Text style={s.noticeT}>3D 지도를 불러오지 못해 평면 지도로 보여요</Text>
           </View>
           <View style={s.fill}>

@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { getFix, nearestOutdoorNode, snapToNetwork } from '../location/location';
 import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
-import { Badge, Btn, Card, H, P, Screen, T } from '../ui/kit';
+import { Badge, Btn, Card, H, P, Screen } from '../ui/kit';
 
 export default function StartScreen() {
   const app = useApp();

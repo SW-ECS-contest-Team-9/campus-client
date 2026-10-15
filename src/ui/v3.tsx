@@ -65,7 +65,7 @@ export function Glass({
     <View
       style={[
         {
-          backgroundColor: dark ? glass.dark : strong ? glass.fillStrong : glass.fill,
+          backgroundColor: nativeBlur ? 'transparent' : dark ? glass.dark : strong ? glass.fillStrong : glass.fill,
           borderColor: dark ? glass.edgeDark : glass.edge,
           borderWidth: StyleSheet.hairlineWidth * 2,
           borderRadius: radius,
@@ -84,6 +84,10 @@ export function Glass({
           tint={dark ? 'dark' : 'light'}
           style={[StyleSheet.absoluteFill, { borderRadius: radius }]}
         />
+      ) : null}
+      {nativeBlur ? (
+        // 흐림 위 덮개: 글 대비 규칙(V3-3) 그대로 — 흰 0.86 / 남색 0.84(흐림이 있어도 뒤가 검정인 최악을 가정)
+        <View style={[StyleSheet.absoluteFill, { borderRadius: radius, backgroundColor: dark ? glass.dark : glass.fill }]} />
       ) : null}
       {children}
     </View>

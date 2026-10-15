@@ -56,7 +56,7 @@ export default function StartScreen() {
       <H>어디에서 출발하나요?</H>
       {msg ? <Badge tone="caution" text={msg} /> : null}
       <View style={s.map}>
-        <CampusMap pickPlaces={false} />
+        <CampusMap pickPlaces={false} minimal />
       </View>
       <Card>
         <P tone="muted">{st?.type === 'node' ? '현재 위치에서 출발' : st ? '사용자가 지정한 출발점' : '출발점을 골라 주세요'}</P>
@@ -69,6 +69,6 @@ export default function StartScreen() {
 }
 
 const s = StyleSheet.create({
-  map: { flex: 1, minHeight: 200, borderRadius: T.radius, overflow: 'hidden' },
+  map: { flex: 1, minHeight: 200, borderRadius: 28, borderBottomLeftRadius: 10, overflow: 'hidden' },
   two: { flexDirection: 'row', gap: 8 },
 });

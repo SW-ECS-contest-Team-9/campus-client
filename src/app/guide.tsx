@@ -7,6 +7,7 @@ import { routeCommand } from '../map3d/embed';
 import { minutes } from '../route/time';
 import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
+import { FloorCapsule } from '../ui/FloorCapsule';
 import { Btn, P, Screen, T } from '../ui/kit';
 import { Character, Gradient, Pulse, RouteDrawBar, WaveEdge } from '../ui/v3';
 import { gradient, shape } from '../ui/theme';
@@ -79,8 +80,10 @@ export default function GuideScreen() {
           commands={[cmd]}
           routeNodeKeys={r.nodeKeys}
           pickPlaces={false}
+          minimal
           overlay={
             <>
+              <FloorCapsule buildingKey={dest?.buildingKey} style={s.floors} />
               <WaveEdge color="#F0F2FE" flip height={16} />
               <WaveEdge color="#ECF1FE" height={16} />
             </>
@@ -98,6 +101,7 @@ export default function GuideScreen() {
 }
 
 const s = StyleSheet.create({
+  floors: { position: 'absolute', left: 12, right: 96, top: 14, alignSelf: 'flex-start' },
   now: {
     backgroundColor: gradient.deep[1],
     borderRadius: shape.card,

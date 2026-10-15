@@ -7,6 +7,7 @@ import { routeCommand } from '../map3d/embed';
 import { minutes } from '../route/time';
 import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
+import { FloorCapsule } from '../ui/FloorCapsule';
 import { Badge, Btn, P, Screen, T } from '../ui/kit';
 import { Glass, RouteDrawBar, WaveEdge } from '../ui/v3';
 import { Footprints } from 'lucide-react-native';
@@ -62,8 +63,10 @@ export default function PreviewScreen() {
           commands={[cmd]}
           routeNodeKeys={r.nodeKeys}
           pickPlaces={false}
+          minimal
           overlay={
             <>
+              <FloorCapsule buildingKey={dest?.buildingKey} style={s.floors} />
               <WaveEdge color="#F2F3FD" flip height={18} />
               <Glass style={s.sum}>
                 <View style={s.sumHead}>
@@ -108,6 +111,7 @@ export default function PreviewScreen() {
 }
 
 const s = StyleSheet.create({
+  floors: { position: 'absolute', left: 12, right: 96, top: 14, alignSelf: 'flex-start' },
   map: { flex: 1, marginHorizontal: -T.margin },
   sum: { position: 'absolute', left: 16, right: 16, bottom: 16, padding: 18, gap: 8 },
   sumHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },

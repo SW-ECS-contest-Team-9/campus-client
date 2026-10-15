@@ -1,9 +1,9 @@
 // ST01 저장되지 않은 지도: 서버에서 지도를 받은 적이 없어 앱에 들어 있는 개발 지도를 쓰는 중.
 import { router } from 'expo-router';
-import { WifiOff } from 'lucide-react-native';
 import { Text } from 'react-native';
 import { useApp } from '../state/AppState';
 import { Btn, Card, H, P, Screen, T } from '../ui/kit';
+import { Character } from '../ui/v3';
 
 export default function UnsavedScreen() {
   const app = useApp();
@@ -17,7 +17,7 @@ export default function UnsavedScreen() {
         </>
       }
     >
-      <WifiOff size={34} color={T.caution} style={{ marginTop: 8 }} />
+      <Character name="offline" size={96} />
       <H>캠퍼스 지도를{'\n'}아직 받지 않았어요.</H>
       <P>지금은 앱에 들어 있는 개발용 지도(v{app.pkg?.release.version})를 쓰고 있어요. 인터넷에 연결해 최신 지도를 받아 주세요.</P>
       <Card>

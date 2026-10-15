@@ -63,7 +63,6 @@ export default function Home() {
                     서경대 캠퍼스 길찾기
                   </Text>
                 </Glass>
-                <IconButton icon={Settings} label="설정" onPress={() => router.push('/settings')} />
               </View>
               <SearchInput onPress={() => router.push('/search')} />
               {locMsg ? (
@@ -90,6 +89,7 @@ export default function Home() {
               <View style={s.sheet}>
                 <View style={s.sheetHead}>
                   <Text style={s.sheetT}>어디로 갈까요?</Text>
+                  <IconButton icon={Settings} label="설정" onPress={() => router.push('/settings')} style={s.settings} />
                   <PressScale accessibilityLabel="장소 찾기" onPress={() => router.push('/search')} style={s.findBtn}>
                     <Gradient angle="right" />
                     <Search size={18} color={color.onPrimary} strokeWidth={2.4} />
@@ -136,8 +136,9 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: T.canvas },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: T.canvas },
   loadingT: { fontSize: T.small, color: T.sub, fontWeight: '600' },
-  top: { position: 'absolute', left: 16, right: 16, top: 0, gap: 10 },
-  brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  // 오른쪽 위 88 dp 는 3D 페이지 자체 단추(처음 시점·층 펼치기) 자리라 비움
+  top: { position: 'absolute', left: 16, right: 92, top: 0, gap: 10 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 9 },
   brandDot: { width: 12, height: 12, borderRadius: 6, overflow: 'hidden' },
   brandT: { color: '#FFFFFF', fontSize: T.small, fontWeight: '800', letterSpacing: -0.2 },
@@ -145,7 +146,8 @@ const s = StyleSheet.create({
   locate: { position: 'absolute', left: 16 },
   sheet: { paddingHorizontal: 20, gap: 14 },
   sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  sheetT: { fontSize: T.title, fontWeight: '800', color: T.text, letterSpacing: -0.5, flexShrink: 1 },
+  sheetT: { fontSize: T.title - 2, fontWeight: '800', color: T.text, letterSpacing: -0.5, flex: 1 },
+  settings: { shadowOpacity: 0, elevation: 0, borderColor: 'rgba(49,46,129,0.10)' },
   findBtn: {
     flexDirection: 'row',
     alignItems: 'center',

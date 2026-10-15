@@ -183,7 +183,7 @@ export function Character({
   );
 }
 
-/** 내용이 서서히 나타남(화면 전환 단서). 동작 줄이기면 그냥 보임. */
+/** 내용이 서서히 나타남(화면 전환 단서). 동작 줄이기면 그냥 보임. 위치 이동은 넣지 않음: 3D 지도 자리 재기(measureInWindow)가 어긋나서. */
 export function Appear({ children, delay = 0, style }: { children: ReactNode; delay?: number; style?: StyleProp<ViewStyle> }) {
   const look = useLook();
   return (

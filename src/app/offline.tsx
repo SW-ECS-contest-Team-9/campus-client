@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../state/AppState';
 import { MapPackCard } from '../ui/components';
 import { Btn, Card, H, P, Screen, T, TabBar } from '../ui/kit';
+import { Character } from '../ui/v3';
 
 export default function OfflineScreen() {
   const app = useApp();
@@ -17,7 +18,12 @@ export default function OfflineScreen() {
     <View style={{ flex: 1 }}>
       <Screen title="오프라인 지도" back={false}>
         <H>인터넷 없이도{'\n'}저장한 범위에서 길찾기</H>
-        <P tone="muted">저장된 지도 안의 장소와 길만 안내해요.</P>
+        <View style={s.hero}>
+          <View style={{ flex: 1 }}>
+            <P tone="muted">저장된 지도 안의 장소와 길만 안내해요.</P>
+          </View>
+          <Character name="offline" size={72} style={s.char} />
+        </View>
         <MapPackCard
           state={l.source === 'fixture' ? 'queued' : 'stored'}
           title={`캠퍼스 지도 v${pkg.release.version}`}
@@ -46,4 +52,6 @@ export default function OfflineScreen() {
 
 const s = StyleSheet.create({
   t: { fontSize: T.body, fontWeight: '800', color: T.text },
+  hero: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  char: { marginVertical: -12 },
 });

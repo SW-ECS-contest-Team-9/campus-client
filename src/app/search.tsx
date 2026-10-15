@@ -1,19 +1,49 @@
 // CT02 장소 검색. mode=start 면 고른 장소를 출발점으로(CT04 로 돌아감), 아니면 장소 상세(CT03)로.
+// 문장도 받음(자연어 경로 요청, 규칙 방식 A): "짐이 많아서 계단 없이 북악관 편의점" → 알아들은 것 + 되물음 또는 경로 옵션으로.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Building, Search } from 'lucide-react-native';
+import { Building, MessageCircleQuestion, Search } from 'lucide-react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { startNodeForFix } from '../location/fix';
+import { describe as describeRequest, planFromRequest } from '../nlp/apply';
+import { buildLexicon } from '../nlp/lexicon';
+import { parseRouteRequest } from '../nlp/parse';
+import type { RouteRequest } from '../nlp/types';
 import { searchPlaces } from '../search/search';
 import { placeSubtitle, useApp } from '../state/AppState';
 import { SearchInput } from '../ui/components';
-import { Badge, Card, P, Row, Screen, Section } from '../ui/kit';
+import { Badge, Btn, Card, P, Row, Screen, Section, T } from '../ui/kit';
+import { shape } from '../ui/theme';
 import { Character } from '../ui/v3';
-import { View } from 'react-native';
+
+/** 장소 이름 검색이 아니라 길찾기 문장인가(띄어 쓴 말이거나 조건·출발지·지원 안 함이 있음). */
+function isSentence(q: string, r: RouteRequest): boolean {
+  return (
+    /\s/.test(q.trim()) ||
+    r.mandatory.length > 0 ||
+    r.preferences.length > 0 ||
+    r.mode !== 'shortest' ||
+    r.unsupported.length > 0 ||
+    r.waypoints.length > 0 ||
+    r.timeLimitMin != null ||
+    !r.origin.useCurrentLocation
+  );
+}
 
 export default function SearchScreen() {
   const params = useLocalSearchParams<{ q?: string; mode?: string }>();
   const app = useApp();
   const [q, setQ] = useState(params.q ?? '');
-  const hits = useMemo(() => (app.pkg ? searchPlaces(app.pkg, q) : []), [app.pkg, q]);
+  // 되물음에서 고른 후보를 반영한 요청(같은 문장일 때만)
+  const [picked, setPicked] = useState<{ text: string; req: RouteRequest } | null>(null);
+  const pkg = app.pkg;
+  const hits = useMemo(() => (pkg ? searchPlaces(pkg, q) : []), [pkg, q]);
+  const lex = useMemo(() => (pkg ? buildLexicon(pkg) : null), [pkg]);
+  const parsed = useMemo(() => (pkg && lex && q.trim().length >= 2 ? parseRouteRequest(q, pkg, lex) : null), [pkg, lex, q]);
+  const req = picked && picked.text === q ? picked.req : parsed;
+  const sentence = params.mode !== 'start' && !!req && isSentence(q, req);
+  const plan = useMemo(() => (pkg && req && sentence ? planFromRequest(req, pkg) : null), [pkg, req, sentence]);
+
   const pick = (key: string) => {
     if (q.trim()) app.addRecentSearch(q.trim());
     if (params.mode === 'start') {
@@ -21,17 +51,84 @@ export default function SearchScreen() {
       router.back();
     } else router.push({ pathname: '/place/[key]', params: { key } });
   };
+  // 알아들은 조건을 채워 경로 옵션으로. 필수 조건은 앱 상태에 남아 경로 계산의 하드 필터가 됨.
+  const go = () => {
+    if (!pkg || !req || plan?.kind !== 'go') return;
+    app.addRecentSearch(q.trim());
+    app.setNlp({ text: q.trim(), chips: describeRequest(req, pkg), notes: plan.notes, mandatory: plan.mandatory });
+    app.setDestKey(plan.destKey);
+    app.setCondition(plan.condition);
+    if (plan.origin.type === 'place') app.setStart({ type: 'place', placeKey: plan.origin.placeKey });
+    else {
+      const f = app.fix;
+      const n = f && !f.uncertain ? startNodeForFix(pkg, f) : null;
+      app.setStart(n ? { type: 'node', nodeKey: n.key, label: '현재 위치' } : null);
+    }
+    router.push('/options');
+  };
   const sub = (key: string, nodeKey: string | null) =>
-    `${app.pkg ? placeSubtitle(app.pkg, key) : ''}${nodeKey ? '' : ' · 길에 붙지 않아 길찾기 불가'}`;
+    `${pkg ? placeSubtitle(pkg, key) : ''}${nodeKey ? '' : ' · 길에 붙지 않아 길찾기 불가'}`;
   const offline = app.loaded?.source !== 'server';
   return (
     <Screen title={params.mode === 'start' ? '출발 장소 고르기' : '장소 검색'}>
-      <SearchInput value={q} onChangeText={setQ} autoFocus={!params.q} returnKeyType="search" accessibilityLabel="검색어" />
+      <SearchInput
+        value={q}
+        onChangeText={setQ}
+        autoFocus={!params.q}
+        returnKeyType="search"
+        accessibilityLabel="검색어 또는 길찾기 문장"
+        placeholder={params.mode === 'start' ? undefined : '장소 이름 또는 "계단 없이 북악관 편의점"'}
+        onSubmitEditing={() => plan?.kind === 'go' && go()}
+      />
       <Badge
         tone={offline ? 'offline' : 'primary'}
-        text={`${offline ? '저장된 지도에서 검색 중' : '방금 받은 지도에서 검색 중'} · 지도 v${app.pkg?.release.version}`}
+        text={`${offline ? '저장된 지도에서 검색 중' : '방금 받은 지도에서 검색 중'} · 지도 v${pkg?.release.version}`}
       />
-      {q ? <Section>검색 결과 {hits.length}</Section> : null}
+      {sentence && req && pkg && plan ? (
+        <Card tone="primary" style={s.nlp}>
+          <View style={s.head}>
+            <MessageCircleQuestion size={18} color={T.primary} />
+            <Text style={s.headT}>이렇게 알아들었어요</Text>
+          </View>
+          <View style={s.chips}>
+            {describeRequest(req, pkg).map((c) => (
+              <View key={c} style={[s.chip, c.startsWith('필수') && s.chipMust]}>
+                <Text style={[s.chipT, c.startsWith('필수') && s.chipMustT]}>{c}</Text>
+              </View>
+            ))}
+          </View>
+          {req.unsupported.length ? (
+            <P tone="caution">
+              {req.unsupported
+                .map((u) => `${u.text}: ${u.reason}`)
+                .filter((x, i, a) => a.indexOf(x) === i)
+                .join(' · ')}
+            </P>
+          ) : null}
+          {plan.kind === 'ask' ? (
+            <>
+              <Text style={s.q} accessibilityLiveRegion="polite">
+                {plan.question}
+              </Text>
+              {plan.choices.map((c) => (
+                <Btn key={c.label} kind="soft" label={c.label} onPress={() => setPicked({ text: q, req: c.apply(req) })} />
+              ))}
+            </>
+          ) : (
+            <>
+              {plan.notes
+                .filter((n) => !req.unsupported.some((u) => n.startsWith(u.text)))
+                .map((n) => (
+                  <P key={n} tone="muted">
+                    {n}
+                  </P>
+                ))}
+              <Btn label="이 조건으로 경로 보기" onPress={go} />
+            </>
+          )}
+        </Card>
+      ) : null}
+      {q && hits.length ? <Section>장소 {hits.length}</Section> : null}
       {hits.map((h) => (
         <Row
           key={h.place.key}
@@ -43,7 +140,7 @@ export default function SearchScreen() {
       ))}
       {!q && app.recentSearches.length ? <Section>최근 검색</Section> : null}
       {!q ? app.recentSearches.map((r) => <Row key={r} icon={Search} title={r} onPress={() => setQ(r)} />) : null}
-      {q && !hits.length ? (
+      {q && !hits.length && !sentence ? (
         <Card tone="primary" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Character name="emptySearch" size={84} />
           <View style={{ flex: 1, gap: 4 }}>
@@ -55,3 +152,15 @@ export default function SearchScreen() {
     </Screen>
   );
 }
+
+const s = StyleSheet.create({
+  nlp: { gap: 10 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  headT: { fontSize: T.small, fontWeight: '800', color: T.primary },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { borderRadius: shape.pill, backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 6 },
+  chipT: { fontSize: T.caption + 1, fontWeight: '700', color: T.text },
+  chipMust: { backgroundColor: T.primary },
+  chipMustT: { color: '#FFFFFF' },
+  q: { fontSize: T.body, fontWeight: '800', color: T.text },
+});

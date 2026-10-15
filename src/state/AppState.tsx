@@ -15,6 +15,8 @@ import * as Device from 'expo-device';
 import { AppState as RNAppState, InteractionManager, Platform } from 'react-native';
 import { adjustForFirst3d, chooseTier, type DeviceTier } from '../ui/tier';
 import type { Map3dEngine } from '../ui/Map3D';
+import { effectiveCondition } from '../nlp/apply';
+import type { Mandatory } from '../nlp/types';
 
 const fixture = fixtureJson as unknown as MapPackage;
 
@@ -62,6 +64,12 @@ export interface ConfirmedFloor {
   buildingKey: string;
   floorKey: string;
 }
+export interface NlpState {
+  text: string;
+  chips: string[];
+  notes: string[];
+  mandatory: Mandatory[];
+}
 export type StartPoint = { type: 'place'; placeKey: string } | { type: 'node'; nodeKey: string; label: string };
 
 const SETTINGS_KEY = 'settings.v1';
@@ -101,8 +109,12 @@ interface AppState {
   setStart: (s: StartPoint | null) => void;
   destKey: string | null;
   setDestKey: (k: string | null) => void;
+  /** 경로 조건(말로 정한 필수 조건이 있으면 그것이 앞섬: 계단 없이 = 계단 피하기) */
   condition: RouteCondition;
   setCondition: (c: RouteCondition) => void;
+  /** 말로 요청한 길찾기(검색창 문장): 알아들은 것·알림·필수 조건. 필수 조건은 사용자가 직접 풀 때만 없어짐. */
+  nlp: NlpState | null;
+  setNlp: (n: NlpState | null) => void;
   route: RouteResult | null;
   startNodeKey: string | null;
   /** 현재 위치(위치 보정 v2 로 통로 위에 끌린 점). 센서가 켜져 있으면 계속 바뀜. */
@@ -130,7 +142,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [updateStatus, setUpdateStatus] = useState<string | null>(null);
   const [start, setStart] = useState<StartPoint | null>(null);
   const [destKey, setDestKey] = useState<string | null>(null);
-  const [condition, setCondition] = useState<RouteCondition>('shortest');
+  const [baseCondition, setCondition] = useState<RouteCondition>('shortest');
+  const [nlp, setNlp] = useState<NlpState | null>(null);
+  const condition = effectiveCondition(baseCondition, nlp?.mandatory ?? []);
   const [fix, setFix] = useState<Fix | null>(null);
   const [floorSel, setFloorSel] = useState<Record<string, string>>({});
   const [tracker, setTracker] = useState<Tracker | null>(null);
@@ -322,6 +336,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDestKey,
     condition,
     setCondition,
+    nlp,
+    setNlp,
     route,
     startNodeKey,
     fix,

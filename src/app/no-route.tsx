@@ -27,6 +27,8 @@ export default function NoRouteScreen() {
     else if (a === 'nearby_dest') router.replace({ pathname: '/search', params: building ? { q: building } : {} });
     else if (a === 'arrive') router.replace('/arrive');
     else {
+      // 사용자가 직접 "계단 허용"을 고름 → 말로 정한 필수 조건(계단 없이)도 함께 풂
+      if (app.nlp?.mandatory.length) app.setNlp({ ...app.nlp, mandatory: [] });
       app.setCondition('shortest');
       router.replace('/options');
     }

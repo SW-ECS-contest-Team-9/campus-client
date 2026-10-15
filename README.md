@@ -9,15 +9,15 @@
 
 ## 사용 도구
 
-| 구분 | 도구 |
-|---|---|
-| 앱 | React Native, Expo(개발 빌드), expo-router, TypeScript |
-| 3D 지도 | expo-gl, three.js (캠퍼스 모델을 glTF 로 내보내 기기에서 그림), 대체로 react-native-webview |
-| 센서·위치 | expo-location, expo-sensors(기압·걸음) |
-| 기기 안 AI | 규칙 기반 자연어 조건 추출, 위치 보정 모델(TS), llama.rn(Gemma 270M, 실험) |
-| UI | react-native-reanimated, react-native-gesture-handler, expo-blur, lucide-react-native |
-| 품질 | vitest, ESLint, Prettier, simple-git-hooks, GitHub Actions |
-| 대상 기기 | Android(갤럭시 S21 이상 기준, 구형 등급별 지원), iOS 는 같은 코드로 빌드 |
+| 구분       | 도구                                                                                        |
+| ---------- | ------------------------------------------------------------------------------------------- |
+| 앱         | React Native, Expo(개발 빌드), expo-router, TypeScript                                      |
+| 3D 지도    | expo-gl, three.js (캠퍼스 모델을 glTF 로 내보내 기기에서 그림), 대체로 react-native-webview |
+| 센서·위치  | expo-location, expo-sensors(기압·걸음)                                                      |
+| 기기 안 AI | 규칙 기반 자연어 조건 추출, 위치 보정 모델(TS), llama.rn(Gemma 270M, 실험)                  |
+| UI         | react-native-reanimated, react-native-gesture-handler, expo-blur, lucide-react-native       |
+| 품질       | vitest, ESLint, Prettier, simple-git-hooks, GitHub Actions                                  |
+| 대상 기기  | Android(갤럭시 S21 이상 기준, 구형 등급별 지원), iOS 는 같은 코드로 빌드                    |
 
 ## 브랜치와 PR
 

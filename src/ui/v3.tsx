@@ -1,0 +1,303 @@
+// V3 시각 부품: 그라데이션, 유리 면, 물결 머리, 끄는 시트, 캐릭터, 경로 그리기 막대.
+// 원칙 번호는 백엔드/디자인 "V3 디자인 방향"(V3-1~11). 토큰은 theme.ts.
+import { useEffect, useId, useState, type ReactNode } from 'react';
+import { Image, Platform, StyleSheet, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import { elevation, glass, gradient, motion, shape } from './theme';
+
+/** 흐림 켜기: 웹만 기본 켬(V3-10). 측정용으로 globalThis.__glassBlur = false 로 끔. */
+export function blurOn(): boolean {
+  const g = (globalThis as { __glassBlur?: boolean }).__glassBlur;
+  return Platform.OS === 'web' && g !== false;
+}
+
+/** 칸을 채우는 선형 그라데이션(SVG). 모서리는 부모 overflow/borderRadius 로. */
+export function Gradient({
+  colors = gradient.brand,
+  angle = 'diag',
+  style,
+  opacity = 1,
+}: {
+  colors?: readonly string[];
+  angle?: 'diag' | 'down' | 'right';
+  style?: StyleProp<ViewStyle>;
+  opacity?: number;
+}) {
+  const id = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const [x2, y2] = angle === 'down' ? ['0', '1'] : angle === 'right' ? ['1', '0'] : ['1', '1'];
+  return (
+    <View style={[StyleSheet.absoluteFill, style]} pointerEvents="none">
+      <Svg width="100%" height="100%" preserveAspectRatio="none">
+        <Defs>
+          <LinearGradient id={id} x1="0" y1="0" x2={x2} y2={y2}>
+            {colors.map((c, i) => (
+              <Stop key={i} offset={colors.length === 1 ? 0 : i / (colors.length - 1)} stopColor={c} stopOpacity={opacity} />
+            ))}
+          </LinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
+      </Svg>
+    </View>
+  );
+}
+
+/** 유리 면(V3-2·3): 반투명 흰(또는 남색) + 밝은 테두리 + 그림자, 웹은 뒤 흐림. */
+export function Glass({
+  children,
+  style,
+  dark,
+  strong,
+  radius = shape.card,
+}: {
+  children?: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  dark?: boolean;
+  strong?: boolean;
+  radius?: number;
+}) {
+  const blur = blurOn() ? ({ backdropFilter: `blur(${glass.blur}px) saturate(160%)` } as unknown as ViewStyle) : null;
+  return (
+    <View
+      style={[
+        {
+          backgroundColor: dark ? glass.dark : strong ? glass.fillStrong : glass.fill,
+          borderColor: dark ? glass.edgeDark : glass.edge,
+          borderWidth: StyleSheet.hairlineWidth * 2,
+          borderRadius: radius,
+        },
+        elevation.float,
+        blur,
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
+
+/** 머리 덩어리(V3-5): 브랜드 그라데이션, 아래 가장자리가 비대칭 물결. 높이 = 내용 + 물결. */
+export function WaveHeader({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const id = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const [w, setW] = useState(360);
+  const [h, setH] = useState(120);
+  const W = shape.wave;
+  // 왼쪽은 깊게, 오른쪽은 얕게 내려오는 물결(대칭 아님)
+  const d = `M0 0 H${w} V${h - W * 0.55} C${w * 0.78} ${h - W * 1.25}, ${w * 0.56} ${h + W * 0.1}, ${w * 0.34} ${h - W * 0.35} S${w * 0.08} ${h - W * 0.2}, 0 ${h} Z`;
+  return (
+    <View
+      style={[{ paddingBottom: W }, style]}
+      onLayout={(e) => {
+        setW(Math.round(e.nativeEvent.layout.width));
+        setH(Math.round(e.nativeEvent.layout.height));
+      }}
+    >
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Svg width="100%" height="100%">
+          <Defs>
+            <LinearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor={gradient.brand[0]} />
+              <Stop offset="0.6" stopColor={gradient.brand[1]} />
+              <Stop offset="1" stopColor={gradient.brand[2]} />
+            </LinearGradient>
+          </Defs>
+          <Path d={d} fill={`url(#${id})`} />
+          {/* 빛 방울(장식) */}
+          <Path d={`M${w * 0.72} -20 a${w * 0.32} ${w * 0.32} 0 1 0 1 0 Z`} fill="#FFFFFF" fillOpacity={0.08} />
+        </Svg>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+/** 지도 아래 가장자리를 바탕색 물결로 끊음(지도와 내용 사이를 사각 대신 곡선으로, V3-5). */
+export function WaveEdge({ color, height = 26, flip }: { color: string; height?: number; flip?: boolean }) {
+  return (
+    <View pointerEvents="none" style={[s.edge, { height }, flip ? { top: 0, transform: [{ scaleY: -1 }] } : { bottom: 0 }]}>
+      <Svg width="100%" height="100%" viewBox="0 0 360 26" preserveAspectRatio="none">
+        <Path d="M0 26 V12 C70 -2 120 22 190 14 S310 0 360 10 V26 Z" fill={color} />
+      </Svg>
+    </View>
+  );
+}
+
+const CHAR: Record<string, { still: ImageSourcePropType; moving?: ImageSourcePropType }> = {
+  arrive: { still: require('../../assets/characters/arrive.png'), moving: require('../../assets/characters/arrive.gif') },
+  noRoute: { still: require('../../assets/characters/no-route.png'), moving: require('../../assets/characters/no-route.gif') },
+  emptySearch: { still: require('../../assets/characters/empty-search.png') },
+  offline: { still: require('../../assets/characters/offline-pack.png'), moving: require('../../assets/characters/offline-pack.gif') },
+  loading: { still: require('../../assets/characters/loading.png'), moving: require('../../assets/characters/loading.gif') },
+  uncertain: {
+    still: require('../../assets/characters/location-uncertain.png'),
+    moving: require('../../assets/characters/location-uncertain.gif'),
+  },
+};
+export type CharacterName = keyof typeof CHAR;
+
+/** 상태 캐릭터(V3-9): 작게, 장식(화면 읽기 숨김), 등장은 아래에서 살짝. 동작 줄이기면 정지 그림·움직임 없음. */
+export function Character({
+  name,
+  size = 96,
+  animated = true,
+  style,
+}: {
+  name: CharacterName;
+  size?: number;
+  animated?: boolean;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const reduce = useReducedMotion();
+  const c = CHAR[name];
+  const src = animated && !reduce && c.moving ? c.moving : c.still;
+  return (
+    <Animated.View
+      entering={reduce ? undefined : FadeInDown.duration(motion.slow).springify().damping(16)}
+      style={style}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      pointerEvents="none"
+    >
+      <Image source={src} style={{ width: size, height: size }} resizeMode="contain" />
+    </Animated.View>
+  );
+}
+
+/** 내용이 서서히 나타남(화면 전환 단서). 동작 줄이기면 그냥 보임. */
+export function Appear({ children, delay = 0, style }: { children: ReactNode; delay?: number; style?: StyleProp<ViewStyle> }) {
+  const reduce = useReducedMotion();
+  return (
+    <Animated.View entering={reduce ? undefined : FadeInDown.delay(delay).duration(motion.base)} style={style}>
+      {children}
+    </Animated.View>
+  );
+}
+
+/** 경로 그리기 진행(V3-7): 그라데이션 막대가 0 → progress 로 차오름. 동작 줄이기면 바로. */
+export function RouteDrawBar({ progress = 1, height = 6 }: { progress?: number; height?: number }) {
+  const reduce = useReducedMotion();
+  const v = useSharedValue(reduce ? progress : 0);
+  useEffect(() => {
+    v.value = reduce ? progress : withTiming(progress, { duration: motion.draw, easing: Easing.out(Easing.cubic) });
+  }, [progress, reduce, v]);
+  const st = useAnimatedStyle(() => ({ width: `${Math.max(0, Math.min(1, v.value)) * 100}%` }));
+  return (
+    <View style={[s.track, { height, borderRadius: height }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Animated.View style={[{ height, borderRadius: height, overflow: 'hidden' }, st]}>
+        <Gradient angle="right" />
+      </Animated.View>
+    </View>
+  );
+}
+
+/** 짧은 맥박(층 바뀜 신호 등, V3-7). key 가 바뀔 때마다 한 번. */
+export function Pulse({ trigger, children, style }: { trigger: unknown; children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const reduce = useReducedMotion();
+  const sc = useSharedValue(1);
+  useEffect(() => {
+    if (reduce) return;
+    sc.value = 0.9;
+    sc.value = withSpring(1, { damping: 9, stiffness: 260 });
+  }, [trigger, reduce, sc]);
+  const st = useAnimatedStyle(() => ({ transform: [{ scale: sc.value }] }));
+  return <Animated.View style={[st, style]}>{children}</Animated.View>;
+}
+
+/**
+ * 끄는 시트(V3-6): 지도 위에 떠 있고, snaps(위에서 잰 보이는 높이, 작은 것부터) 사이를 스프링으로 붙음.
+ * 손잡이는 단추(누르면 다음 멈춤). 시트 밖 지도는 계속 조작됨(비모달).
+ */
+export function Sheet({
+  snaps,
+  initial = 0,
+  children,
+  bottomOffset = 0,
+  onSnap,
+}: {
+  snaps: number[];
+  initial?: number;
+  children: ReactNode;
+  bottomOffset?: number;
+  onSnap?: (i: number) => void;
+}) {
+  const reduce = useReducedMotion();
+  const max = snaps[snaps.length - 1];
+  const toY = (i: number) => max - snaps[i];
+  const y = useSharedValue(toY(initial));
+  const start = useSharedValue(0);
+  const [at, setAt] = useState(initial);
+  const go = (i: number) => {
+    'worklet';
+    const t = max - snaps[i];
+    y.value = reduce ? withTiming(t, { duration: 0 }) : withSpring(t, motion.sheetSpring);
+  };
+  const report = (i: number) => {
+    setAt(i);
+    onSnap?.(i);
+  };
+  const pan = Gesture.Pan()
+    .activeOffsetY([-8, 8])
+    .onStart(() => {
+      start.value = y.value;
+    })
+    .onUpdate((e) => {
+      y.value = Math.max(-12, Math.min(max - snaps[0] + 24, start.value + e.translationY));
+    })
+    .onEnd((e) => {
+      const proj = y.value + e.velocityY * 0.12;
+      let best = 0;
+      for (let i = 1; i < snaps.length; i++) if (Math.abs(max - snaps[i] - proj) < Math.abs(max - snaps[best] - proj)) best = i;
+      go(best);
+      scheduleOnRN(report, best);
+    });
+  const st = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
+  const next = () => {
+    const i = (at + 1) % snaps.length;
+    go(i);
+    report(i);
+  };
+  const tap = Gesture.Tap().onEnd(() => {
+    scheduleOnRN(next);
+  });
+  return (
+    <Animated.View style={[s.sheet, { height: max + 24, bottom: bottomOffset - 24 }, st]}>
+      <Glass strong radius={shape.sheetTop} style={s.sheetIn}>
+        <GestureDetector gesture={Gesture.Exclusive(pan, tap)}>
+          <View
+            style={s.grab}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={at === snaps.length - 1 ? '시트 접기' : '시트 펼치기'}
+            accessibilityActions={[{ name: 'activate' }]}
+            onAccessibilityAction={next}
+          >
+            <View style={s.grabBar} />
+          </View>
+        </GestureDetector>
+        <Animated.View entering={reduce ? undefined : FadeIn.duration(motion.base)} style={{ flex: 1 }}>
+          {children}
+        </Animated.View>
+      </Glass>
+    </Animated.View>
+  );
+}
+
+const s = StyleSheet.create({
+  edge: { position: 'absolute', left: 0, right: 0 },
+  track: { backgroundColor: 'rgba(79,70,229,0.12)', overflow: 'hidden' },
+  sheet: { position: 'absolute', left: 0, right: 0 },
+  sheetIn: { flex: 1, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, paddingBottom: 24 },
+  grab: { height: 28, alignItems: 'center', justifyContent: 'center' },
+  grabBar: { width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(20,34,53,0.22)' },
+});

@@ -1,6 +1,7 @@
 import { router, Stack } from 'expo-router';
 import type React from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { pageUrl } from '../map3d/embed';
 import { AppProvider, useApp } from '../state/AppState';
@@ -11,14 +12,23 @@ if (__DEV__) (globalThis as { __router?: typeof router }).__router = router; // 
 
 export default function RootLayout() {
   return (
-    <SafeAreaProvider>
-      <AppProvider>
-        <StatusBar style="dark" />
-        <Shared3D>
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F6F8FB' } }} />
-        </Shared3D>
-      </AppProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <AppProvider>
+          <StatusBar style="dark" />
+          <Shared3D>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: '#F6F8FB' },
+                animation: 'fade_from_bottom',
+                animationDuration: 240,
+              }}
+            />
+          </Shared3D>
+        </AppProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

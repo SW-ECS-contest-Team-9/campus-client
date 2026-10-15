@@ -29,7 +29,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { color, ICON, radius, space, type } from './theme';
+import { color, elevation, glass, gradient, ICON, motion, radius, shape, space, type } from './theme';
+import { Gradient } from './v3';
 
 export { color, ICON, radius, space, type } from './theme';
 
@@ -79,7 +80,7 @@ export function PressScale({
   const [pressed, setPressed] = useState(false);
   const to = (v: number) => {
     if (reduce) return;
-    Animated.timing(scale, { toValue: v, duration: 100, useNativeDriver: Platform.OS !== 'web' }).start();
+    Animated.timing(scale, { toValue: v, duration: motion.press, useNativeDriver: Platform.OS !== 'web' }).start();
   };
   return (
     <AnimatedPressable
@@ -91,7 +92,7 @@ export function PressScale({
       accessibilityState={{ disabled: !!disabled, ...accessibilityState }}
       onPressIn={() => {
         setPressed(true);
-        to(0.97);
+        to(motion.pressScale);
       }}
       onPressOut={() => {
         setPressed(false);
@@ -148,10 +149,20 @@ export function Button({
       disabled={disabled || loading}
       accessibilityLabel={label}
       accessibilityState={{ busy: !!loading }}
-      style={(p) => [b.btn, { minHeight: size === 'large' ? 52 : space[48], backgroundColor: bg(p) }, style]}
+      style={(p) => [
+        b.btn,
+        { minHeight: size === 'large' ? 52 : space[48], backgroundColor: variant === 'primary' && !off ? color.primary : bg(p) },
+        variant === 'primary' && !off && elevation.low,
+        style,
+      ]}
     >
-      {Lead ? <Lead size={ICON} color={fg} strokeWidth={2} /> : null}
-      <Text style={[b.btnT, { color: fg }]}>{label}</Text>
+      {(p: boolean) => (
+        <>
+          {variant === 'primary' && !off ? <Gradient colors={p ? gradient.brandPressed : gradient.brand} angle="right" /> : null}
+          {Lead ? <Lead size={ICON} color={fg} strokeWidth={2} /> : null}
+          <Text style={[b.btnT, { color: fg }]}>{label}</Text>
+        </>
+      )}
     </PressScale>
   );
 }
@@ -185,7 +196,8 @@ export function IconButton({
         { width: size, height: size },
         primary
           ? { backgroundColor: p ? color.primaryPressed : color.primary, borderColor: 'transparent' }
-          : { backgroundColor: p ? color.canvas : color.surface },
+          : { backgroundColor: p ? glass.fillStrong : glass.fill, borderColor: glass.edge },
+        !primary && elevation.low,
         style,
       ]}
     >
@@ -292,13 +304,18 @@ export function FloorItem({
       accessibilityState={{ selected: sel }}
       style={(p) => [
         b.floor,
-        sel && { backgroundColor: p ? color.primaryPressed : color.primary, borderColor: color.primary },
+        sel && { backgroundColor: color.primary, borderColor: 'transparent', overflow: 'hidden' },
         unk && { backgroundColor: color.warningSoft, borderColor: color.warningSoft },
         !sel && !unk && p && { backgroundColor: color.canvas },
       ]}
     >
-      <Text style={[b.floorT, sel && { color: color.onPrimary }, unk && { color: color.warning }]}>{label}</Text>
-      {state === 'current' ? <View style={b.dot} /> : null}
+      {(p: boolean) => (
+        <>
+          {sel ? <Gradient colors={p ? gradient.brandPressed : gradient.brand} angle="right" /> : null}
+          <Text style={[b.floorT, sel && { color: color.onPrimary }, unk && { color: color.warning }]}>{label}</Text>
+          {state === 'current' ? <View style={b.dot} /> : null}
+        </>
+      )}
     </PressScale>
   );
 }
@@ -348,24 +365,27 @@ const TABS: { k: TabKey; label: string; icon: LucideIcon }[] = [
 ];
 export function TabBarView({ at, onSelect, bottomInset = 0 }: { at: TabKey; onSelect: (k: TabKey) => void; bottomInset?: number }) {
   return (
-    <View style={[b.tabs, { paddingBottom: bottomInset }]} accessibilityRole="tablist">
-      {TABS.map((t) => {
-        const on = at === t.k;
-        const c = on ? color.primary : color.secondary;
-        return (
-          <PressScale
-            key={t.k}
-            accessibilityRole="tab"
-            accessibilityLabel={t.label}
-            accessibilityState={{ selected: on }}
-            onPress={() => !on && onSelect(t.k)}
-            style={b.tab}
-          >
-            <t.icon size={ICON + 2} color={c} strokeWidth={on ? 2.4 : 2} />
-            <Text style={[b.tabT, { color: c }, on && { fontWeight: '700' }]}>{t.label}</Text>
-          </PressScale>
-        );
-      })}
+    <View style={[b.tabsWrap, { paddingBottom: bottomInset + 10 }]} pointerEvents="box-none">
+      <View style={[b.tabs, elevation.float]} accessibilityRole="tablist">
+        {TABS.map((t) => {
+          const on = at === t.k;
+          const c = on ? color.onPrimary : '#B9C2E8';
+          return (
+            <PressScale
+              key={t.k}
+              accessibilityRole="tab"
+              accessibilityLabel={t.label}
+              accessibilityState={{ selected: on }}
+              onPress={() => !on && onSelect(t.k)}
+              style={[b.tab, on && b.tabOn]}
+            >
+              {on ? <Gradient angle="right" /> : null}
+              <t.icon size={ICON} color={c} strokeWidth={on ? 2.4 : 2} />
+              <Text style={[b.tabT, { color: c }, on && { fontWeight: '700' }]}>{t.label}</Text>
+            </PressScale>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -395,23 +415,25 @@ const b = StyleSheet.create({
   btn: {
     flexDirection: 'row',
     gap: space[8],
-    borderRadius: radius[12],
+    borderRadius: shape.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: space[12],
+    paddingHorizontal: space[16],
+    overflow: 'hidden',
   },
   btnT: { ...type.actionLabel, textAlign: 'center', flexShrink: 1 },
-  iconBtn: { borderRadius: radius[12], borderWidth: 1, borderColor: color.border, alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { borderRadius: shape.pill, borderWidth: 1, borderColor: color.border, alignItems: 'center', justifyContent: 'center' },
   search: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[8],
     minHeight: 52,
-    borderRadius: radius[12],
+    borderRadius: shape.pill,
     borderWidth: 1,
-    borderColor: color.border,
-    backgroundColor: color.surface,
-    paddingHorizontal: space[16],
+    borderColor: glass.edge,
+    backgroundColor: glass.fill,
+    paddingHorizontal: space[20],
+    ...elevation.float,
   },
   searchPh: { fontSize: type.small + 1, color: color.secondary },
   searchT: { flex: 1, fontSize: type.small + 1, color: color.text, paddingVertical: space[12] },
@@ -420,8 +442,11 @@ const b = StyleSheet.create({
     alignItems: 'center',
     gap: space[12],
     minHeight: 64,
-    borderRadius: radius[16],
-    backgroundColor: color.surface,
+    borderRadius: 22,
+    borderTopLeftRadius: shape.tail,
+    backgroundColor: glass.fillStrong,
+    borderWidth: StyleSheet.hairlineWidth * 2,
+    borderColor: glass.outline,
     paddingHorizontal: space[16],
     paddingVertical: space[12],
   },
@@ -430,11 +455,11 @@ const b = StyleSheet.create({
   floor: {
     minHeight: space[48],
     minWidth: 64,
-    paddingHorizontal: space[16],
-    borderRadius: radius[12],
+    paddingHorizontal: space[20],
+    borderRadius: shape.pill,
     borderWidth: 1,
-    borderColor: color.border,
-    backgroundColor: color.surface,
+    borderColor: glass.outline,
+    backgroundColor: glass.fillStrong,
     flexDirection: 'row',
     gap: 6,
     alignItems: 'center',
@@ -447,16 +472,35 @@ const b = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: radius[12],
+    borderRadius: shape.pill,
     paddingHorizontal: space[12],
     paddingVertical: 6,
   },
   chipT: { ...type.captionText, fontWeight: '600', flexShrink: 1 },
   pin: { borderRadius: radius[16], alignItems: 'center', justifyContent: 'center' },
-  tabs: { flexDirection: 'row', backgroundColor: color.surface, borderTopWidth: 1, borderColor: color.border },
-  tab: { flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  tabsWrap: { paddingHorizontal: 28, paddingTop: 6 },
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: glass.dark,
+    borderRadius: shape.pill,
+    borderWidth: 1,
+    borderColor: glass.edgeDark,
+    padding: 6,
+    gap: 4,
+  },
+  tab: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', gap: 1, borderRadius: shape.pill, overflow: 'hidden' },
+  tabOn: { backgroundColor: color.primary },
   tabT: { fontSize: type.caption, lineHeight: 18 },
-  pack: { backgroundColor: color.surface, borderRadius: radius[16], borderWidth: 1, borderColor: color.border, padding: space[16], gap: 6 },
+  pack: {
+    backgroundColor: glass.fillStrong,
+    borderRadius: shape.card,
+    borderBottomLeftRadius: shape.tail,
+    borderWidth: 1,
+    borderColor: glass.outline,
+    padding: space[20],
+    gap: 6,
+    ...elevation.low,
+  },
   packT: { fontSize: type.body, fontWeight: '800', color: color.text },
   packD: { ...type.captionText, color: color.secondary },
   packA: { fontSize: type.small, fontWeight: '700' },

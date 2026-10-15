@@ -5,6 +5,8 @@ import { ChevronLeft, type LucideIcon } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { elevation, glass, shape } from './theme';
+import { Appear, Gradient, WaveHeader } from './v3';
 import { Button, color, FloorItem, IconButton, PressScale, ResultRow, StatusChip, TabBarView, type TabKey } from './components';
 
 /** Foundations 토큰(옛 이름 유지). 색은 components 의 color 와 같음. */
@@ -58,19 +60,30 @@ export function Screen({
     <View style={[s.body, { flex: 1, paddingBottom: footer ? 0 : inset.bottom }]}>{children}</View>
   );
   return (
-    <View style={[s.root, { paddingTop: inset.top }]}>
+    <View style={s.root}>
+      <Gradient colors={['#F6F8FB', '#EEF0FF', '#E8F6FE']} angle="down" />
       {title !== undefined ? (
-        <View style={s.head}>
-          {back ? (
-            <IconButton icon={ChevronLeft} label="뒤로" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />
-          ) : null}
-          <Text style={s.title} numberOfLines={2} accessibilityRole="header">
-            {title}
-          </Text>
-          {right}
-        </View>
-      ) : null}
-      {body}
+        <WaveHeader style={{ paddingTop: inset.top }}>
+          <View style={s.head}>
+            {back ? (
+              <IconButton
+                icon={ChevronLeft}
+                label="뒤로"
+                iconColor={color.onPrimary}
+                style={s.back}
+                onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+              />
+            ) : null}
+            <Text style={s.title} numberOfLines={2} accessibilityRole="header">
+              {title}
+            </Text>
+            {right}
+          </View>
+        </WaveHeader>
+      ) : (
+        <View style={{ height: inset.top }} />
+      )}
+      <Appear style={{ flex: 1, marginTop: title !== undefined ? -14 : 0 }}>{body}</Appear>
       {footer ? <View style={[s.footer, { paddingBottom: inset.bottom + 12 }]}>{footer}</View> : null}
     </View>
   );
@@ -119,7 +132,8 @@ export function Card({
   onPress?: () => void;
   tone?: 'primary' | 'caution' | 'confirmed';
 }) {
-  const bg = tone === 'primary' ? T.primarySoft : tone === 'caution' ? T.cautionSoft : tone === 'confirmed' ? T.confirmedSoft : T.card;
+  const bg =
+    tone === 'primary' ? T.primarySoft : tone === 'caution' ? T.cautionSoft : tone === 'confirmed' ? T.confirmedSoft : glass.fillStrong;
   return onPress ? (
     <PressScale onPress={onPress} style={[s.card, { backgroundColor: bg }, style]}>
       {children}
@@ -164,12 +178,31 @@ export function TabBar({ at }: { at: TabKey }) {
 
 export const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: T.canvas },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: T.margin, paddingVertical: 10 },
-  title: { flex: 1, fontSize: T.title, fontWeight: '700', color: T.text },
-  body: { paddingHorizontal: T.margin, gap: 12 },
-  footer: { paddingHorizontal: T.margin, paddingTop: 12, gap: 8, backgroundColor: T.canvas },
-  card: { borderRadius: T.radius, padding: 16, gap: 4 },
-  h: { fontSize: T.display - 2, lineHeight: 34, fontWeight: '800', color: T.text, marginTop: 4 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
+  back: { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: 'rgba(255,255,255,0.35)', shadowOpacity: 0, elevation: 0 },
+  title: { flex: 1, fontSize: T.title, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
+  body: { paddingHorizontal: T.margin, gap: 12, paddingTop: 4 },
+  footer: {
+    paddingHorizontal: T.margin,
+    paddingTop: 16,
+    gap: 8,
+    backgroundColor: glass.fillStrong,
+    borderTopLeftRadius: shape.sheetTop,
+    borderTopRightRadius: shape.sheetTop,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: glass.outline,
+    ...elevation.float,
+  },
+  card: {
+    borderRadius: shape.card,
+    borderBottomLeftRadius: shape.tail,
+    padding: 18,
+    gap: 4,
+    borderWidth: StyleSheet.hairlineWidth * 2,
+    borderColor: glass.outline,
+  },
+  h: { fontSize: T.display - 2, lineHeight: 34, fontWeight: '800', color: T.text, marginTop: 4, letterSpacing: -0.5 },
   section: { fontSize: T.small, fontWeight: '700', color: T.sub, marginTop: 8 },
   p: { fontSize: T.small, lineHeight: 22, color: T.text },
 });

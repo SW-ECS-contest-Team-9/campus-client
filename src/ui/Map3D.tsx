@@ -5,6 +5,9 @@ import { useFocusEffect } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { BlurTargetView } from 'expo-blur';
+import { BlurTargetCtx } from './look';
+import { Character } from './v3';
 import { parseEvent, type Map3dCommand, type Map3dEvent } from '../map3d/embed';
 import { CHARACTER_OK, CHARACTER_UNCERTAIN } from './characterImages';
 import { color } from './components';
@@ -31,10 +34,23 @@ interface Api {
 }
 
 const ApiCtx = createContext<Api | null>(null);
+
 const StatusCtx = createContext<Status>('loading');
 
 /** 앱 뿌리에 한 번. children(화면들) 위에 3D 지도 하나를 겹쳐 둠. */
-export function Map3DHost({ url, children }: { url: string; children: ReactNode }) {
+export function Map3DHost({
+  url,
+  children,
+  onFirstReady,
+}: {
+  url: string;
+  children: ReactNode;
+  /** 앱 켠 뒤 첫 ready 까지 걸린 시간(ms, 한 번) — 기기 등급 확인용 */
+  onFirstReady?: (ms: number) => void;
+}) {
+  const [t0] = useState(() => Date.now());
+  const firstReady = useRef(false);
+  const blurTarget = useRef<View | null>(null);
   const [status, setStatus] = useState<Status>('loading');
   const [slots, setSlots] = useState<Record<string, Slot>>({});
   const [active, setActive] = useState<string | null>(null);
@@ -80,20 +96,29 @@ export function Map3DHost({ url, children }: { url: string; children: ReactNode 
   }, [status, cmdKey, post]);
 
   const handler = useRef<Slot['onEvent']>(undefined);
+  const firstReadyCb = useRef(onFirstReady);
   useEffect(() => {
     handler.current = slot?.onEvent;
+    firstReadyCb.current = onFirstReady;
   });
-  const receive = useCallback((raw: unknown) => {
-    const e = parseEvent(raw);
-    if (!e) return;
-    if (e.type === 'ready') {
-      ready.current = true;
-      lastUi.current = null;
-      markersSent.current = false;
-      setStatus('ready');
-    }
-    handler.current?.(e);
-  }, []);
+  const receive = useCallback(
+    (raw: unknown) => {
+      const e = parseEvent(raw);
+      if (!e) return;
+      if (e.type === 'ready') {
+        if (!firstReady.current) {
+          firstReady.current = true;
+          firstReadyCb.current?.(Date.now() - t0);
+        }
+        ready.current = true;
+        lastUi.current = null;
+        markersSent.current = false;
+        setStatus('ready');
+      }
+      handler.current?.(e);
+    },
+    [t0],
+  );
 
   // 주소가 바뀌면 다시 불러옴. 너무 오래 ready 가 안 오면 실패.
   const [loadedUrl, setLoadedUrl] = useState(url);
@@ -141,23 +166,28 @@ export function Map3DHost({ url, children }: { url: string; children: ReactNode 
                 style={{ border: 0, width: '100%', height: '100%', display: 'block', pointerEvents: shown ? 'auto' : 'none' }}
               />
             ) : (
-              <WebView
-                ref={web}
-                source={{ uri: url }}
-                style={s.fill}
-                originWhitelist={['*']}
-                javaScriptEnabled
-                onMessage={(e) => receive(e.nativeEvent.data)}
-                onError={() => setStatus('failed')}
-                onHttpError={() => setStatus('failed')}
-              />
+              <BlurTargetView ref={blurTarget} style={s.fill}>
+                <WebView
+                  ref={web}
+                  source={{ uri: url }}
+                  style={s.fill}
+                  originWhitelist={['*']}
+                  javaScriptEnabled
+                  onMessage={(e) => receive(e.nativeEvent.data)}
+                  onError={() => setStatus('failed')}
+                  onHttpError={() => setStatus('failed')}
+                />
+              </BlurTargetView>
             )}
             {status === 'loading' ? (
               <View style={s.loading} pointerEvents="none">
-                <Text style={s.loadingT}>3D 지도를 불러오는 중…</Text>
+                <View style={s.loadingPill}>
+                  <Character name="loading" size={30} />
+                  <Text style={s.loadingT}>3D 지도를 불러오는 중…</Text>
+                </View>
               </View>
             ) : null}
-            {shown ? slot?.overlay : null}
+            <BlurTargetCtx.Provider value={blurTarget}>{shown ? slot?.overlay : null}</BlurTargetCtx.Provider>
           </View>
         </View>
       </StatusCtx.Provider>
@@ -225,14 +255,16 @@ const s = StyleSheet.create({
   fill: { flex: 1, backgroundColor: color.canvas, overflow: 'hidden' },
   notice: { backgroundColor: color.warningSoft, paddingHorizontal: 12, paddingVertical: 8 },
   noticeT: { color: color.warning, fontSize: 13, fontWeight: '600' },
-  loading: { position: 'absolute', left: 0, right: 0, top: 12, alignItems: 'center' },
-  loadingT: {
-    backgroundColor: '#142235E0',
-    color: '#fff',
-    fontSize: 13,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    overflow: 'hidden',
+  loading: { position: 'absolute', left: 0, right: 0, top: '40%', alignItems: 'center' },
+  loadingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(20,27,58,0.84)',
+    paddingLeft: 8,
+    paddingRight: 14,
+    paddingVertical: 4,
+    borderRadius: 999,
   },
+  loadingT: { color: '#fff', fontSize: 13, fontWeight: '600' },
 });

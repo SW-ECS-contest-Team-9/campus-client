@@ -8,6 +8,9 @@ import fixtureJson from '../map/fixture/campus-fixture.json';
 import { buildGraph, findRoute, type Graph, type RouteCondition, type RouteResult } from '../route/route';
 import type { Fix } from '../location/fix';
 import { DEV_HOST } from '../config/devHost';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
+import { adjustForFirst3d, chooseTier, type DeviceTier } from '../ui/tier';
 
 const fixture = fixtureJson as unknown as MapPackage;
 
@@ -17,10 +20,25 @@ export interface Settings {
   map3dUrl: string;
   /** 가벼운 3D(구조물·이름표 없음) */
   light: boolean;
+  /** 화면 표현 등급(사용자 지정). null = 자동(autoTier) */
+  deviceTier: DeviceTier | null;
+  /** 처음 켤 때 고른 등급(3D 첫 화면이 느리면 한 번 낮춤) */
+  autoTier: DeviceTier | null;
+  /** 3D 첫 화면 시간으로 자동 등급을 확인했는지 */
+  autoTier3dChecked: boolean;
 }
 /** 개발 기본값. 운영 주소는 나중에 정함. */
 export const DEFAULT_SERVER_URL = `http://${DEV_HOST}:8010`;
-const DEFAULT_SETTINGS: Settings = { serverUrl: DEFAULT_SERVER_URL, map3dUrl: '', light: false };
+const DEFAULT_SETTINGS: Settings = {
+  serverUrl: DEFAULT_SERVER_URL,
+  map3dUrl: '',
+  light: false,
+  deviceTier: null,
+  autoTier: null,
+  autoTier3dChecked: false,
+};
+const detectTier = (): DeviceTier =>
+  chooseTier({ os: Platform.OS, apiLevel: Device.platformApiLevel ?? null, totalMemory: Device.totalMemory ?? null });
 export interface RecentRoute {
   startLabel: string;
   destKey: string;
@@ -52,6 +70,9 @@ interface AppState {
   settings: Settings;
   setServerUrl: (url: string) => Promise<void>;
   updateSettings: (patch: Partial<Settings>) => Promise<void>;
+  /** 지금 쓰는 표현 등급(사용자 지정 > 자동) */
+  tier: DeviceTier;
+  noteFirst3dReady: (ms: number) => void;
   recentSearches: string[];
   addRecentSearch: (q: string) => void;
   recentRoutes: RecentRoute[];
@@ -102,6 +123,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         AsyncStorage.getItem(RECENT_KEY),
       ]);
       const st: Settings = { ...DEFAULT_SETTINGS, ...(s ? (JSON.parse(s) as Partial<Settings>) : {}) };
+      if (st.autoTier == null) {
+        st.autoTier = detectTier();
+        void AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(st));
+      }
       setSettings(st);
       if (f) setFavorites(JSON.parse(f) as string[]);
       if (r) setRecent(JSON.parse(r) as typeof recent);
@@ -134,6 +159,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [settings],
   );
+  /** 3D 첫 화면까지 걸린 시간(앱 켠 뒤 한 번). 자동 등급이면 느릴 때 한 단계 낮춤. */
+  const noteFirst3dReady = useCallback((ms: number) => {
+    setSettings((cur) => {
+      if (cur.autoTier3dChecked || cur.autoTier == null) return cur;
+      const next = { ...cur, autoTier: adjustForFirst3d(cur.autoTier, ms), autoTier3dChecked: true };
+      void AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
   const saveRecent = (next: typeof recent) => {
     setRecent(next);
     void AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next));
@@ -187,6 +221,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     settings,
     setServerUrl,
     updateSettings,
+    tier: settings.deviceTier ?? settings.autoTier ?? 2,
+    noteFirst3dReady,
     updateStatus,
     recentSearches: recent.searches,
     addRecentSearch,

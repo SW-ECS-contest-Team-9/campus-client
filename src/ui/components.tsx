@@ -14,9 +14,8 @@ import {
   WifiOff,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
-  AccessibilityInfo,
   Animated,
   Platform,
   Pressable,
@@ -30,28 +29,12 @@ import {
 } from 'react-native';
 
 import { color, elevation, glass, gradient, ICON, motion, radius, shape, space, type } from './theme';
+import { useLook } from './look';
 import { Gradient } from './v3';
 
 export { color, ICON, radius, space, type } from './theme';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-/** 동작 줄이기(접근성) 설정 */
-export function useReduceMotion(): boolean {
-  const [on, setOn] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((v) => alive && setOn(v))
-      .catch(() => undefined);
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setOn);
-    return () => {
-      alive = false;
-      sub?.remove();
-    };
-  }, []);
-  return on;
-}
 
 type PressProps = {
   onPress?: () => void;
@@ -75,7 +58,7 @@ export function PressScale({
   accessibilityState,
   hitSlop,
 }: PressProps) {
-  const reduce = useReduceMotion();
+  const reduce = !useLook().moving; // 동작 줄이기 또는 기기 등급 3
   const [scale] = useState(() => new Animated.Value(1));
   const [pressed, setPressed] = useState(false);
   const to = (v: number) => {

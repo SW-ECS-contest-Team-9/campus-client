@@ -1,20 +1,31 @@
-// CT01 캠퍼스 지도: 검색, 3D 지도, 내 위치, "어디로 갈까요?"(저장한 장소·최근 경로 바로가기), 아래 탭.
+// CT01 캠퍼스 지도(V3): 3D 지도가 화면 전체(V3-1), 위에 유리 검색 알약, 아래 끄는 시트("어디로 갈까요?"), 떠 있는 탭 캡슐.
+// 지도 위 부품은 모두 overlay 로 공용 3D 지도와 함께 그림(3D 가 화면 위에 겹쳐 있어서).
 import { router } from 'expo-router';
+import { Bookmark, Clock, MapPin, Navigation, Search, Settings } from 'lucide-react-native';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getFix } from '../location/location';
 import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
 import { IconButton, PressScale, SearchInput } from '../ui/components';
-import { Badge, Card, T, TabBar } from '../ui/kit';
-import { Navigation, Settings } from 'lucide-react-native';
+import { Badge, T, TabBar } from '../ui/kit';
+import { color, gradient, shape } from '../ui/theme';
+import { Character, Glass, Gradient, Sheet } from '../ui/v3';
+
+const TAB_H = 76;
 
 export default function Home() {
   const app = useApp();
   const inset = useSafeAreaInsets();
   const [locMsg, setLocMsg] = useState<string | null>(null);
-  if (!app.pkg) return <ActivityIndicator style={{ marginTop: 40 }} />;
+  if (!app.pkg)
+    return (
+      <View style={s.loading}>
+        <Character name="loading" size={88} />
+        <Text style={s.loadingT}>캠퍼스 지도를 펼치는 중…</Text>
+      </View>
+    );
   const pkg = app.pkg;
 
   const locate = async () => {
@@ -29,99 +40,136 @@ export default function Home() {
       setLocMsg('위치를 읽지 못했어요 · 출발점을 직접 골라 주세요');
     }
   };
-  const shortcuts = [
-    ...app.favorites.map((k) => pkg.places.find((p) => p.key === k)).filter((p): p is NonNullable<typeof p> => !!p),
-    ...app.recentRoutes.map((r) => pkg.places.find((p) => p.key === r.destKey)).filter((p): p is NonNullable<typeof p> => !!p),
-  ]
-    .filter((p, i, a) => a.findIndex((q) => q.key === p.key) === i)
-    .slice(0, 2);
+  const favs = app.favorites.map((k) => pkg.places.find((p) => p.key === k)).filter((p): p is NonNullable<typeof p> => !!p);
+  const recents = app.recentRoutes.map((r) => pkg.places.find((p) => p.key === r.destKey)).filter((p): p is NonNullable<typeof p> => !!p);
+  const shortcuts = [...favs.map((p) => ({ p, fav: true })), ...recents.map((p) => ({ p, fav: false }))]
+    .filter((x, i, a) => a.findIndex((q) => q.p.key === x.p.key) === i)
+    .slice(0, 4);
+  const bottom = inset.bottom + TAB_H;
 
   return (
-    <View style={[s.root, { paddingTop: inset.top }]}>
-      <View style={s.head}>
-        <View style={{ flex: 1 }}>
-          <Text style={s.brand}>서경대 캠퍼스 길찾기</Text>
-          <Text style={s.tag}>건물 밖에서 강의실 앞까지</Text>
-        </View>
-        <IconButton icon={Settings} label="설정" onPress={() => router.push('/settings')} />
-      </View>
-      <View style={s.search}>
-        <SearchInput onPress={() => router.push('/search')} />
-      </View>
-      <View style={s.map}>
-        <CampusMap
-          overlay={
-            <>
-              <IconButton icon={Navigation} label="내 위치" onPress={locate} size={52} iconColor={T.route} style={s.locate} />
+    <View style={s.root}>
+      <CampusMap
+        overlay={
+          <>
+            {/* 위: 이름 알약 + 설정, 검색 알약 */}
+            <View style={[s.top, { paddingTop: inset.top + 8 }]} pointerEvents="box-none">
+              <View style={s.brandRow} pointerEvents="box-none">
+                <Glass dark radius={shape.pill} style={s.brand}>
+                  <View style={s.brandDot}>
+                    <Gradient />
+                  </View>
+                  <Text style={s.brandT} accessibilityRole="header">
+                    서경대 캠퍼스 길찾기
+                  </Text>
+                </Glass>
+                <IconButton icon={Settings} label="설정" onPress={() => router.push('/settings')} />
+              </View>
+              <SearchInput onPress={() => router.push('/search')} />
               {locMsg ? (
-                <View style={s.locMsg} pointerEvents="none">
+                <View pointerEvents="none">
                   <Badge text={locMsg} tone={app.fix && !app.fix.uncertain ? 'confirmed' : 'caution'} />
                 </View>
               ) : null}
               {app.loaded?.source === 'fixture' ? (
-                <Pressable style={s.unsaved} accessibilityRole="button" onPress={() => router.push('/unsaved')}>
+                <Pressable accessibilityRole="button" onPress={() => router.push('/unsaved')} style={s.unsaved}>
                   <Badge text="저장된 지도 없음 · 내장 개발 지도 사용 중" tone="caution" />
                 </Pressable>
               ) : null}
-            </>
-          }
-        />
-      </View>
-      <Card style={s.sheet}>
-        <Text style={s.sheetT}>어디로 갈까요?</Text>
-        <View style={s.quick}>
-          {shortcuts.map((p) => (
-            <PressScale
-              key={p.key}
-              accessibilityLabel={p.name}
-              style={(on) => [s.quickB, on && { backgroundColor: '#E0E3FF' }]}
-              onPress={() => router.push({ pathname: '/place/[key]', params: { key: p.key } })}
-            >
-              <Text style={s.quickT} numberOfLines={2}>
-                {p.name}
-              </Text>
-            </PressScale>
-          ))}
-          <PressScale style={[s.quickB, s.quickGhost]} onPress={() => router.push('/search')}>
-            <Text style={s.quickT}>장소 찾기</Text>
-          </PressScale>
-        </View>
-      </Card>
-      <TabBar at="map" />
+            </View>
+            {/* 내 위치: 시트 엿보기 위 왼쪽 */}
+            <IconButton
+              icon={Navigation}
+              label="내 위치"
+              onPress={locate}
+              size={52}
+              iconColor={T.route}
+              style={[s.locate, { bottom: bottom + PEEK + 12 }]}
+            />
+            <Sheet snaps={[PEEK, 300]} bottomOffset={bottom}>
+              <View style={s.sheet}>
+                <View style={s.sheetHead}>
+                  <Text style={s.sheetT}>어디로 갈까요?</Text>
+                  <PressScale accessibilityLabel="장소 찾기" onPress={() => router.push('/search')} style={s.findBtn}>
+                    <Gradient angle="right" />
+                    <Search size={18} color={color.onPrimary} strokeWidth={2.4} />
+                    <Text style={s.findT}>장소 찾기</Text>
+                  </PressScale>
+                </View>
+                {shortcuts.length ? (
+                  <View style={s.quick}>
+                    {shortcuts.map(({ p, fav }) => (
+                      <PressScale
+                        key={p.key}
+                        accessibilityLabel={`${p.name}${fav ? ', 저장한 장소' : ', 최근 도착지'}`}
+                        style={(on) => [s.quickB, on && { backgroundColor: color.primarySoftPressed }]}
+                        onPress={() => router.push({ pathname: '/place/[key]', params: { key: p.key } })}
+                      >
+                        {fav ? <Bookmark size={16} color={T.primary} /> : <Clock size={16} color={T.primary} />}
+                        <Text style={s.quickT} numberOfLines={1}>
+                          {p.name}
+                        </Text>
+                      </PressScale>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={s.hint}>
+                    <MapPin size={16} color={T.sub} />
+                    <Text style={s.hintT}>장소를 저장하거나 길을 찾으면 여기에 바로가기가 생겨요</Text>
+                  </View>
+                )}
+              </View>
+            </Sheet>
+            <View style={s.tabs} pointerEvents="box-none">
+              <TabBar at="map" />
+            </View>
+          </>
+        }
+      />
     </View>
   );
 }
 
+const PEEK = 132;
+
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: T.canvas },
-  head: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: T.margin, paddingTop: 8 },
-  brand: { fontSize: T.title, fontWeight: '800', color: T.text },
-  tag: { fontSize: T.caption, color: T.sub, marginTop: 2 },
-  search: { marginHorizontal: T.margin, marginVertical: 12 },
-  map: { flex: 1 },
-  locate: { position: 'absolute', left: 12, bottom: 12, borderRadius: 16 },
-  locMsg: { position: 'absolute', left: 12, right: 76, top: 12 },
-  unsaved: { position: 'absolute', left: 12, right: 76, top: 56 },
-  sheet: {
-    marginHorizontal: T.margin,
-    marginVertical: 12,
-    gap: 12,
-    shadowColor: '#142235',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  sheetT: { fontSize: T.title, fontWeight: '800', color: T.text },
-  quick: { flexDirection: 'row', gap: 8 },
-  quickB: {
-    flex: 1,
-    minHeight: 52,
-    borderRadius: 12,
-    backgroundColor: T.primarySoft,
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: T.canvas },
+  loadingT: { fontSize: T.small, color: T.sub, fontWeight: '600' },
+  top: { position: 'absolute', left: 16, right: 16, top: 0, gap: 10 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 9 },
+  brandDot: { width: 12, height: 12, borderRadius: 6, overflow: 'hidden' },
+  brandT: { color: '#FFFFFF', fontSize: T.small, fontWeight: '800', letterSpacing: -0.2 },
+  unsaved: { alignSelf: 'flex-start' },
+  locate: { position: 'absolute', left: 16 },
+  sheet: { paddingHorizontal: 20, gap: 14 },
+  sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  sheetT: { fontSize: T.title, fontWeight: '800', color: T.text, letterSpacing: -0.5, flexShrink: 1 },
+  findBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
+    gap: 6,
+    minHeight: 48,
+    paddingHorizontal: 18,
+    borderRadius: shape.pill,
+    overflow: 'hidden',
+    backgroundColor: gradient.brand[0],
   },
-  quickGhost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: T.line },
-  quickT: { fontSize: T.small, fontWeight: '700', color: T.primary, textAlign: 'center' },
+  findT: { color: color.onPrimary, fontWeight: '800', fontSize: T.small },
+  quick: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  quickB: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 48,
+    maxWidth: '100%',
+    borderRadius: shape.pill,
+    backgroundColor: T.primarySoft,
+    paddingHorizontal: 16,
+  },
+  quickT: { fontSize: T.small, fontWeight: '700', color: T.primary, flexShrink: 1 },
+  hint: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  hintT: { flex: 1, fontSize: T.caption, color: T.sub, lineHeight: 19 },
+  tabs: { position: 'absolute', left: 0, right: 0, bottom: 0 },
 });

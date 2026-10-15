@@ -3,25 +3,13 @@
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { Image, Platform, StyleSheet, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withSpring,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withSpring, withTiming, Easing } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import { BlurView } from 'expo-blur';
+import { useContext } from 'react';
+import { BlurTargetCtx, useLook } from './look';
 import { elevation, glass, gradient, motion, shape } from './theme';
-
-/** 흐림 켜기: 웹만 기본 켬(V3-10). 측정용으로 globalThis.__glassBlur = false 로 끔. */
-export function blurOn(): boolean {
-  const g = (globalThis as { __glassBlur?: boolean }).__glassBlur;
-  return Platform.OS === 'web' && g !== false;
-}
 
 /** 칸을 채우는 선형 그라데이션(SVG). 모서리는 부모 overflow/borderRadius 로. */
 export function Gradient({
@@ -67,7 +55,12 @@ export function Glass({
   strong?: boolean;
   radius?: number;
 }) {
-  const blur = blurOn() ? ({ backdropFilter: `blur(${glass.blur}px) saturate(160%)` } as unknown as ViewStyle) : null;
+  const look = useLook();
+  const target = useContext(BlurTargetCtx);
+  // 등급 1 만 흐림(V3-10). 웹은 backdrop-filter, Android 는 지도(BlurTargetView) 위일 때만 expo-blur. 측정용 끔: globalThis.__glassBlur = false
+  const on = look.blur && (globalThis as { __glassBlur?: boolean }).__glassBlur !== false;
+  const webBlur = on && Platform.OS === 'web' ? ({ backdropFilter: `blur(${glass.blur}px) saturate(160%)` } as unknown as ViewStyle) : null;
+  const nativeBlur = on && Platform.OS === 'android' && !!target;
   return (
     <View
       style={[
@@ -78,10 +71,20 @@ export function Glass({
           borderRadius: radius,
         },
         elevation.float,
-        blur,
+        webBlur,
+        nativeBlur && { overflow: 'hidden' },
         style,
       ]}
     >
+      {nativeBlur ? (
+        <BlurView
+          blurTarget={target}
+          blurMethod="dimezisBlurViewSdk31Plus"
+          intensity={40}
+          tint={dark ? 'dark' : 'light'}
+          style={[StyleSheet.absoluteFill, { borderRadius: radius }]}
+        />
+      ) : null}
       {children}
     </View>
   );
@@ -158,12 +161,18 @@ export function Character({
   animated?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
-  const reduce = useReducedMotion();
+  const look = useLook();
   const c = CHAR[name];
-  const src = animated && !reduce && c.moving ? c.moving : c.still;
+  const src = animated && look.animatedCharacters && c.moving ? c.moving : c.still;
   return (
     <Animated.View
-      entering={reduce ? undefined : FadeInDown.duration(motion.slow).springify().damping(16)}
+      entering={
+        look.moving
+          ? FadeInDown.duration(motion.slow * look.motionScale)
+              .springify()
+              .damping(16)
+          : undefined
+      }
       style={style}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
@@ -176,9 +185,9 @@ export function Character({
 
 /** 내용이 서서히 나타남(화면 전환 단서). 동작 줄이기면 그냥 보임. */
 export function Appear({ children, delay = 0, style }: { children: ReactNode; delay?: number; style?: StyleProp<ViewStyle> }) {
-  const reduce = useReducedMotion();
+  const look = useLook();
   return (
-    <Animated.View entering={reduce ? undefined : FadeInDown.delay(delay).duration(motion.base)} style={style}>
+    <Animated.View entering={look.moving ? FadeInDown.delay(delay).duration(motion.base * look.motionScale) : undefined} style={style}>
       {children}
     </Animated.View>
   );
@@ -186,11 +195,12 @@ export function Appear({ children, delay = 0, style }: { children: ReactNode; de
 
 /** 경로 그리기 진행(V3-7): 그라데이션 막대가 0 → progress 로 차오름. 동작 줄이기면 바로. */
 export function RouteDrawBar({ progress = 1, height = 6 }: { progress?: number; height?: number }) {
-  const reduce = useReducedMotion();
-  const v = useSharedValue(reduce ? progress : 0);
+  const look = useLook();
+  const k = look.motionScale;
+  const v = useSharedValue(k ? 0 : progress);
   useEffect(() => {
-    v.value = reduce ? progress : withTiming(progress, { duration: motion.draw, easing: Easing.out(Easing.cubic) });
-  }, [progress, reduce, v]);
+    v.value = k ? withTiming(progress, { duration: motion.draw * k, easing: Easing.out(Easing.cubic) }) : progress;
+  }, [progress, k, v]);
   const st = useAnimatedStyle(() => ({ width: `${Math.max(0, Math.min(1, v.value)) * 100}%` }));
   return (
     <View style={[s.track, { height, borderRadius: height }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -203,7 +213,7 @@ export function RouteDrawBar({ progress = 1, height = 6 }: { progress?: number; 
 
 /** 짧은 맥박(층 바뀜 신호 등, V3-7). key 가 바뀔 때마다 한 번. */
 export function Pulse({ trigger, children, style }: { trigger: unknown; children: ReactNode; style?: StyleProp<ViewStyle> }) {
-  const reduce = useReducedMotion();
+  const reduce = !useLook().moving;
   const sc = useSharedValue(1);
   useEffect(() => {
     if (reduce) return;
@@ -231,7 +241,7 @@ export function Sheet({
   bottomOffset?: number;
   onSnap?: (i: number) => void;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = !useLook().moving;
   const max = snaps[snaps.length - 1];
   const toY = (i: number) => max - snaps[i];
   const y = useSharedValue(toY(initial));

@@ -49,9 +49,22 @@ export function createTracker(pkg: MapPackage, platform: 'ios' | 'android' = 'an
   let raw: { x: number; y: number } | null = null;
   let cur: Fix | null = null;
 
+  // 불확실 꼬리표가 1초마다 깜박이지 않게: 불확실이 3 초 이어지면 켜고, 확실이 2 초 이어지면 끔
+  let shownUnsure: boolean | null = null;
+  let differSince: number | null = null;
   const toFix = (m: MatchResult | null, t: number): Fix | null => {
     if (!m) return cur;
-    const unsure = m.state === 'uncertain';
+    const now = m.state === 'uncertain';
+    if (shownUnsure === null) shownUnsure = now;
+    else if (now === shownUnsure) differSince = null;
+    else {
+      if (differSince === null) differSince = t;
+      if (t - differSince >= (now ? 3 : 2)) {
+        shownUnsure = now;
+        differSince = null;
+      }
+    }
+    const unsure = shownUnsure;
     cur = {
       x: m.x,
       y: m.y,

@@ -143,6 +143,19 @@ describe('위치 보정 v2 연결(기록한 합성 입력)', () => {
     expect(out.some((f) => f.match?.floorKey === 'f:북악관:6F')).toBe(true);
   });
 
+  it('불확실 꼬리표는 깜박이지 않음(연속 3번 불확실이면 켜고 연속 2번 확실하면 끔)', async () => {
+    const good = walkAlong(edge(OUTDOOR).geometry, 20, 3, 6);
+    const bad = walkAlong(edge(OUTDOOR).geometry, 60, 25, 60)
+      .filter((e) => e.t > 20)
+      .map((e) => ({ ...e }));
+    const { out } = await run([...good, ...bad]);
+    // 꼬리표가 바뀐 횟수는 적어야 함(1초마다 바뀌지 않음)
+    let flips = 0;
+    for (let i = 1; i < out.length; i++) if (out[i].uncertain !== out[i - 1].uncertain) flips++;
+    expect(out.some((f) => f.uncertain)).toBe(true);
+    expect(flips).toBeLessThanOrEqual(4);
+  });
+
   it('같은 자리·같은 상태면 다시 알리지 않음(3D 명령·화면 갱신 줄임)', () => {
     const a = { x: 1, y: 1, accuracyM: 5, timestamp: 0, uncertain: false, reason: null };
     expect(changedEnough(null, a)).toBe(true);

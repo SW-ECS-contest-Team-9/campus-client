@@ -6,3 +6,9 @@ node_modules
 package-lock.json
 src/map/fixture
 src/ui/characterImages.ts.claude
+
+# 다른 저장소에서 그대로 복사한 코드(campus-model·campus-nlp). 고치지 말고 다시 복사
+src/location/matcher
+src/nlp/types.ts
+src/nlp/lexicon.ts
+src/nlp/parse.ts

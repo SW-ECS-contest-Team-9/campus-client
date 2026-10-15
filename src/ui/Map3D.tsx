@@ -1,4 +1,5 @@
-// 3D 캠퍼스 지도: campus-tracker 의 client3d.html 을 앱 전체에서 하나만 띄워 둔다(웹 <iframe>, 네이티브 react-native-webview).
+// 3D 캠퍼스 지도를 앱 전체에서 하나만 띄워 둔다. Android 기본은 네이티브 3D(expo-gl + three.js, 앱에 묶은 campus.glb, 서버 없이 뜸),
+// 설정 "3D 엔진: 웹" 이거나 웹 빌드면 campus-tracker 의 client3d.html(웹 <iframe>, 네이티브 react-native-webview). 두 엔진 모두 메시지 형식 v1.
 // 화면은 <MapSlot> 으로 자리만 잡고, 초점을 받은 화면의 자리로 그 하나를 옮겨 보여 준다(화면 바꿀 때 다시 불러오지 않음).
 // 명령은 페이지가 ready 를 보낸 뒤 보내고, 자리·명령이 바뀔 때마다 다시 보낸다. 못 불러오면 각 자리에 평면 지도 + 알림.
 import { useFocusEffect } from 'expo-router';
@@ -12,6 +13,18 @@ import { Character } from './v3';
 import { parseEvent, type Map3dCommand, type Map3dEvent } from '../map3d/embed';
 import { CHARACTER_OK, CHARACTER_UNCERTAIN } from './characterImages';
 import { color } from './components';
+import { Campus3DView, type Campus3DHandle } from '../map3d/native/Campus3DView';
+import { note3dStat } from '../map3d/diag';
+
+export type Map3dEngine = 'native' | 'web';
+/** 네이티브 3D 위에 찍을 장소 점(꾸러미 장소, EPSG:5186) */
+export interface Map3dPlace {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+}
 
 // S21 실기기 첫 표시 17 s(전체)·16 s(가벼운) 측정(2026-10-15, USB). 저사양·느린 망 여유를 두고 60 s.
 const READY_TIMEOUT_MS = 60_000;
@@ -42,13 +55,21 @@ const StatusCtx = createContext<Status>('loading');
 /** 앱 뿌리에 한 번. children(화면들) 위에 3D 지도 하나를 겹쳐 둠. */
 export function Map3DHost({
   url,
+  engine = 'web',
+  light = false,
+  places,
   children,
   onFirstReady,
 }: {
+  /** 웹 엔진의 페이지 주소 */
   url: string;
+  engine?: Map3dEngine;
+  /** 네이티브 엔진 가벼운 모드(선 끔·해상도 2/3) */
+  light?: boolean;
+  places?: Map3dPlace[];
   children: ReactNode;
   /** 앱 켠 뒤 첫 ready 까지 걸린 시간(ms, 한 번) — 기기 등급 확인용 */
-  onFirstReady?: (ms: number) => void;
+  onFirstReady?: (ms: number, engine: Map3dEngine) => void;
 }) {
   const [t0] = useState(() => Date.now());
   const firstReady = useRef(false);
@@ -60,6 +81,8 @@ export function Map3DHost({
   const rootRef = useRef<View | null>(null);
   const frame = useRef<HTMLIFrameElement | null>(null);
   const web = useRef<WebView | null>(null);
+  const native = useRef<Campus3DHandle | null>(null);
+  const useNative = engine === 'native' && Platform.OS !== 'web';
   const ready = useRef(false);
   const lastUi = useRef<boolean | null>(null);
   const markersSent = useRef(false);
@@ -78,6 +101,7 @@ export function Map3DHost({
 
   const post = useCallback((msg: Map3dCommand | { v: 1; type: 'setMode'; light?: boolean; ui: 'min' | 'full' }) => {
     if (Platform.OS === 'web') frame.current?.contentWindow?.postMessage(msg, '*');
+    else if (native.current) native.current.post(msg);
     else web.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify(msg))}, '*'); true;`);
   }, []);
 
@@ -113,9 +137,11 @@ export function Map3DHost({
 
   const handler = useRef<Slot['onEvent']>(undefined);
   const firstReadyCb = useRef(onFirstReady);
+  const useNativeRef = useRef(useNative);
   useEffect(() => {
     handler.current = slot?.onEvent;
     firstReadyCb.current = onFirstReady;
+    useNativeRef.current = useNative;
   });
   const receive = useCallback(
     (raw: unknown) => {
@@ -124,7 +150,7 @@ export function Map3DHost({
       if (e.type === 'ready') {
         if (!firstReady.current) {
           firstReady.current = true;
-          firstReadyCb.current?.(Date.now() - t0);
+          firstReadyCb.current?.(Date.now() - t0, useNativeRef.current ? 'native' : 'web');
         }
         ready.current = true;
         lastUi.current = null;
@@ -132,23 +158,26 @@ export function Map3DHost({
         sentSlot.current = null;
         setStatus('ready');
       }
+      // 네이티브 3D 가 처음에 실패하면(문맥·자료) 평면 지도로
+      if (e.type === 'error' && /^native3d:/.test(e.error) && !ready.current) setStatus('failed');
       handler.current?.(e);
     },
     [t0],
   );
 
-  // 주소가 바뀌면 다시 불러옴. 너무 오래 ready 가 안 오면 실패.
-  const [loadedUrl, setLoadedUrl] = useState(url);
-  if (loadedUrl !== url) {
-    setLoadedUrl(url);
+  // 엔진·주소·가벼운 모드가 바뀌면 다시 불러옴. 너무 오래 ready 가 안 오면 실패.
+  const source = useNative ? `native:${light}` : url;
+  const [loadedSource, setLoadedSource] = useState(source);
+  if (loadedSource !== source) {
+    setLoadedSource(source);
     setStatus('loading');
   }
   useEffect(() => {
     ready.current = false;
     const t = setTimeout(() => !ready.current && setStatus('failed'), READY_TIMEOUT_MS);
-    if (Platform.OS === 'web') fetch(url, { mode: 'no-cors' }).catch(() => setStatus('failed'));
+    if (Platform.OS === 'web') fetch(source, { mode: 'no-cors' }).catch(() => setStatus('failed'));
     return () => clearTimeout(t);
-  }, [url]);
+  }, [source]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -184,21 +213,34 @@ export function Map3DHost({
               />
             ) : (
               <BlurTargetView ref={blurTarget} style={s.fill}>
-                <WebView
-                  ref={web}
-                  source={{ uri: url }}
-                  style={s.fill}
-                  originWhitelist={['*']}
-                  javaScriptEnabled
-                  onMessage={(e) => receive(e.nativeEvent.data)}
-                  onError={() => setStatus('failed')}
-                  onHttpError={() => setStatus('failed')}
-                  // GPU 렌더러가 죽으면(메모리·드라이버) 앱 전체가 죽지 않게 평면 지도로
-                  onRenderProcessGone={() => setStatus('failed')}
-                  androidLayerType="hardware"
-                  webviewDebuggingEnabled={__DEV__}
-                  setSupportMultipleWindows={false}
-                />
+                {useNative ? (
+                  <Campus3DView
+                    key={source}
+                    ref={native}
+                    light={light}
+                    places={places}
+                    style={s.fill}
+                    logFrames
+                    onStats={note3dStat}
+                    onEvent={(e) => receive(e)}
+                  />
+                ) : (
+                  <WebView
+                    ref={web}
+                    source={{ uri: url }}
+                    style={s.fill}
+                    originWhitelist={['*']}
+                    javaScriptEnabled
+                    onMessage={(e) => receive(e.nativeEvent.data)}
+                    onError={() => setStatus('failed')}
+                    onHttpError={() => setStatus('failed')}
+                    // GPU 렌더러가 죽으면(메모리·드라이버) 앱 전체가 죽지 않게 평면 지도로
+                    onRenderProcessGone={() => setStatus('failed')}
+                    androidLayerType="hardware"
+                    webviewDebuggingEnabled={__DEV__}
+                    setSupportMultipleWindows={false}
+                  />
+                )}
               </BlurTargetView>
             )}
             {status === 'loading' ? (

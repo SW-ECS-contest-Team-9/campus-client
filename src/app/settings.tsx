@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { StyleSheet, Switch, TextInput, View } from 'react-native';
 import { DEFAULT_MAP3D_URL } from '../map3d/embed';
+import { get3dStats } from '../map3d/diag';
 import { DEFAULT_SERVER_URL, useApp } from '../state/AppState';
 import { Btn, Card, Chip, H, P, Screen, Section, T } from '../ui/kit';
 
@@ -9,6 +10,7 @@ export default function SettingsScreen() {
   const app = useApp();
   const [server, setServer] = useState(app.settings.serverUrl);
   const [map3d, setMap3d] = useState(app.settings.map3dUrl);
+  const [stats] = useState(get3dStats);
   return (
     <Screen title="설정">
       <H>내 이동에 맞게</H>
@@ -36,6 +38,20 @@ export default function SettingsScreen() {
             ? '지금: 2 — 흐림 없이 반투명 면, 움직임은 짧게(조금 오래된 휴대폰).'
             : '지금: 3 — 움직임과 움직이는 캐릭터 없이 가장 가볍게.'}
       </P>
+      <Section>3D 엔진</Section>
+      <View style={s.chips}>
+        <Chip
+          label="기본(네이티브)"
+          on={app.settings.map3dEngine !== 'web'}
+          onPress={() => app.updateSettings({ map3dEngine: 'native' })}
+        />
+        <Chip label="웹" on={app.settings.map3dEngine === 'web'} onPress={() => app.updateSettings({ map3dEngine: 'web' })} />
+      </View>
+      <P tone="muted">
+        {app.settings.map3dEngine === 'web'
+          ? '웹: 3D 지도 페이지를 서버에서 받아 그려요(인터넷·서버 필요, 첫 화면이 느려요).'
+          : '기본: 앱에 들어 있는 3D 지도를 바로 그려요(서버 없이, 빠름).'}
+      </P>
       <Section>화면 표시</Section>
       <Card style={s.row}>
         <View style={{ flex: 1 }}>
@@ -51,7 +67,9 @@ export default function SettingsScreen() {
       </Card>
       <Section>위치 권한</Section>
       <Card>
-        <P tone="muted">{'"내 위치"를 누를 때만 위치를 읽어요. 위치 기록은 기기 밖으로 보내지 않아요.'}</P>
+        <P tone="muted">
+          {'위치를 허락하면 앱을 보고 있는 동안만 위치·걸음·기압을 읽어 길 위에 맞춰 보여 줘요. 위치 기록은 기기 밖으로 보내지 않아요.'}
+        </P>
       </Card>
       <Section>지도 서버(개발용)</Section>
       <TextInput
@@ -79,6 +97,18 @@ export default function SettingsScreen() {
       <Card>
         <P tone="muted">저장한 장소·최근 경로·설정은 이 기기에만 있어요(계정 없음).</P>
       </Card>
+      {stats.length ? (
+        <>
+          <Section>3D 측정(시험용)</Section>
+          <Card>
+            {stats.map((l) => (
+              <P key={l} tone="muted">
+                {l}
+              </P>
+            ))}
+          </Card>
+        </>
+      ) : null}
     </Screen>
   );
 }

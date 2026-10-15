@@ -14,6 +14,7 @@ import { DEV_HOST } from '../config/devHost';
 import * as Device from 'expo-device';
 import { AppState as RNAppState, InteractionManager, Platform } from 'react-native';
 import { adjustForFirst3d, chooseTier, type DeviceTier } from '../ui/tier';
+import type { Map3dEngine } from '../ui/Map3D';
 
 const fixture = fixtureJson as unknown as MapPackage;
 
@@ -29,6 +30,10 @@ export interface Settings {
   autoTier: DeviceTier | null;
   /** 3D 첫 화면 시간으로 자동 등급을 확인했는지 */
   autoTier3dChecked: boolean;
+  /** 그 확인을 한 3D 엔진(엔진이 바뀌면 처음 등급부터 다시 확인) */
+  autoTier3dEngine?: Map3dEngine;
+  /** 3D 엔진: 네이티브(기본, 앱에 묶은 3D·서버 없이) / 웹(3D 페이지, 서버 필요) */
+  map3dEngine: Map3dEngine;
 }
 /** 개발 기본값. 운영 주소는 나중에 정함. */
 export const DEFAULT_SERVER_URL = `http://${DEV_HOST}:8010`;
@@ -39,6 +44,7 @@ const DEFAULT_SETTINGS: Settings = {
   deviceTier: null,
   autoTier: null,
   autoTier3dChecked: false,
+  map3dEngine: 'native',
 };
 /** 갱신 실패 문구: 개발용 오류 글(TypeError 등)을 그대로 보이지 않음(카카오 디자인: 진단 정보 분리). */
 const failText = (e: string) =>
@@ -78,7 +84,7 @@ interface AppState {
   updateSettings: (patch: Partial<Settings>) => Promise<void>;
   /** 지금 쓰는 표현 등급(사용자 지정 > 자동) */
   tier: DeviceTier;
-  noteFirst3dReady: (ms: number) => void;
+  noteFirst3dReady: (ms: number, engine: Map3dEngine) => void;
   recentSearches: string[];
   addRecentSearch: (q: string) => void;
   recentRoutes: RecentRoute[];
@@ -197,11 +203,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [settings],
   );
   /** 3D 첫 화면까지 걸린 시간(앱 켠 뒤 한 번). 자동 등급이면 느릴 때 한 단계 낮춤. */
-  const noteFirst3dReady = useCallback((ms: number) => {
+  const noteFirst3dReady = useCallback((ms: number, engine: Map3dEngine) => {
     setSettings((cur) => {
       // 웹은 첫 화면 시간이 망·타일 받기에 좌우되어 기기 성능을 뜻하지 않음 → Android 만
-      if (Platform.OS !== 'android' || cur.autoTier3dChecked || cur.autoTier == null) return cur;
-      const next = { ...cur, autoTier: adjustForFirst3d(cur.autoTier, ms), autoTier3dChecked: true };
+      if (Platform.OS !== 'android' || cur.autoTier == null) return cur;
+      if (cur.autoTier3dChecked && (cur.autoTier3dEngine ?? 'web') === engine) return cur;
+      // 엔진이 바뀌었으면(웹 3D 가 느려 낮췄던 등급) 처음 등급부터 다시
+      const base = cur.autoTier3dChecked ? detectTier() : cur.autoTier;
+      const next = { ...cur, autoTier: adjustForFirst3d(base, ms), autoTier3dChecked: true, autoTier3dEngine: engine };
       void AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
       return next;
     });

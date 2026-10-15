@@ -12,3 +12,4 @@ src/location/matcher
 src/nlp/types.ts
 src/nlp/lexicon.ts
 src/nlp/parse.ts
+src/map3d/native

@@ -97,7 +97,7 @@ Remove-Item Env:EXPO_PUBLIC_USB_REVERSE; .\gradlew.bat assembleRelease -PreactNa
 
 - 모델은 APK 에 넣지 않음. 시험판: `adb shell mkdir -p /sdcard/Android/data/kr.ac.skuniv.campusclient/files` 후
   `adb push gemma3-270m-route-Q4_K_M.gguf /sdcard/Android/data/kr.ac.skuniv.campusclient/files/`(253 MB, `C:\campus-nlp\models`).
-- 앱은 시작할 때 머리말만 읽어 있는지 확인하고, 처음 쓸 때 불러오며, 뒤로 가면 놓음. 설정 "AI 문장 해석(실험)"(자동: 등급 1 만 켬).
+- 앱은 시작할 때 머리말만 읽어 있는지 확인하고, 처음 쓸 때 불러오며, 뒤로 가면 놓음. 설정 "AI 문장 해석(실험)"(기본 꺼짐 — S21 실측 한 번 6~8 s, 불러오면 메모리 +0.56 GB).
 - 나중 배포(계획, 백엔드는 아직 안 바꿈): 백엔드(FastAPI)가 모델을 정적 파일로 주고(`/v1/models/gemma3-270m-route-Q4_K_M.gguf` + sha256),
   앱이 처음 쓸 때 받아 sha256 확인 뒤 같은 자리에 저장. 앱에 Hugging Face 토큰을 넣지 않음.
 

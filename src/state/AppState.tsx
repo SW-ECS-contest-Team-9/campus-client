@@ -39,7 +39,7 @@ export interface Settings {
   autoTierRule?: number;
   /** 3D 엔진: 네이티브(기본, 앱에 묶은 3D·서버 없이) / 웹(3D 페이지, 서버 필요) */
   map3dEngine: Map3dEngine;
-  /** AI 문장 해석(실험, 기기 안 Gemma). null = 자동(등급 1 만 켬) */
+  /** AI 문장 해석(실험, 기기 안 Gemma). null = 기본(꺼짐: S21 실측 한 번 6~8 s, 불러오면 메모리 +0.56 GB) */
   aiParse?: boolean | null;
 }
 /** 개발 기본값. 운영 주소는 나중에 정함. */

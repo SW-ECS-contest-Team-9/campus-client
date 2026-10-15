@@ -18,6 +18,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "kr.ac.skuniv.campusclient",
+      "versionCode": 1,
       "permissions": ["android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION"],
       "blockedPermissions": ["android.permission.ACCESS_BACKGROUND_LOCATION"]
     },

@@ -33,9 +33,16 @@ export function CampusMap({
   const pkg = app.pkg!;
   const loc = useMemo<Map3dCommand | null>(() => {
     if (!app.fix) return null;
+    // 층: 사용자가 확인한 층 > 위치 보정이 고른 층. 높이는 확인한 층 바닥 또는 맞춘 통로 높이.
     const cf = app.confirmedFloor;
-    const floor = cf ? pkg.floors.find((f) => f.key === cf.floorKey) : null;
-    return locationCommand(app.fix, cf && floor ? { buildingKey: cf.buildingKey, floorCode: floor.code, z: floor.floorZ } : undefined);
+    const m = app.fix.match;
+    const fk = cf?.floorKey ?? m?.floorKey ?? null;
+    const floor = fk ? pkg.floors.find((f) => f.key === fk) : null;
+    return locationCommand(app.fix, {
+      buildingKey: cf?.buildingKey ?? floor?.buildingKey ?? m?.buildingKey ?? null,
+      floorCode: floor?.code ?? null,
+      z: cf && floor ? floor.floorZ : (m?.z ?? null),
+    });
   }, [app.fix, app.confirmedFloor, pkg]);
   // 층 고르기(보는 층)
   const floors = useMemo(() => Object.entries(app.floorSel).map(([b, f]) => floorCommand(pkg, b, f)), [app.floorSel, pkg]);

@@ -27,6 +27,9 @@ export default function GuideScreen() {
     ? `${pkg.buildings.find((b) => b.key === cf.buildingKey)?.name ?? ''} ${pkg.floors.find((f) => f.key === cf.floorKey)?.code ?? ''}`.trim()
     : null;
   const unsure = !app.fix || app.fix.uncertain;
+  // 위치 보정이 고른 층(추정). 확인한 층·단계 층과 섞지 않음
+  const mf = app.fix?.match?.floorKey ? pkg.floors.find((f) => f.key === app.fix?.match?.floorKey) : null;
+  const fixFloor = mf ? `${pkg.buildings.find((b) => b.key === mf.buildingKey)?.name ?? ''} ${mf.code}`.trim() : null;
   // 보는 층·경로 단계의 층·내가 확인한 층을 섞지 않음(제품 규칙 01): 확인한 층이 없으면 "단계 기준"이라고 밝힘
   const where = unsure
     ? app.fix
@@ -34,7 +37,9 @@ export default function GuideScreen() {
       : '현재 위치 모름'
     : cfText
       ? `내 위치: ${cfText} (내가 확인함)`
-      : `이 단계 출발: ${step.fromFloor ?? '바깥'} · 내 층 확인`;
+      : fixFloor
+        ? `내 위치: ${fixFloor} (추정) · 층 확인`
+        : `이 단계 출발: ${step.fromFloor ?? '바깥'} · 내 층 확인`;
   return (
     <Screen
       title="안내 중"

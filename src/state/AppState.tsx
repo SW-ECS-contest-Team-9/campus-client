@@ -1,15 +1,18 @@
 // 앱 전체 상태: 지도 꾸러미, 설정·즐겨찾기(기기 저장), 경로 선택, 현재 위치.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { checkForUpdate, loadLocal, type Deps, type LoadedPackage } from '../api/mapRelease';
 import type { MapPackage } from '../map/package';
 import fixtureJson from '../map/fixture/campus-fixture.json';
 import { buildGraph, findRoute, type Graph, type RouteCondition, type RouteResult } from '../route/route';
 import type { Fix } from '../location/fix';
+import { createTracker, type Tracker } from '../location/tracker';
+import { startTracking, type SensorStatus } from '../location/sensors';
+import { expoSensors, hasLocationPermission, requestLocationPermission } from '../location/expoSensors';
 import { DEV_HOST } from '../config/devHost';
 import * as Device from 'expo-device';
-import { Platform } from 'react-native';
+import { AppState as RNAppState, InteractionManager, Platform } from 'react-native';
 import { adjustForFirst3d, chooseTier, type DeviceTier } from '../ui/tier';
 
 const fixture = fixtureJson as unknown as MapPackage;
@@ -96,8 +99,15 @@ interface AppState {
   setCondition: (c: RouteCondition) => void;
   route: RouteResult | null;
   startNodeKey: string | null;
+  /** 현재 위치(위치 보정 v2 로 통로 위에 끌린 점). 센서가 켜져 있으면 계속 바뀜. */
   fix: Fix | null;
   setFix: (f: Fix | null) => void;
+  /** 위치 권한을 받고 위치·걸음·기압 읽기를 켬. 권한이 없으면 false. */
+  enableLocation: () => Promise<boolean>;
+  /** 지금 위치(있으면 바로, 없으면 다음 위치)를 기다림. 시간 넘으면 null. */
+  waitFix: (ms: number) => Promise<Fix | null>;
+  /** 켜진 센서(null = 아직 안 켬). 기압계가 없으면 층은 사용자가 고른 층(위치 다시 확인)으로. */
+  sensors: SensorStatus | null;
   floorSel: Record<string, string>; // buildingKey → floorKey | 'all'
   setFloor: (buildingKey: string, floorKey: string) => void;
 }
@@ -117,6 +127,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [condition, setCondition] = useState<RouteCondition>('shortest');
   const [fix, setFix] = useState<Fix | null>(null);
   const [floorSel, setFloorSel] = useState<Record<string, string>>({});
+  const [tracker, setTracker] = useState<Tracker | null>(null);
+  const [wantLoc, setWantLoc] = useState(false);
+  const [active, setActive] = useState(RNAppState.currentState !== 'background');
+  const [sensors, setSensors] = useState<SensorStatus | null>(null);
+  const fixRef = useRef<Fix | null>(null);
+  const fixWaiters = useRef<((f: Fix) => void)[]>([]);
+  const onFix = useCallback((f: Fix) => {
+    fixRef.current = f;
+    setFix(f);
+    for (const w of fixWaiters.current.splice(0)) w(f);
+  }, []);
+  const waitFix = useCallback(
+    (ms: number) =>
+      fixRef.current
+        ? Promise.resolve(fixRef.current)
+        : new Promise<Fix | null>((done) => {
+            const t = setTimeout(() => done(null), ms);
+            fixWaiters.current.push((f) => {
+              clearTimeout(t);
+              done(f);
+            });
+          }),
+    [],
+  );
 
   useEffect(() => {
     (async () => {
@@ -203,6 +237,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const pkg = loaded?.pkg ?? null;
   const graph = useMemo(() => (pkg ? buildGraph(pkg) : null), [pkg]);
 
+  // 위치 보정 v2: 꾸러미마다 맞춤기 하나(그래프 준비가 기기에서 수백 ms 라 첫 화면 뒤에)
+  useEffect(() => {
+    if (!pkg) return;
+    const h = InteractionManager.runAfterInteractions(() => setTracker(createTracker(pkg, Platform.OS === 'ios' ? 'ios' : 'android')));
+    return () => h.cancel();
+  }, [pkg]);
+  useEffect(() => {
+    const sub = RNAppState.addEventListener('change', (st) => setActive(st === 'active'));
+    void hasLocationPermission().then((ok) => ok && setWantLoc(true)); // 이미 허락했으면 켤 때부터
+    return () => sub.remove();
+  }, []);
+  // 앞쪽에 있을 때만 센서를 읽음(뒤로 가면 멈춤)
+  useEffect(() => {
+    if (!tracker || !wantLoc || !active) return;
+    let stop: (() => void) | null = null;
+    let dead = false;
+    void startTracking(expoSensors, tracker, onFix).then((r) => {
+      if (dead) return r.stop();
+      stop = r.stop;
+      setSensors(r.status);
+    });
+    return () => {
+      dead = true;
+      stop?.();
+    };
+  }, [tracker, wantLoc, active, onFix]);
+  // 사용자가 확인한 층 → 맞춤기(기압계 없는 기기의 층 판정. 기압이 있으면 맞춤기가 무시)
+  useEffect(() => tracker?.setFloor(confirmedFloor?.floorKey ?? null), [tracker, confirmedFloor]);
+  const enableLocation = useCallback(async () => {
+    const ok = await requestLocationPermission();
+    if (ok) setWantLoc(true);
+    return ok;
+  }, []);
+
   const startNodeKey = useMemo(() => {
     if (!pkg || !start) return null;
     if (start.type === 'node') return start.nodeKey;
@@ -249,6 +317,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     startNodeKey,
     fix,
     setFix,
+    enableLocation,
+    waitFix,
+    sensors,
     floorSel,
     setFloor,
   };

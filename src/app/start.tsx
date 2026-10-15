@@ -2,7 +2,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { getFix, nearestOutdoorNode, snapToNetwork } from '../location/location';
+import { startNodeForFix } from '../location/fix';
 import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
 import { Badge, Btn, Card, H, P, Screen } from '../ui/kit';
@@ -14,21 +14,18 @@ export default function StartScreen() {
   const pkg = app.pkg;
   const placeName = (k: string) => pkg.places.find((p) => p.key === k)?.name ?? '없어진 장소';
 
+  // 위치 보정(통로 위로 끌린 점)의 그 길 가까운 끝 노드에서 출발. 불확실하면 직접 고르게 함(제품 규칙 02).
   const useHere = async () => {
     setMsg('위치 읽는 중…');
-    let f = null;
-    try {
-      f = await getFix();
-    } catch {
-      f = null;
-    }
-    if (!f) return setMsg('현재 위치를 확인하지 못했어요');
-    app.setFix(f);
-    if (f.uncertain) return setMsg(`현재 위치가 정확하지 않아요 (${f.reason})`);
-    const sn = snapToNetwork(f, pkg); // 지금은 원래 점 그대로
-    const n = nearestOutdoorNode(pkg, sn.x, sn.y);
+    if (!(await app.enableLocation())) return setMsg('위치 권한이 없어요 · 장소로 골라 주세요');
+    const fix = await app.waitFix(15000);
+    if (!fix) return setMsg('현재 위치를 확인하지 못했어요');
+    if (fix.uncertain) return setMsg(`현재 위치가 정확하지 않아요 (${fix.reason})`);
+    const n = startNodeForFix(pkg, fix);
     if (!n) return setMsg('가까운 길이 50 m 안에 없어요');
-    app.setStart({ type: 'node', nodeKey: n.key, label: `현재 위치 (길까지 ${Math.round(n.distM)} m)` });
+    const f = fix.match?.floorKey ? pkg.floors.find((x) => x.key === fix.match?.floorKey) : null;
+    const b = f ? pkg.buildings.find((x) => x.key === f.buildingKey)?.name : null;
+    app.setStart({ type: 'node', nodeKey: n.key, label: `현재 위치${f ? ` · ${b ?? ''} ${f.code}(추정)` : ''}` });
     setMsg(null);
   };
   const st = app.start;

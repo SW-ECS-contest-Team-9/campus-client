@@ -5,7 +5,6 @@ import { Bookmark, Clock, MapPin, Navigation, Search, Settings } from 'lucide-re
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getFix } from '../location/location';
 import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
 import { IconButton, PressScale, SearchInput } from '../ui/components';
@@ -30,16 +29,25 @@ export default function Home() {
 
   const locate = async () => {
     setLocMsg('위치 읽는 중…');
-    try {
-      const f = await getFix();
-      if (!f) return setLocMsg('위치 권한이 없어요 · 출발점을 직접 골라 주세요');
-      app.setFix(f);
-      app.setConfirmedFloor(null);
-      setLocMsg(f.uncertain ? `위치가 정확하지 않아요 (${f.reason})` : `현재 위치 · 정확도 ${Math.round(f.accuracyM ?? 0)} m`);
-    } catch {
-      setLocMsg('위치를 읽지 못했어요 · 출발점을 직접 골라 주세요');
-    }
+    app.setConfirmedFloor(null);
+    if (!(await app.enableLocation())) setLocMsg('위치 권한이 없어요 · 출발점을 직접 골라 주세요');
   };
+  // 위치 보정 상태(통로에 맞춘 점). 불확실은 꼬리표일 뿐 점은 계속 통로 위에 있음.
+  const fix = app.fix;
+  const fixFloor = fix?.match?.floorKey ? pkg.floors.find((f) => f.key === fix.match?.floorKey) : null;
+  const fixWhere = fixFloor
+    ? `${pkg.buildings.find((b) => b.key === fixFloor.buildingKey)?.name ?? ''} ${fixFloor.code}`.trim()
+    : fix?.match?.buildingKey
+      ? (pkg.buildings.find((b) => b.key === fix.match?.buildingKey)?.name ?? '건물 안')
+      : '바깥 길';
+  const fixText = !fix
+    ? locMsg
+    : fix.uncertain
+      ? `위치 불확실 · 가까운 통로에 표시 중`
+      : fix.match?.onNetwork
+        ? `내 위치(추정) · ${fixWhere}`
+        : `내 위치 · 정확도 ${Math.round(fix.accuracyM ?? 0)} m`;
+  const noBaro = !!app.sensors && !app.sensors.baro;
   const favs = app.favorites.map((k) => pkg.places.find((p) => p.key === k)).filter((p): p is NonNullable<typeof p> => !!p);
   const recents = app.recentRoutes.map((r) => pkg.places.find((p) => p.key === r.destKey)).filter((p): p is NonNullable<typeof p> => !!p);
   const shortcuts = [...favs.map((p) => ({ p, fav: true })), ...recents.map((p) => ({ p, fav: false }))]
@@ -65,10 +73,20 @@ export default function Home() {
                 </Glass>
               </View>
               <SearchInput onPress={() => router.push('/search')} />
-              {locMsg ? (
-                <View pointerEvents="none">
-                  <Badge text={locMsg} tone={app.fix && !app.fix.uncertain ? 'confirmed' : 'caution'} />
+              {fixText ? (
+                <View pointerEvents="none" accessibilityLiveRegion="polite">
+                  <Badge text={fixText} tone={fix && !fix.uncertain ? 'confirmed' : 'caution'} />
                 </View>
+              ) : null}
+              {fix && noBaro && !app.confirmedFloor ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="이 휴대폰엔 기압계가 없어 층을 알 수 없어요. 지금 층 고르기"
+                  onPress={() => router.push('/recheck')}
+                  style={s.unsaved}
+                >
+                  <Badge text="기압계 없음 · 지금 층 고르기" tone="caution" />
+                </Pressable>
               ) : null}
               {app.loaded?.source === 'fixture' ? (
                 <Pressable

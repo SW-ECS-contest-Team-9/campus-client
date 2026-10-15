@@ -1,4 +1,4 @@
-// 위치 점 판단(불확실 여부)과 길 맞춤 자리. expo 에 의존하지 않음(시험 가능).
+// 위치 점 판단(불확실 여부). 길 맞춤(통로로 끌어당기기)은 tracker.ts(위치 보정 v2). expo 에 의존하지 않음(시험 가능).
 import type { MapPackage } from '../map/package';
 import { wgs84To5186 } from './projection';
 
@@ -9,8 +9,22 @@ export interface Fix {
   y: number;
   accuracyM: number | null;
   timestamp: number;
-  uncertain: boolean; // 정확도 > 20 m, 정확도 모름, 또는 실내
+  uncertain: boolean; // 정확도 > 20 m, 정확도 모름, 또는 실내 / 맞춤기 결과 'uncertain'
   reason: string | null;
+  /** 맞춤기를 거친 점이면 원래 GPS 점(EPSG:5186). x, y 는 통로 위로 끌린 점. */
+  raw?: { x: number; y: number } | null;
+  /** 맞춤기 결과(통로·층). 없으면 GPS 점 그대로. */
+  match?: FixMatch | null;
+}
+
+export interface FixMatch {
+  floorKey: string | null;
+  buildingKey: string | null;
+  edgeKey: string | null;
+  areaKey: string | null;
+  z: number | null;
+  /** 길·걷는 면·건물 위(길 밖 상태가 아님) */
+  onNetwork: boolean;
 }
 
 export function toFix(lon: number, lat: number, accuracyM: number | null, timestamp: number, indoor: boolean): Fix {
@@ -22,22 +36,6 @@ export function toFix(lon: number, lat: number, accuracyM: number | null, timest
   return { x, y, accuracyM, timestamp, uncertain: reason !== null, reason };
 }
 
-export interface Snapped {
-  x: number;
-  y: number;
-  nodeKey: string | null;
-  edgeKey: string | null;
-  matched: boolean;
-}
-
-/**
- * 길 맞춤 자리. 지금은 원래 점을 그대로 돌려준다 (matched=false).
- * 후속: HMM(Viterbi) + GPS 믿음 모델 (백엔드 작업로그 2026-10-14 클라이언트 MVP 최적안).
- */
-export function snapToNetwork(fix: Fix, _pkg: MapPackage): Snapped {
-  return { x: fix.x, y: fix.y, nodeKey: null, edgeKey: null, matched: false };
-}
-
 /** 가장 가까운 걸을 수 있는 바깥 노드 (수동 출발점 제안용). */
 export function nearestOutdoorNode(pkg: MapPackage, x: number, y: number, maxM = 50): { key: string; distM: number } | null {
   let best: { key: string; distM: number } | null = null;
@@ -47,4 +45,19 @@ export function nearestOutdoorNode(pkg: MapPackage, x: number, y: number, maxM =
     if (d <= maxM && (!best || d < best.distM)) best = { key: n.key, distM: d };
   }
   return best;
+}
+
+/** 현재 위치에서 출발할 노드: 맞춘 길의 가까운 끝(실내 층 포함), 없으면 50 m 안 가장 가까운 바깥 노드. */
+export function startNodeForFix(pkg: MapPackage, fix: Fix): { key: string; distM: number } | null {
+  const ek = fix.match?.edgeKey;
+  const e = ek ? pkg.edges.find((x) => x.key === ek) : undefined;
+  if (e) {
+    const ends = [e.from, e.to]
+      .map((k) => pkg.nodes.find((n) => n.key === k))
+      .filter((n): n is NonNullable<typeof n> => !!n)
+      .map((n) => ({ key: n.key, distM: Math.hypot(n.x - fix.x, n.y - fix.y) }))
+      .sort((a, b) => a.distM - b.distM);
+    if (ends.length) return ends[0];
+  }
+  return nearestOutdoorNode(pkg, fix.x, fix.y);
 }

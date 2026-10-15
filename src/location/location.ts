@@ -1,4 +1,4 @@
-// 현재 위치: expo-location → EPSG:5186. 길 맞춤(map matching)은 아직 없음(fix.ts 의 snapToNetwork).
+// 현재 위치 1회 읽기: expo-location → EPSG:5186. 계속 읽기·통로 맞춤은 expoSensors.ts + tracker.ts(위치 보정 v2).
 import * as Location from 'expo-location';
 import { wgs84To5186 } from './projection';
 import { toFix, type Fix } from './fix';

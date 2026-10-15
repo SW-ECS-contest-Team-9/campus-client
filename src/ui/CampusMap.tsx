@@ -41,7 +41,9 @@ export function CampusMap({
     const m = app.fix.match;
     const fk = cf?.floorKey ?? m?.floorKey ?? null;
     const floor = fk ? pkg.floors.find((f) => f.key === fk) : null;
-    return locationCommand(app.fix, {
+    // 통로에 확실히 맞춘 점이면 정확도 원을 작게(GPS 정확도 원이 경로·캐릭터를 덮지 않게)
+    const f = m?.onNetwork && !app.fix.uncertain ? { ...app.fix, accuracyM: Math.min(app.fix.accuracyM ?? 8, 8) } : app.fix;
+    return locationCommand(f, {
       buildingKey: cf?.buildingKey ?? floor?.buildingKey ?? m?.buildingKey ?? null,
       floorCode: floor?.code ?? null,
       z: cf && floor ? floor.floorZ : (m?.z ?? null),

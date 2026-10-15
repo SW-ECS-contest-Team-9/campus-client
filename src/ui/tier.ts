@@ -14,7 +14,8 @@ export interface TierInput {
 const GB = 1024 ** 3;
 
 /**
- * 처음 켤 때의 등급. 웹·iOS 는 1. Android: API 34+(Android 14, S20·Note20 은 13 이 마지막)·RAM 7.5 GB+ → 1,
+ * 처음 켤 때의 등급. 웹·iOS 는 1. Android: API 34+(Android 14, S20·Note20 은 13 이 마지막)·RAM 6.5 GiB+ → 1
+ * (8 GB 폰은 커널 몫을 빼고 약 7.0~7.4 GiB 로 보임 — 실제 S21 MemTotal 7,373,756 kB),
  * API 29 미만·RAM 3.5 GB 미만 → 3, 나머지 2. 느린 기기는 3D 첫 화면 시간으로 한 단계 더 낮춤.
  */
 export function chooseTier({ os, apiLevel, totalMemory }: TierInput): DeviceTier {
@@ -22,7 +23,7 @@ export function chooseTier({ os, apiLevel, totalMemory }: TierInput): DeviceTier
   const api = apiLevel ?? 0;
   const ram = totalMemory ?? 0;
   if (api < 29 || (totalMemory != null && ram < 3.5 * GB)) return 3;
-  if (api >= 34 && ram >= 7.5 * GB) return 1;
+  if (api >= 34 && ram >= 6.5 * GB) return 1;
   return 2;
 }
 

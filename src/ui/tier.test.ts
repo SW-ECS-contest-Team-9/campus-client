@@ -9,6 +9,8 @@ describe('chooseTier', () => {
   });
   it('S21(Android 14, 8 GB) → 1', () => {
     expect(chooseTier({ os: 'android', apiLevel: 34, totalMemory: 7.6 * GB })).toBe(1);
+    // 실제 S21(SM-G991N, Android 15) MemTotal 7,373,756 kB ≈ 7.03 GiB
+    expect(chooseTier({ os: 'android', apiLevel: 35, totalMemory: 7373756 * 1024 })).toBe(1);
   });
   it('S10·Note10(Android 12, 8 GB) → 2', () => {
     expect(chooseTier({ os: 'android', apiLevel: 31, totalMemory: 7.5 * GB })).toBe(2);

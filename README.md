@@ -82,6 +82,25 @@ cd android
 결과: `android/app/build/outputs/apk/debug/app-debug.apk`. 설치: `adb install -r <apk>`.
 처음 빌드는 10~15분, JS 만 바꾼 재빌드는 1~2분.
 
+### v1.0 APK(release, JS 내장)
+
+```
+cd android
+$env:EXPO_PUBLIC_USB_REVERSE="1"; .\gradlew.bat assembleRelease -PreactNativeArchitectures=arm64-v8a   # 실기기(adb reverse 주소)
+Remove-Item Env:EXPO_PUBLIC_USB_REVERSE; .\gradlew.bat assembleRelease -PreactNativeArchitectures=x86_64   # 에뮬레이터(10.0.2.2)
+```
+
+결과 `android/app/build/outputs/apk/release/app-release.apk`(디버그 키로 서명 — 시험용). 실기기는 `adb reverse tcp:8010 tcp:8010`, `tcp:5273`, `tcp:3210`.
+`llama.rn` 설치 때 미리 빌드된 so 를 받아 풀므로 Windows 는 `C:\Windows\System32	ar.exe` 가 PATH 앞에 있어야 함(Git 의 tar 는 `C:` 를 원격으로 읽어 실패).
+
+### AI 문장 해석(실험, 기기 안 Gemma 3 270M)
+
+- 모델은 APK 에 넣지 않음. 시험판: `adb shell mkdir -p /sdcard/Android/data/kr.ac.skuniv.campusclient/files` 후
+  `adb push gemma3-270m-route-Q4_K_M.gguf /sdcard/Android/data/kr.ac.skuniv.campusclient/files/`(253 MB, `C:\campus-nlp\models`).
+- 앱은 시작할 때 머리말만 읽어 있는지 확인하고, 처음 쓸 때 불러오며, 뒤로 가면 놓음. 설정 "AI 문장 해석(실험)"(자동: 등급 1 만 켬).
+- 나중 배포(계획, 백엔드는 아직 안 바꿈): 백엔드(FastAPI)가 모델을 정적 파일로 주고(`/v1/models/gemma3-270m-route-Q4_K_M.gguf` + sha256),
+  앱이 처음 쓸 때 받아 sha256 확인 뒤 같은 자리에 저장. 앱에 Hugging Face 토큰을 넣지 않음.
+
 ### 웹 정적 내보내기
 
 ```

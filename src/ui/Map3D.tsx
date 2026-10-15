@@ -62,6 +62,8 @@ export function Map3DHost({
   const ready = useRef(false);
   const lastUi = useRef<boolean | null>(null);
   const markersSent = useRef(false);
+  const sent = useRef(new Map<string, string>());
+  const sentSlot = useRef<string | null>(null);
 
   const api = useMemo<Api>(
     () => ({
@@ -90,9 +92,21 @@ export function Map3DHost({
       post({ v: 1, type: 'setMode', ui: slot.minimal ? 'min' : 'full' });
       lastUi.current = slot.minimal;
     }
-    if (!slot.commands.some((c) => c.type === 'setRoute')) post({ v: 1, type: 'clearRoute' });
-    if (!slot.commands.some((c) => c.type === 'setLocation')) post({ v: 1, type: 'clearLocation' });
-    for (const c of slot.commands) post(c);
+    // 같은 자리에서 바뀐 명령만 다시 보냄(위치가 1초마다 바뀔 때 경로를 다시 보내면 페이지가 경로 전체로 화면을 되돌림)
+    if (sentSlot.current !== slot.id) {
+      sent.current.clear();
+      sentSlot.current = slot.id;
+    }
+    const send = (c: Map3dCommand) => {
+      const k = c.type === 'setFloor' ? `floor:${c.building}` : /Route$/.test(c.type) ? 'route' : /Location$/.test(c.type) ? 'loc' : c.type;
+      const j = JSON.stringify(c);
+      if (sent.current.get(k) === j) return;
+      sent.current.set(k, j);
+      post(c);
+    };
+    if (!slot.commands.some((c) => c.type === 'setRoute')) send({ v: 1, type: 'clearRoute' });
+    if (!slot.commands.some((c) => c.type === 'setLocation')) send({ v: 1, type: 'clearLocation' });
+    for (const c of slot.commands) send(c);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- cmdKey 가 slot 의 내용
   }, [status, cmdKey, post]);
 
@@ -114,6 +128,7 @@ export function Map3DHost({
         ready.current = true;
         lastUi.current = null;
         markersSent.current = false;
+        sentSlot.current = null;
         setStatus('ready');
       }
       handler.current?.(e);

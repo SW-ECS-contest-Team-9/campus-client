@@ -70,7 +70,8 @@ export default function GuideScreen() {
       ) : (
         <Pulse trigger={i} style={s.now}>
           <Gradient colors={gradient.deep} />
-          <Text style={s.nowT}>{step.text}</Text>
+          {/* 길 이름에 섞인 자료 메모(괄호: 추정·지시 등)는 안내 글에서 뺌 */}
+          <Text style={s.nowT}>{step.text.replace(/\s*\([^)]*\)/g, '')}</Text>
           <RouteDrawBar progress={(i + 1) / r.steps.length} height={5} />
           <Text style={s.nowS}>
             {i + 1}/{r.steps.length}단계 · {dest?.name ?? ''} · 약 {minutes(left)}분 남음

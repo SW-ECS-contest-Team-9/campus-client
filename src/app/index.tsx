@@ -64,7 +64,7 @@ export default function Home() {
   return (
     <View style={s.root}>
       <CampusMap
-        padding={{ top: inset.top + 128, bottom: bottom + PEEK }}
+        padding={{ top: inset.top + 172, bottom: bottom + PEEK }}
         overlay={
           <>
             {/* 위: 이름 알약 + 설정, 검색 알약 */}

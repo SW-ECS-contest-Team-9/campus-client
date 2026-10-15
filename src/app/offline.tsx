@@ -1,4 +1,4 @@
-// CT11 오프라인 지도: 기기에 저장된 지도 꾸러미(버전·크기·날짜·범위)와 갱신. 3D 지도는 인터넷이 있어야 보임(없으면 평면 지도).
+// CT11 오프라인 지도: 기기에 저장된 지도 꾸러미(버전·크기·날짜·범위)와 갱신. 3D 지도: 기본(네이티브)은 앱에 들어 있어 인터넷 없이, 웹 엔진은 인터넷 필요.
 import { StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../state/AppState';
 import { MapPackCard } from '../ui/components';
@@ -39,7 +39,11 @@ export default function OfflineScreen() {
         </P>
         <Card tone={l.source === 'fixture' ? 'caution' : undefined}>
           <Text style={s.t}>3D 지도</Text>
-          <P tone="muted">3D 화면은 인터넷이 있어야 보여요. 없으면 같은 지도를 평면으로 보여 드려요.</P>
+          <P tone="muted">
+            {app.settings.map3dEngine === 'web'
+              ? '웹 3D 화면은 인터넷이 있어야 보여요. 없으면 같은 지도를 평면으로 보여 드려요.'
+              : '3D 지도는 앱에 들어 있어 인터넷 없이도 보여요(건물 모양은 앱을 받을 때 기준).'}
+          </P>
         </Card>
         <Btn label="지도 갱신 확인" onPress={app.checkUpdate} />
         {app.updateStatus ? <P tone="caution">{app.updateStatus}</P> : null}

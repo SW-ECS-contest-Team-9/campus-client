@@ -34,6 +34,12 @@ export default function SearchScreen() {
   const params = useLocalSearchParams<{ q?: string; mode?: string }>();
   const app = useApp();
   const [q, setQ] = useState(params.q ?? '');
+  // 이미 열린 검색 화면에 새 검색어로 들어오면(링크·최근 검색) 그 글로 바꿈
+  const [lastParam, setLastParam] = useState(params.q);
+  if (params.q !== lastParam) {
+    setLastParam(params.q);
+    setQ(params.q ?? '');
+  }
   // 되물음에서 고른 후보를 반영한 요청(같은 문장일 때만)
   const [picked, setPicked] = useState<{ text: string; req: RouteRequest } | null>(null);
   const pkg = app.pkg;
@@ -111,7 +117,7 @@ export default function SearchScreen() {
                 {plan.question}
               </Text>
               {plan.choices.map((c) => (
-                <Btn key={c.label} kind="soft" label={c.label} onPress={() => setPicked({ text: q, req: c.apply(req) })} />
+                <Btn key={c.label} kind="soft" label={c.label} style={s.choice} onPress={() => setPicked({ text: q, req: c.apply(req) })} />
               ))}
             </>
           ) : (
@@ -163,4 +169,6 @@ const s = StyleSheet.create({
   chipMust: { backgroundColor: T.primary },
   chipMustT: { color: '#FFFFFF' },
   q: { fontSize: T.body, fontWeight: '800', color: T.text },
+  // 연한 남보라 카드 위에서도 단추로 보이게 흰 바탕 + 옅은 테두리
+  choice: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: 'rgba(79,70,229,0.18)' },
 });

@@ -99,6 +99,8 @@ export async function createCampusScene(o: SceneOptions) {
   const bounds = { minX: box.min.x - 150, maxX: box.max.x + 150, minZ: box.min.z - 150, maxZ: box.max.z + 150 };
   const cam = { target: center.clone(), dist: 0, heading: CAMERA.headingDeg * DEG, pitch: CAMERA.pitchDeg * DEG };
   const radius = box.getBoundingSphere(new THREE.Sphere()).radius;
+  // 장면 맨 위(지형·구조물 포함) + 층 펼치기로 올라가는 만큼
+  const topY = new THREE.Box3().setFromObject(root).max.y + EXPLODE_GAP * Math.max(0, ...[...buildings.values()].map((b) => b.floors.length));
   const homeDist = () => radius * (o.height > o.width ? 2.5 : 1.9); // client3d 와 같은 비율
   const home = () => { cam.target.copy(center); cam.dist = homeDist(); cam.heading = CAMERA.headingDeg * DEG; cam.pitch = CAMERA.pitchDeg * DEG; dirty(); };
   const applyCamera = () => {
@@ -110,6 +112,10 @@ export async function createCampusScene(o: SceneOptions) {
     // heading 0 = 북쪽을 봄(카메라는 남쪽에), 시계 방향 +
     camera.position.set(cam.target.x - Math.sin(cam.heading) * h, cam.target.y + v, cam.target.z + Math.cos(cam.heading) * h);
     camera.lookAt(cam.target);
+    // 깊이 정밀도: 겹친 면(운동장 줄무늬 등 2 cm 간격)이 멀리서 번갈아 보이지 않게, 카메라가 장면 맨 위보다 높으면 near 를 높이 차의 0.8배로
+    // (화면 안 모든 점은 카메라 축 방향으로 높이 차의 0.9배보다 멂). 낮으면 1 m 또는 거리의 5 %.
+    const near = Math.max(1, cam.dist * 0.05, (camera.position.y - topY) * 0.8);
+    if (Math.abs(near - camera.near) > 0.01) { camera.near = near; camera.updateProjectionMatrix(); }
   };
   home();
 

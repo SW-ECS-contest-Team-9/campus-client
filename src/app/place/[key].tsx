@@ -6,6 +6,7 @@ import { sceneBuildingId, type Map3dCommand } from '../../map3d/embed';
 import { placeSubtitle, useApp } from '../../state/AppState';
 import { CampusMap } from '../../ui/CampusMap';
 import { Badge, Btn, Card, Chip, P, Screen, T } from '../../ui/kit';
+import { Pulse, WaveEdge } from '../../ui/v3';
 
 const CATEGORY: Record<string, string> = {
   building_entrance: '건물 입구',
@@ -67,7 +68,19 @@ export default function PlaceScreen() {
       }
     >
       <View style={s.map}>
-        <CampusMap commands={cmds} highlightPlaceKeys={[p.key]} focus={[{ x: p.x, y: p.y }]} pickPlaces={false} minimal />
+        <CampusMap
+          commands={cmds}
+          highlightPlaceKeys={[p.key]}
+          focus={[{ x: p.x, y: p.y }]}
+          pickPlaces={false}
+          minimal
+          overlay={
+            <>
+              <WaveEdge color="#F2F3FD" flip height={18} />
+              <WaveEdge color="#EEF0FF" />
+            </>
+          }
+        />
       </View>
       <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 4 }}>
         <Text style={s.name}>
@@ -85,12 +98,12 @@ export default function PlaceScreen() {
         {floors.length ? (
           <Card>
             <P tone="muted">보는 층(지도에서 볼 층) — 현재 위치 층과 다를 수 있어요</P>
-            <View style={s.chips}>
+            <Pulse trigger={viewing} style={s.chips}>
               <Chip label="전체" on={viewing === 'all'} onPress={() => app.setFloor(p.buildingKey!, 'all')} />
               {floors.map((f) => (
                 <Chip key={f.key} label={f.code} on={viewing === f.key} onPress={() => app.setFloor(p.buildingKey!, f.key)} />
               ))}
-            </View>
+            </Pulse>
           </Card>
         ) : null}
       </ScrollView>
@@ -99,8 +112,8 @@ export default function PlaceScreen() {
 }
 
 const s = StyleSheet.create({
-  map: { height: 300, marginHorizontal: -T.margin },
-  name: { fontSize: T.display - 2, fontWeight: '800', color: T.text },
+  map: { height: 320, marginHorizontal: -T.margin },
+  name: { fontSize: T.display - 2, fontWeight: '800', color: T.text, letterSpacing: -0.5 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   actions: { flexDirection: 'row', gap: 8 },
 });

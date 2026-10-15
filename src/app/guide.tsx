@@ -8,6 +8,8 @@ import { minutes } from '../route/time';
 import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
 import { Btn, P, Screen, T } from '../ui/kit';
+import { Character, Gradient, Pulse, RouteDrawBar, WaveEdge } from '../ui/v3';
+import { gradient, shape } from '../ui/theme';
 
 export default function GuideScreen() {
   const app = useApp();
@@ -51,24 +53,39 @@ export default function GuideScreen() {
       }
     >
       {unsure && app.fix ? (
-        <View style={[s.now, { backgroundColor: T.cautionSoft }]}>
-          <Text style={[s.nowT, { color: T.caution }]}>현재 위치를 확인해 주세요</Text>
+        <View style={[s.now, s.nowWarn]}>
+          <View style={s.warnHead}>
+            <Character name="uncertain" size={56} />
+            <Text style={[s.nowT, { color: T.caution, flex: 1 }]}>현재 위치를 확인해 주세요</Text>
+          </View>
           <Text style={[s.nowS, { color: T.caution }]}>방향 안내를 잠시 멈췄어요 · 건물과 층을 확인하면 이어서 안내해요</Text>
           <Btn label="위치 다시 확인" onPress={() => router.push('/recheck')} />
         </View>
       ) : (
-        <View style={s.now}>
+        <Pulse trigger={i} style={s.now}>
+          <Gradient colors={gradient.deep} />
           <Text style={s.nowT}>{step.text}</Text>
+          <RouteDrawBar progress={(i + 1) / r.steps.length} height={5} />
           <Text style={s.nowS}>
             {i + 1}/{r.steps.length}단계 · {dest?.name ?? ''} · 약 {minutes(left)}분 남음
           </Text>
-        </View>
+        </Pulse>
       )}
       <Pressable accessibilityRole="button" style={s.where} onPress={() => router.push('/recheck')}>
         <Text style={s.whereT}>{where}</Text>
       </Pressable>
       <View style={s.map}>
-        <CampusMap commands={[cmd]} routeNodeKeys={r.nodeKeys} pickPlaces={false} />
+        <CampusMap
+          commands={[cmd]}
+          routeNodeKeys={r.nodeKeys}
+          pickPlaces={false}
+          overlay={
+            <>
+              <WaveEdge color="#F0F2FE" flip height={16} />
+              <WaveEdge color="#ECF1FE" height={16} />
+            </>
+          }
+        />
       </View>
       <View style={s.foot}>
         <Text style={s.min}>약 {minutes(left)}분</Text>
@@ -81,15 +98,24 @@ export default function GuideScreen() {
 }
 
 const s = StyleSheet.create({
-  now: { backgroundColor: T.text, borderRadius: T.radius, padding: 16, gap: 6 },
+  now: {
+    backgroundColor: gradient.deep[1],
+    borderRadius: shape.card,
+    borderBottomLeftRadius: shape.tail,
+    padding: 18,
+    gap: 8,
+    overflow: 'hidden',
+  },
+  nowWarn: { backgroundColor: T.cautionSoft },
+  warnHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   nowT: { color: '#fff', fontSize: T.title - 2, fontWeight: '800', lineHeight: 28 },
   nowS: { color: '#C9D3E0', fontSize: T.caption + 1 },
   where: {
     minHeight: T.touch,
-    borderRadius: 14,
-    backgroundColor: T.card,
+    borderRadius: shape.pill,
+    backgroundColor: 'rgba(255,255,255,0.94)',
     borderWidth: 1,
-    borderColor: T.line,
+    borderColor: 'rgba(49,46,129,0.10)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,

@@ -18,6 +18,24 @@ export default function SettingsScreen() {
         <Chip label="계단 피하기" on={app.condition === 'avoidStairs'} onPress={() => app.setCondition('avoidStairs')} />
         <Chip label="승강기 우선" on={app.condition === 'preferElevator'} onPress={() => app.setCondition('preferElevator')} />
       </View>
+      <Section>화면 표현(기기 등급)</Section>
+      <View style={s.chips}>
+        <Chip
+          label={`자동 · ${app.settings.autoTier ?? '-'}`}
+          on={app.settings.deviceTier == null}
+          onPress={() => app.updateSettings({ deviceTier: null })}
+        />
+        <Chip label="1 유리·움직임" on={app.settings.deviceTier === 1} onPress={() => app.updateSettings({ deviceTier: 1 })} />
+        <Chip label="2 가볍게" on={app.settings.deviceTier === 2} onPress={() => app.updateSettings({ deviceTier: 2 })} />
+        <Chip label="3 정지" on={app.settings.deviceTier === 3} onPress={() => app.updateSettings({ deviceTier: 3 })} />
+      </View>
+      <P tone="muted">
+        {app.tier === 1
+          ? '지금: 1 — 지도 위 유리 흐림과 움직임을 모두 써요(Galaxy S21 이상 기준).'
+          : app.tier === 2
+            ? '지금: 2 — 흐림 없이 반투명 면, 움직임은 짧게(조금 오래된 휴대폰).'
+            : '지금: 3 — 움직임과 움직이는 캐릭터 없이 가장 가볍게.'}
+      </P>
       <Section>화면 표시</Section>
       <Card style={s.row}>
         <View style={{ flex: 1 }}>

@@ -13,7 +13,7 @@ import { Badge, T, TabBar } from '../ui/kit';
 import { color, gradient, shape } from '../ui/theme';
 import { Character, Glass, Gradient, Sheet } from '../ui/v3';
 
-const TAB_H = 76;
+const TAB_H = 88;
 
 export default function Home() {
   const app = useApp();

@@ -2,8 +2,9 @@
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { placeSubtitle, useApp } from '../state/AppState';
-import { Check } from 'lucide-react-native';
 import { Btn, Card, H, P, Screen, T } from '../ui/kit';
+import { Character, Gradient } from '../ui/v3';
+import { gradient } from '../ui/theme';
 
 export default function ArriveScreen() {
   const app = useApp();
@@ -31,7 +32,9 @@ export default function ArriveScreen() {
       }
     >
       <View style={s.mark}>
-        <Check size={36} color={T.confirmed} strokeWidth={2} />
+        <Gradient colors={gradient.mist} />
+        <View style={s.halo} />
+        <Character name="arrive" size={132} />
       </View>
       <H>
         {dest?.name ?? '목적지'}에{'\n'}도착하셨나요?
@@ -49,16 +52,21 @@ export default function ArriveScreen() {
 }
 
 const s = StyleSheet.create({
+  // 축하 자리: 비대칭 덩어리(위 왼쪽 크게 둥근) 안에 축하 캐릭터(001, GIF)
   mark: {
     alignSelf: 'center',
-    width: 76,
-    height: 76,
-    borderRadius: 20,
-    backgroundColor: T.confirmedSoft,
+    width: 176,
+    height: 164,
+    borderTopLeftRadius: 88,
+    borderTopRightRadius: 64,
+    borderBottomRightRadius: 88,
+    borderBottomLeftRadius: 40,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
+    marginTop: 8,
   },
+  halo: { position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(56,189,248,0.18)' },
   k: { fontSize: T.small, fontWeight: '700', color: T.primary },
   v: { fontSize: T.title, fontWeight: '800', color: T.text },
 });

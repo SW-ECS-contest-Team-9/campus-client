@@ -5,6 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../state/AppState';
 import { FloorItem } from '../ui/components';
 import { Btn, Card, Chip, P, Screen, Section, T } from '../ui/kit';
+import { Character } from '../ui/v3';
 
 export default function RecheckScreen() {
   const app = useApp();
@@ -27,9 +28,12 @@ export default function RecheckScreen() {
         </>
       }
     >
-      <Card tone="caution">
-        <Text style={s.t}>현재 위치를 확인하고 있어요</Text>
-        <P tone="caution">방향 안내를 잠시 멈췄어요 · 주변 표지와 층을 확인해 주세요</P>
+      <Card tone="caution" style={s.warn}>
+        <Character name="uncertain" size={72} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text style={s.t}>현재 위치를 확인하고 있어요</Text>
+          <P tone="caution">방향 안내를 잠시 멈췄어요 · 주변 표지와 층을 확인해 주세요</P>
+        </View>
       </Card>
       <Text style={s.last}>마지막 확인: {lastText}</Text>
       <P>
@@ -70,6 +74,7 @@ export default function RecheckScreen() {
 }
 
 const s = StyleSheet.create({
+  warn: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   t: { fontSize: T.title - 2, fontWeight: '800', color: T.caution },
   last: { fontSize: T.body, fontWeight: '800', color: T.text },
   q: { fontSize: T.body, fontWeight: '800', color: T.text, marginBottom: 8 },

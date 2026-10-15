@@ -2,10 +2,11 @@
 // 계단 피하기는 스스로 풀지 않고, 사용자가 고르게 한다(제품 규칙 04).
 import { router } from 'expo-router';
 import { ArrowUpDown, CircleAlert, MapPinOff } from 'lucide-react-native';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { noRouteCopy, type NoRouteAction } from '../route/noRouteCopy';
 import { useApp } from '../state/AppState';
 import { Btn, Card, H, P, Screen, T } from '../ui/kit';
+import { Character } from '../ui/v3';
 
 const COND_KO = { shortest: '최단', avoidStairs: '계단 피하기', preferElevator: '승강기 우선' } as const;
 
@@ -42,7 +43,12 @@ export default function NoRouteScreen() {
         </>
       }
     >
-      <Icon size={34} color={T.caution} strokeWidth={2} style={s.icon} />
+      <View style={s.icon}>
+        <Character name="noRoute" size={96} />
+        <View style={s.badge}>
+          <Icon size={18} color={T.caution} strokeWidth={2.2} />
+        </View>
+      </View>
       <H>{copy.title}</H>
       <P>{copy.body}</P>
       <Card tone="caution">
@@ -57,6 +63,17 @@ export default function NoRouteScreen() {
 }
 
 const s = StyleSheet.create({
-  icon: { marginTop: 8 },
+  icon: { marginTop: 4, alignSelf: 'flex-start' },
+  badge: {
+    position: 'absolute',
+    right: -6,
+    bottom: 4,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: T.cautionSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   k: { fontSize: T.body, fontWeight: '800', color: T.caution },
 });

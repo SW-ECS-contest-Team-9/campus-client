@@ -83,7 +83,7 @@ export function Screen({
       ) : (
         <View style={{ height: inset.top }} />
       )}
-      <Appear style={{ flex: 1, marginTop: title !== undefined ? -14 : 0 }}>{body}</Appear>
+      <Appear style={{ flex: 1 }}>{body}</Appear>
       {footer ? <View style={[s.footer, { paddingBottom: inset.bottom + 12 }]}>{footer}</View> : null}
     </View>
   );

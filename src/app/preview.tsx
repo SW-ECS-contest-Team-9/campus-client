@@ -1,13 +1,15 @@
 // CT06 경로 미리보기: 3D 지도에 경로(층 바뀌는 곳 표시), 요약(시간·길이·계단·층 이동), 경로 옵션 / 안내 시작.
 import { Redirect, router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { serverRoute, type ServerRoute } from '../api/serverRoute';
 import { routeCommand } from '../map3d/embed';
 import { minutes } from '../route/time';
 import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
-import { Badge, Btn, Card, P, Screen, T } from '../ui/kit';
+import { Badge, Btn, P, Screen, T } from '../ui/kit';
+import { Glass, RouteDrawBar, WaveEdge } from '../ui/v3';
+import { Footprints } from 'lucide-react-native';
 
 export default function PreviewScreen() {
   const app = useApp();
@@ -56,19 +58,40 @@ export default function PreviewScreen() {
       }
     >
       <View style={s.map}>
-        <CampusMap commands={[cmd]} routeNodeKeys={r.nodeKeys} pickPlaces={false} />
+        <CampusMap
+          commands={[cmd]}
+          routeNodeKeys={r.nodeKeys}
+          pickPlaces={false}
+          overlay={
+            <>
+              <WaveEdge color="#F2F3FD" flip height={18} />
+              <Glass style={s.sum}>
+                <View style={s.sumHead}>
+                  <Footprints size={18} color={T.primary} />
+                  <Text style={s.kind}>
+                    {app.condition === 'avoidStairs'
+                      ? '계단 없는 경로'
+                      : app.condition === 'preferElevator'
+                        ? '승강기 우선 경로'
+                        : '최단 경로'}
+                  </Text>
+                </View>
+                <Text style={s.t}>
+                  약 {minutes(r.totalLengthM)}분 <Text style={s.len}>· {Math.round(r.totalLengthM)} m</Text>
+                </Text>
+                <RouteDrawBar />
+                <P tone="muted">
+                  계단 {stairs}곳 · 층 이동 {changes.length}번
+                </P>
+                <Text style={s.path} numberOfLines={2}>
+                  {path}
+                </Text>
+              </Glass>
+            </>
+          }
+        />
       </View>
-      <ScrollView contentContainerStyle={{ gap: 8 }}>
-        <Card style={s.sum}>
-          <Text style={s.t}>
-            {app.condition === 'avoidStairs' ? '계단 없는 경로' : app.condition === 'preferElevator' ? '승강기 우선 경로' : '최단 경로'} ·
-            약 {minutes(r.totalLengthM)}분
-          </Text>
-          <P tone="muted">
-            {Math.round(r.totalLengthM)} m · 계단 {stairs}곳 · 층 이동 {changes.length}번
-          </P>
-          <Text style={s.path}>{path}</Text>
-        </Card>
+      <View style={s.below}>
         <Badge tone={offline ? 'offline' : 'confirmed'} text={offline ? '저장된 지도로 계산' : '방금 받은 지도로 계산'} />
         {server ? (
           <P tone="muted">
@@ -79,15 +102,19 @@ export default function PreviewScreen() {
                 : '서버와 비교하지 못했어요(오프라인)'}
           </P>
         ) : null}
-      </ScrollView>
+      </View>
     </Screen>
   );
 }
 
 const s = StyleSheet.create({
-  map: { height: 320, marginHorizontal: -T.margin },
-  sum: { borderWidth: 2, borderColor: T.primary },
-  t: { fontSize: T.title, fontWeight: '800', color: T.text },
+  map: { flex: 1, marginHorizontal: -T.margin },
+  sum: { position: 'absolute', left: 16, right: 16, bottom: 16, padding: 18, gap: 8 },
+  sumHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  kind: { fontSize: T.small, fontWeight: '800', color: T.primary },
+  t: { fontSize: T.display - 2, fontWeight: '800', color: T.text, letterSpacing: -0.5 },
+  len: { fontSize: T.body, fontWeight: '700', color: T.sub },
   path: { fontSize: T.small, color: T.primary, fontWeight: '600' },
+  below: { gap: 6, paddingTop: 10 },
   two: { flexDirection: 'row', gap: 8 },
 });

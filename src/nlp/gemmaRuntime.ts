@@ -1,8 +1,7 @@
 // 기기 안 Gemma 3 270M(미세조정, Q4_K_M 253 MB)을 llama.rn 으로. 처음 쓸 때 불러오고, 앱이 뒤로 가면 놓음.
 // 모델은 APK 에 넣지 않음. v1.0 시험: PC 에서 adb push 로 앱 외부 파일 폴더에 둠(README "AI 문장 해석").
 // 나중: 백엔드(FastAPI) 정적 파일로 받아 sha256 확인 뒤 같은 자리에 저장(백엔드는 아직 안 바꿈).
-import { File } from 'expo-file-system';
-import { initLlama, type LlamaContext } from 'llama.rn';
+import { initLlama, loadLlamaModelInfo, type LlamaContext } from 'llama.rn';
 import { AppState, Platform } from 'react-native';
 import { messages, jsonSchema, toRouteRequest, type ModelOutput } from './gemma';
 import type { MapPackage, RouteRequest } from './types';
@@ -15,13 +14,20 @@ let ctx: LlamaContext | null = null;
 let loading: Promise<LlamaContext> | null = null;
 export let lastLoadMs: number | null = null;
 
+let available: boolean | null = null;
+/** 모델 파일이 있고 읽히는가(마지막 확인 값, 아직 모르면 false). expo-file-system 은 앱 밖 경로를 못 봐서 llama.rn 으로 머리말만 읽어 봄. */
 export function modelAvailable(): boolean {
-  if (Platform.OS !== 'android') return false;
+  return available === true;
+}
+export async function checkModel(): Promise<boolean> {
+  if (Platform.OS !== 'android') return (available = false);
   try {
-    return new File(MODEL_URI).exists;
+    await loadLlamaModelInfo(MODEL_URI);
+    available = true;
   } catch {
-    return false;
+    available = false;
   }
+  return available;
 }
 
 async function load(): Promise<LlamaContext> {
@@ -75,13 +81,18 @@ export async function interpretWithGemma(text: string, pkg: MapPackage): Promise
   const { places, messages: msgs } = messages(text, pkg);
   const r = await c.completion({
     messages: msgs,
+    // 모델의 Gemma 3 채팅 틀(jinja)로 프롬프트를 만들고 답 자리부터 생성(문법 제한도 이 경로에서 적용)
+    jinja: true,
+    add_generation_prompt: true,
     temperature: 0,
     n_predict: 300,
     response_format: { type: 'json_schema', json_schema: { schema: jsonSchema(places, pkg) } },
   });
   let req: RouteRequest | null = null;
   try {
-    req = toRouteRequest(JSON.parse(r.text) as ModelOutput, pkg);
+    // 앞에 채팅 틀 글이 붙어 나와도 JSON 부분만
+    const j = r.text.slice(r.text.indexOf('{'), r.text.lastIndexOf('}') + 1);
+    req = toRouteRequest(JSON.parse(j) as ModelOutput, pkg);
   } catch {
     req = null;
   }

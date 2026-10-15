@@ -7,7 +7,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { startNodeForFix } from '../location/fix';
 import { describe as describeRequest, planFromRequest } from '../nlp/apply';
 import { mergeWithGemma, shouldAskGemma } from '../nlp/gemma';
-import { cancelInterpret, interpretWithGemma, modelAvailable } from '../nlp/gemmaRuntime';
+import { cancelInterpret, interpretWithGemma } from '../nlp/gemmaRuntime';
 import { note3dStat } from '../map3d/diag';
 import { buildLexicon } from '../nlp/lexicon';
 import { parseRouteRequest } from '../nlp/parse';
@@ -51,7 +51,7 @@ export default function SearchScreen() {
   const parsed = useMemo(() => (pkg && lex && q.trim().length >= 2 ? parseRouteRequest(q, pkg, lex) : null), [pkg, lex, q]);
   const req = picked && picked.text === q ? picked.req : parsed;
   // AI 문장 해석(실험): 규칙이 목적지를 못 찾았거나 후보 없이 되물을 때만, 누르거나 검색 키로
-  const aiOn = (app.settings.aiParse ?? app.tier === 1) && modelAvailable();
+  const aiOn = (app.settings.aiParse ?? app.tier === 1) && app.aiModel;
   const [ai, setAi] = useState<{ text: string; state: 'running' | 'done' | 'failed' } | null>(null);
   const canAskAi = aiOn && !!parsed && params.mode !== 'start' && shouldAskGemma(parsed) && !(picked && picked.text === q);
   const runAi = async () => {
@@ -63,10 +63,14 @@ export default function SearchScreen() {
       note3dStat(
         `GEMMA ${g.loadMs != null ? `load ${g.loadMs} ms, ` : ''}total ${g.totalMs} ms, prompt ${g.promptN ?? '-'} tok ${Math.round(g.promptMs ?? 0)} ms, gen ${g.genN ?? '-'} tok ${Math.round(g.genMs ?? 0)} ms`,
       );
-      if (!g.req) return setAi({ text, state: 'failed' });
+      if (!g.req) {
+        note3dStat(`GEMMA_ERR 해석 실패(JSON 아님): ${g.raw.slice(0, 120)}`);
+        return setAi({ text, state: 'failed' });
+      }
       setPicked({ text, req: mergeWithGemma(parsed, g.req) });
       setAi({ text, state: 'done' });
-    } catch {
+    } catch (e) {
+      note3dStat(`GEMMA_ERR 오류: ${String((e as Error)?.message ?? e).slice(0, 160)}`);
       setAi({ text, state: 'failed' });
     }
   };

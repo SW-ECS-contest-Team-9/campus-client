@@ -16,6 +16,7 @@ import { AppState as RNAppState, InteractionManager, Platform } from 'react-nati
 import { adjustForFirst3d, chooseTier, type DeviceTier } from '../ui/tier';
 import type { Map3dEngine } from '../ui/Map3D';
 import { effectiveCondition } from '../nlp/apply';
+import { checkModel } from '../nlp/gemmaRuntime';
 import type { Mandatory } from '../nlp/types';
 
 const fixture = fixtureJson as unknown as MapPackage;
@@ -129,6 +130,8 @@ interface AppState {
   waitFix: (ms: number) => Promise<Fix | null>;
   /** 켜진 센서(null = 아직 안 켬). 기압계가 없으면 층은 사용자가 고른 층(위치 다시 확인)으로. */
   sensors: SensorStatus | null;
+  /** AI 문장 해석 모델 파일이 기기에 있음 */
+  aiModel: boolean;
   floorSel: Record<string, string>; // buildingKey → floorKey | 'all'
   setFloor: (buildingKey: string, floorKey: string) => void;
 }
@@ -269,6 +272,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const h = InteractionManager.runAfterInteractions(() => setTracker(createTracker(pkg, Platform.OS === 'ios' ? 'ios' : 'android')));
     return () => h.cancel();
   }, [pkg]);
+  // AI 문장 해석 모델이 기기에 있는지(머리말만 읽음, 한 번)
+  const [aiModel, setAiModel] = useState(false);
+  useEffect(() => {
+    void checkModel().then(setAiModel);
+  }, []);
   useEffect(() => {
     const sub = RNAppState.addEventListener('change', (st) => setActive(st === 'active'));
     void hasLocationPermission().then((ok) => ok && setWantLoc(true)); // 이미 허락했으면 켤 때부터
@@ -347,6 +355,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setFix,
     enableLocation,
     waitFix,
+    aiModel,
     sensors,
     floorSel,
     setFloor,

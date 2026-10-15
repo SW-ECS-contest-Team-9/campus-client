@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { StyleSheet, Switch, TextInput, View } from 'react-native';
 import { DEFAULT_MAP3D_URL } from '../map3d/embed';
 import { get3dStats } from '../map3d/diag';
-import { modelAvailable } from '../nlp/gemmaRuntime';
 import { DEFAULT_SERVER_URL, useApp } from '../state/AppState';
 import { Btn, Card, Chip, H, P, Screen, Section, T } from '../ui/kit';
 
@@ -59,7 +58,7 @@ export default function SettingsScreen() {
         <View style={{ flex: 1 }}>
           <P>규칙으로 못 알아들은 문장을 기기 안 AI(Gemma 270M)로 한 번 더</P>
           <P tone="muted">
-            {modelAvailable()
+            {app.aiModel
               ? `모델 있음 · ${aiOn ? '켜짐' : '꺼짐'}${app.settings.aiParse == null ? '(자동: 등급 1 만)' : ''} · 필수 조건은 규칙 결과를 줄이지 않아요`
               : '모델 파일이 없어요(시험판: PC 에서 넣음). 규칙 해석만 써요.'}
           </P>

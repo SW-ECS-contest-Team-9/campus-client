@@ -1,4 +1,4 @@
-// 네이티브 3D 측정 글(LOAD3D·FIRST_FRAME·FRAMES)을 앱 안에 남김. 삼성 실기기는 release 앱의 console 을 logcat 에 안 남겨서
+// 측정 글(네이티브 3D: LOAD3D·FIRST_FRAME·FRAMES, AI 문장 해석: GEMMA)을 앱 안에 남김. 삼성 실기기는 release 앱의 console 을 logcat 에 안 남겨서
 // 설정 화면 맨 아래 "3D 측정" 줄로 보여 줌(실기기 확인용).
 let lines: string[] = [];
 

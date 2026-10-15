@@ -3,6 +3,7 @@
 // 화면·RN 에 의존하지 않음(시험 가능).
 import type { MapPackage } from '../map/package';
 import type { RouteCondition } from '../route/route';
+import { AI_STAIRS_QUESTION } from './gemma';
 import type { Mandatory, RouteRequest, Target } from './types';
 
 export interface Choice {
@@ -87,6 +88,16 @@ function placesIn(pkg: MapPackage, buildingKey: string, floorKey: string | null)
 export function planFromRequest(r: RouteRequest, pkg: MapPackage): Plan {
   const q = r.needsClarification?.question;
   if (q) {
+    // AI(Gemma)만 "계단 없이"로 알아들었을 때: 사용자가 정함(아니요면 AI 가 더한 필수 조건만 뺌 — 규칙에는 없던 것)
+    if (q === AI_STAIRS_QUESTION)
+      return {
+        kind: 'ask',
+        question: q,
+        choices: [
+          { label: '네, 계단 없이', apply: (x) => clear(x) },
+          { label: '아니요, 계단도 괜찮아요', apply: (x) => ({ ...clear(x), mandatory: [], mode: 'shortest' }) },
+        ],
+      };
     if (q.startsWith('계단을 피할까요'))
       return {
         kind: 'ask',

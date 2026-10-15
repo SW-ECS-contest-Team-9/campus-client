@@ -36,6 +36,8 @@ export interface Settings {
   autoTier3dEngine?: Map3dEngine;
   /** 3D 엔진: 네이티브(기본, 앱에 묶은 3D·서버 없이) / 웹(3D 페이지, 서버 필요) */
   map3dEngine: Map3dEngine;
+  /** AI 문장 해석(실험, 기기 안 Gemma). null = 자동(등급 1 만 켬) */
+  aiParse?: boolean | null;
 }
 /** 개발 기본값. 운영 주소는 나중에 정함. */
 export const DEFAULT_SERVER_URL = `http://${DEV_HOST}:8010`;
@@ -47,6 +49,7 @@ const DEFAULT_SETTINGS: Settings = {
   autoTier: null,
   autoTier3dChecked: false,
   map3dEngine: 'native',
+  aiParse: null,
 };
 /** 갱신 실패 문구: 개발용 오류 글(TypeError 등)을 그대로 보이지 않음(카카오 디자인: 진단 정보 분리). */
 const failText = (e: string) =>

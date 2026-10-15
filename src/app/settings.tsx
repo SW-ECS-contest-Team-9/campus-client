@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, Switch, TextInput, View } from 'react-native';
 import { DEFAULT_MAP3D_URL } from '../map3d/embed';
 import { get3dStats } from '../map3d/diag';
+import { modelAvailable } from '../nlp/gemmaRuntime';
 import { DEFAULT_SERVER_URL, useApp } from '../state/AppState';
 import { Btn, Card, Chip, H, P, Screen, Section, T } from '../ui/kit';
 
@@ -11,6 +12,7 @@ export default function SettingsScreen() {
   const [server, setServer] = useState(app.settings.serverUrl);
   const [map3d, setMap3d] = useState(app.settings.map3dUrl);
   const [stats] = useState(get3dStats);
+  const aiOn = app.settings.aiParse ?? app.tier === 1;
   return (
     <Screen title="설정">
       <H>내 이동에 맞게</H>
@@ -52,6 +54,23 @@ export default function SettingsScreen() {
           ? '웹: 3D 지도 페이지를 서버에서 받아 그려요(인터넷·서버 필요, 첫 화면이 느려요).'
           : '기본: 앱에 들어 있는 3D 지도를 바로 그려요(서버 없이, 빠름).'}
       </P>
+      <Section>AI 문장 해석(실험)</Section>
+      <Card style={s.row}>
+        <View style={{ flex: 1 }}>
+          <P>규칙으로 못 알아들은 문장을 기기 안 AI(Gemma 270M)로 한 번 더</P>
+          <P tone="muted">
+            {modelAvailable()
+              ? `모델 있음 · ${aiOn ? '켜짐' : '꺼짐'}${app.settings.aiParse == null ? '(자동: 등급 1 만)' : ''} · 필수 조건은 규칙 결과를 줄이지 않아요`
+              : '모델 파일이 없어요(시험판: PC 에서 넣음). 규칙 해석만 써요.'}
+          </P>
+        </View>
+        <Switch
+          value={aiOn}
+          onValueChange={(v) => app.updateSettings({ aiParse: v })}
+          trackColor={{ true: T.primary }}
+          accessibilityLabel="AI 문장 해석(실험)"
+        />
+      </Card>
       <Section>화면 표시</Section>
       <Card style={s.row}>
         <View style={{ flex: 1 }}>
@@ -99,7 +118,7 @@ export default function SettingsScreen() {
       </Card>
       {stats.length ? (
         <>
-          <Section>3D 측정(시험용)</Section>
+          <Section>측정(시험용)</Section>
           <Card>
             {stats.map((l) => (
               <P key={l} tone="muted">

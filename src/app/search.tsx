@@ -6,6 +6,9 @@ import { Building, MessageCircleQuestion, Search } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 import { startNodeForFix } from '../location/fix';
 import { describe as describeRequest, planFromRequest } from '../nlp/apply';
+import { mergeWithGemma, shouldAskGemma } from '../nlp/gemma';
+import { cancelInterpret, interpretWithGemma, modelAvailable } from '../nlp/gemmaRuntime';
+import { note3dStat } from '../map3d/diag';
 import { buildLexicon } from '../nlp/lexicon';
 import { parseRouteRequest } from '../nlp/parse';
 import type { RouteRequest } from '../nlp/types';
@@ -47,6 +50,26 @@ export default function SearchScreen() {
   const lex = useMemo(() => (pkg ? buildLexicon(pkg) : null), [pkg]);
   const parsed = useMemo(() => (pkg && lex && q.trim().length >= 2 ? parseRouteRequest(q, pkg, lex) : null), [pkg, lex, q]);
   const req = picked && picked.text === q ? picked.req : parsed;
+  // AI 문장 해석(실험): 규칙이 목적지를 못 찾았거나 후보 없이 되물을 때만, 누르거나 검색 키로
+  const aiOn = (app.settings.aiParse ?? app.tier === 1) && modelAvailable();
+  const [ai, setAi] = useState<{ text: string; state: 'running' | 'done' | 'failed' } | null>(null);
+  const canAskAi = aiOn && !!parsed && params.mode !== 'start' && shouldAskGemma(parsed) && !(picked && picked.text === q);
+  const runAi = async () => {
+    if (!pkg || !parsed || ai?.state === 'running') return;
+    const text = q;
+    setAi({ text, state: 'running' });
+    try {
+      const g = await interpretWithGemma(text, pkg);
+      note3dStat(
+        `GEMMA ${g.loadMs != null ? `load ${g.loadMs} ms, ` : ''}total ${g.totalMs} ms, prompt ${g.promptN ?? '-'} tok ${Math.round(g.promptMs ?? 0)} ms, gen ${g.genN ?? '-'} tok ${Math.round(g.genMs ?? 0)} ms`,
+      );
+      if (!g.req) return setAi({ text, state: 'failed' });
+      setPicked({ text, req: mergeWithGemma(parsed, g.req) });
+      setAi({ text, state: 'done' });
+    } catch {
+      setAi({ text, state: 'failed' });
+    }
+  };
   const sentence = params.mode !== 'start' && !!req && isSentence(q, req);
   const plan = useMemo(() => (pkg && req && sentence ? planFromRequest(req, pkg) : null), [pkg, req, sentence]);
 
@@ -84,7 +107,7 @@ export default function SearchScreen() {
         returnKeyType="search"
         accessibilityLabel="검색어 또는 길찾기 문장"
         placeholder={params.mode === 'start' ? undefined : '장소 이름 또는 "계단 없이 북악관 편의점"'}
-        onSubmitEditing={() => plan?.kind === 'go' && go()}
+        onSubmitEditing={() => (plan?.kind === 'go' ? go() : canAskAi ? void runAi() : undefined)}
       />
       <Badge
         tone={offline ? 'offline' : 'primary'}
@@ -111,8 +134,21 @@ export default function SearchScreen() {
                 .join(' · ')}
             </P>
           ) : null}
+          {ai?.text === q && ai.state === 'running' ? (
+            <View style={s.aiRow} accessibilityLiveRegion="polite">
+              <Text style={s.aiT}>AI가 문장을 해석하는 중…</Text>
+              <Btn kind="ghost" label="취소" onPress={() => void cancelInterpret()} />
+            </View>
+          ) : ai?.text === q && ai.state !== 'running' ? (
+            <P tone="muted">
+              {ai.state === 'done' ? 'AI 해석을 더했어요(필수 조건은 규칙 결과를 줄이지 않아요)' : 'AI도 알아듣지 못했어요'}
+            </P>
+          ) : null}
           {plan.kind === 'ask' ? (
             <>
+              {canAskAi && ai?.state !== 'running' ? (
+                <Btn kind="soft" label="AI로 해석해 보기" style={s.choice} onPress={() => void runAi()} />
+              ) : null}
               <Text style={s.q} accessibilityLiveRegion="polite">
                 {plan.question}
               </Text>
@@ -171,4 +207,6 @@ const s = StyleSheet.create({
   q: { fontSize: T.body, fontWeight: '800', color: T.text },
   // 연한 남보라 카드 위에서도 단추로 보이게 흰 바탕 + 옅은 테두리
   choice: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: 'rgba(79,70,229,0.18)' },
+  aiRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  aiT: { fontSize: T.small, fontWeight: '700', color: T.primary, flex: 1 },
 });

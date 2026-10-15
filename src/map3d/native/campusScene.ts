@@ -41,16 +41,6 @@ export async function createCampusScene(o: SceneOptions) {
   const gltf: any = await new Promise((res, rej) => new GLTFLoader().parse(o.glb, '', res, rej));
   const root: THREE.Object3D = gltf.scene;
   scene.add(root);
-  // 정점 색: glTF 는 선형 값이어야 하는데 campus.glb 에는 웹(Cesium, 색 관리 없음)이 쓰던 sRGB 값이 그대로 들어 있음.
-  // 그대로 두면 출력 때 sRGB 로 한 번 더 바뀌어 색이 허옇게 뜸(아스팔트 #1b1d20 → 92,95,99). 16 bit 선형으로 풀어 둠(8 bit 선형은 어두운 색이 뭉개짐).
-  const toLinear = new Uint16Array(256).map((_, i) => { const c = i / 255; return Math.round((c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4) * 65535); });
-  root.traverse((n: any) => {
-    const a = n.geometry?.attributes?.color;
-    if (!a || !(a.array instanceof Uint8Array)) return;
-    const src = a.array as Uint8Array, dst = new Uint16Array(src.length), k = a.itemSize;
-    for (let i = 0; i < src.length; i++) dst[i] = i % k === 3 ? src[i] * 257 : toLinear[src[i]];
-    n.geometry.setAttribute('color', new THREE.BufferAttribute(dst, k, true));
-  });
   // 선(알파 150)은 섞어 그림 — 불투명으로 그리면 알파가 그리기 버퍼에 남아 TextureView 뒤가 비침
   root.getObjectByName('lines')?.traverse((n: any) => { if (n.material) n.material.transparent = true; });
   const extras = gltf.parser.json.extras ?? {};
@@ -85,6 +75,15 @@ export async function createCampusScene(o: SceneOptions) {
   // 건물 재질은 하나를 나눠 씀 → 비침(한 층 보기)을 위해 건물마다 복제
   for (const b of buildings.values()) { const m = (b.node.material as THREE.MeshStandardMaterial).clone(); m.transparent = false; b.node.material = m; }
   for (const b of buildings.values()) for (const f of b.floors) f.node.material = new THREE.MeshLambertMaterial({ color: COLOR.floor, vertexColors: false, transparent: true, opacity: 0.92, side: THREE.DoubleSide });
+  // 정점 색: glTF 는 선형 값이어야 하는데 campus.glb 에는 웹(Cesium, 색 관리 없음)이 쓰던 sRGB 값이 그대로 들어 있음.
+  // 그대로 두면 출력 때 sRGB 로 한 번 더 바뀌어 색이 허옇게 뜸(아스팔트 #1b1d20 → 92,95,99). 정점 셰이더에서 선형으로 풀어 씀
+  // (float 계산이라 어두운 색 계단 없음, 불러오기 비용 없음 — JS 로 44만 정점을 바꾸면 S21 에서 불러오기가 약 0.2 s 늘었음).
+  root.traverse((n: any) => {
+    const m = n.material as THREE.Material & { vertexColors?: boolean };
+    if (!m?.vertexColors) return;
+    m.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <color_vertex>', '#include <color_vertex>\n#ifdef USE_COLOR\n\tvColor.rgb = mix(vColor.rgb / 12.92, pow((vColor.rgb + 0.055) / 1.055, vec3(2.4)), step(0.04045, vColor.rgb));\n#endif'); };
+    m.customProgramCacheKey = () => 'srgb-vertex-color';
+  });
   // 선은 폰 화면에서 1 px — 가벼운 모드에선 끔
   let light = !!o.light;
   const applyLight = () => { if (layer.lines) layer.lines.visible = !light; };

@@ -1,19 +1,23 @@
-// 기기 안 경로 계산 (Dijkstra, 거리 가중). 없는 길은 만들지 않는다.
-import type { Edge, EdgeKind, MapNode, MapPackage } from '../map/package';
+// 기기 안 경로 계산. 서버(/v1/routes)와 같은 규칙: 방식별 길 비용(cost.ts), 열린 면 가상 간선, 승강기 기다림은 탈 때 한 번.
+// 같은 꾸러미면 서버와 같은 길이 나온다(src/route/route.server.test.ts). 없는 길은 만들지 않는다.
+import type { EdgeIndicators, MapNode, MapPackage, ModeSpec, XYZ } from '../map/package';
+import {
+  areaEdges,
+  basicIndicators,
+  DEFAULT_MODE_SPEC,
+  edgeCost,
+  ELEVATOR_WAIT_S,
+  pyRound,
+  type RouteEdge,
+  type RouteEdgeKind,
+} from './cost';
 
 /** 경로 방식 7가지(서버 GET /v1/route-modes·자연어 Mode 와 같은 이름). */
 export type RouteCondition = 'shortest' | 'fastest' | 'avoidStairs' | 'accessible' | 'preferElevator' | 'rainProtected' | 'nightSafe';
-/** 기기에서 계산할 수 있는 방식. 기기 꾸러미에는 걷는 시간·지붕·조명 지표가 없음. */
-export type DeviceCondition = 'shortest' | 'avoidStairs' | 'accessible' | 'preferElevator';
-
-/** 빠른 길·비 안 맞는 길·밤에 밝은 길은 서버가 그 방식으로 계산하고, 기기는 최단으로 계산한다. */
-export function deviceCondition(c: RouteCondition): DeviceCondition {
-  return c === 'avoidStairs' || c === 'accessible' || c === 'preferElevator' ? c : 'shortest';
-}
 
 export interface RouteStep {
   edgeKey: string;
-  kind: EdgeKind;
+  kind: RouteEdgeKind;
   name: string | null;
   lengthM: number;
   fromFloor: string | null; // 층 표시 (예: "북악관 5F"), 모르면 null
@@ -21,12 +25,24 @@ export interface RouteStep {
   floorChange: boolean;
   text: string;
 }
-export type RouteResult =
-  | { ok: true; nodeKeys: string[]; steps: RouteStep[]; totalLengthM: number; condition: RouteCondition }
-  | { ok: false; reason: 'no_route' | 'same_point' | 'unknown_node'; message: string };
+export interface RouteOk {
+  ok: true;
+  /** 누가 계산했나: 서버(/v1/routes) 또는 기기 */
+  source: 'server' | 'device';
+  nodeKeys: string[];
+  edgeKeys: string[];
+  /** 지나는 길 모양 그대로(EPSG:5186, z) */
+  points: XYZ[];
+  steps: RouteStep[];
+  totalLengthM: number;
+  /** 걷는 시간 어림(초): 오르내림·계단·승강기 기다림 포함 */
+  durationS: number;
+  condition: RouteCondition;
+}
+export type RouteResult = RouteOk | { ok: false; reason: 'no_route' | 'same_point' | 'unknown_node'; message: string };
 
 interface Arc {
-  edge: Edge;
+  edge: RouteEdge;
   to: string;
   forward: boolean; // edge.from → edge.to 방향으로 지나는가
 }
@@ -35,10 +51,16 @@ export interface Graph {
   pkg: MapPackage;
   nodes: Map<string, MapNode>;
   adj: Map<string, Arc[]>;
+  /** 길 지표(꾸러미에 없으면 길 선으로 계산) */
+  ind: Map<string, EdgeIndicators>;
+  modes: Record<string, ModeSpec>;
   floorLabel: (nodeKey: string) => string | null;
 }
 
-/** 걸을 수 있는 길만 그래프에 넣는다. 보행 금지·차도는 제외. 방향은 지킨다. */
+/** 꾸러미에 서버가 계산한 경로 지표가 있는가(없으면 지붕·조명을 모름). */
+export const hasRouteIndicators = (pkg: MapPackage) => pkg.edges.some((e) => e.indicators);
+
+/** 보행 금지 길만 빼고 그래프에 넣는다(차도는 비용을 늘려서). 방향은 지킨다. 열린 면은 가상 간선으로 가로지른다. */
 export function buildGraph(pkg: MapPackage): Graph {
   const nodes = new Map(pkg.nodes.map((n) => [n.key, n]));
   const adj = new Map<string, Arc[]>();
@@ -47,10 +69,27 @@ export function buildGraph(pkg: MapPackage): Graph {
     if (list) list.push(a);
     else adj.set(k, [a]);
   };
+  const all: RouteEdge[] = [];
   for (const e of pkg.edges) {
-    if (e.pedestrianAccess === 'prohibited' || e.kind === 'vehicle_road') continue;
+    all.push(e);
+    if (e.pedestrianAccess === 'prohibited') continue;
     if (e.direction !== 'backward') push(e.from, { edge: e, to: e.to, forward: true });
     if (e.direction !== 'forward') push(e.to, { edge: e, to: e.from, forward: false });
+  }
+  for (const e of areaEdges(pkg.walkAreas, pkg.walkAreaNodes, nodes)) {
+    all.push(e);
+    push(e.from, { edge: e, to: e.to, forward: true });
+    push(e.to, { edge: e, to: e.from, forward: false });
+  }
+  const ind = new Map<string, EdgeIndicators>();
+  for (const e of all) {
+    let i = e.indicators;
+    if (!i) {
+      const indoor = [e.from, e.to].every((k) => !nodes.has(k) || nodes.get(k)!.location === 'indoor');
+      i = basicIndicators(e, indoor);
+      if (e.kind === 'open_area') i.vehicle = e.areaKind === 'parking_aisle' ? 'shared' : 'none';
+    }
+    ind.set(e.key, i);
   }
   const floors = new Map(pkg.floors.map((f) => [f.key, f]));
   const buildings = new Map(pkg.buildings.map((b) => [b.key, b]));
@@ -61,53 +100,89 @@ export function buildGraph(pkg: MapPackage): Graph {
     const f = n.floorKey ? floors.get(n.floorKey)?.code : null;
     return f ? `${b} ${f}`.trim() : null;
   };
-  return { pkg, nodes, adj, floorLabel };
+  return { pkg, nodes, adj, ind, modes: pkg.routeModes ?? DEFAULT_MODE_SPEC, floorLabel };
 }
 
-/** 조건별 길 비용. avoidStairs·accessible 은 계단을 아예 쓰지 않고, accessible 은 휠체어 금지 길도 쓰지 않는다. */
-function cost(e: Edge, cond: DeviceCondition): number {
-  if ((cond === 'avoidStairs' || cond === 'accessible') && e.kind === 'stairs') return Infinity;
-  if (cond === 'accessible' && e.wheelchairAccess === 'prohibited') return Infinity;
-  if (cond === 'preferElevator' && e.kind === 'stairs') return e.lengthM * 5 + 30;
-  return e.lengthM;
+// 다익스트라 상태 = (노드, 승강기 안인지). 꺼내는 순서는 서버 heapq 와 같게 (비용, 노드 key, 승강기 안) 순.
+type Item = [number, string, boolean];
+const less = (a: Item, b: Item) => a[0] < b[0] || (a[0] === b[0] && (a[1] < b[1] || (a[1] === b[1] && !a[2] && b[2])));
+class Heap {
+  private h: Item[] = [];
+  get size() {
+    return this.h.length;
+  }
+  push(x: Item) {
+    const h = this.h;
+    h.push(x);
+    for (let i = h.length - 1; i > 0;) {
+      const p = (i - 1) >> 1;
+      if (!less(h[i], h[p])) break;
+      [h[i], h[p]] = [h[p], h[i]];
+      i = p;
+    }
+  }
+  pop(): Item {
+    const h = this.h;
+    const top = h[0];
+    const last = h.pop()!;
+    if (h.length) {
+      h[0] = last;
+      for (let i = 0; ;) {
+        const l = 2 * i + 1,
+          r = l + 1;
+        let m = i;
+        if (l < h.length && less(h[l], h[m])) m = l;
+        if (r < h.length && less(h[r], h[m])) m = r;
+        if (m === i) break;
+        [h[i], h[m]] = [h[m], h[i]];
+        i = m;
+      }
+    }
+    return top;
+  }
 }
+const sk = (node: string, riding: boolean) => `${riding ? 1 : 0}${node}`;
 
 export function findRoute(g: Graph, fromKey: string, toKey: string, cond: RouteCondition): RouteResult {
   if (!g.nodes.has(fromKey) || !g.nodes.has(toKey))
     return { ok: false, reason: 'unknown_node', message: '출발 또는 도착이 길에 붙어 있지 않음' };
   if (fromKey === toKey) return { ok: false, reason: 'same_point', message: '출발과 도착이 같음' };
 
-  const dc = deviceCondition(cond);
-  const dist = new Map<string, number>([[fromKey, 0]]);
-  const prev = new Map<string, { node: string; arc: Arc }>();
-  const done = new Set<string>();
-  // 노드 수가 수백 개라 단순 배열 큐로 충분
-  const open: string[] = [fromKey];
-  while (open.length) {
-    let bi = 0;
-    for (let i = 1; i < open.length; i++) if (dist.get(open[i])! < dist.get(open[bi])!) bi = i;
-    const u = open.splice(bi, 1)[0];
-    if (done.has(u)) continue;
-    done.add(u);
-    if (u === toKey) break;
+  const spec = g.modes[cond] ?? DEFAULT_MODE_SPEC[cond];
+  const start = sk(fromKey, false);
+  const dist = new Map<string, number>([[start, 0]]);
+  const prev = new Map<string, { state: string; node: string; arc: Arc }>();
+  const pq = new Heap();
+  pq.push([0, fromKey, false]);
+  let end: string | null = null;
+  while (pq.size) {
+    const [d, u, riding] = pq.pop();
+    const su = sk(u, riding);
+    if (u === toKey) {
+      end = su;
+      break;
+    }
+    if (d > (dist.get(su) ?? Infinity)) continue;
     for (const arc of g.adj.get(u) ?? []) {
-      const c = cost(arc.edge, dc);
-      if (!Number.isFinite(c)) continue;
-      const nd = dist.get(u)! + c;
-      if (nd < (dist.get(arc.to) ?? Infinity)) {
-        dist.set(arc.to, nd);
-        prev.set(arc.to, { node: u, arc });
-        open.push(arc.to);
+      const c = edgeCost(arc.edge, g.ind.get(arc.edge.key)!, spec, !arc.forward, !riding);
+      if (c === null) continue;
+      const vr = arc.edge.kind === 'elevator';
+      const sv = sk(arc.to, vr);
+      const nd = d + c;
+      if (nd < (dist.get(sv) ?? Infinity)) {
+        dist.set(sv, nd);
+        prev.set(sv, { state: su, node: u, arc });
+        pq.push([nd, arc.to, vr]);
       }
     }
   }
-  if (!prev.has(toKey)) return { ok: false, reason: 'no_route', message: '길 없음' };
+  if (end === null) return { ok: false, reason: 'no_route', message: '길 없음' };
 
   const arcs: { from: string; arc: Arc }[] = [];
-  for (let k = toKey; k !== fromKey;) {
+  for (let k = end; k !== start;) {
     const p = prev.get(k)!;
     arcs.unshift({ from: p.node, arc: p.arc });
-    k = p.node;
+    k = p.state;
   }
   // 층을 모르는 노드(계단참 등)를 지나도 층 바뀜을 잡도록 마지막으로 알던 층과 비교
   let lastFloor = g.floorLabel(fromKey);
@@ -116,16 +191,35 @@ export function findRoute(g: Graph, fromKey: string, toKey: string, cond: RouteC
     if (s.toFloor) lastFloor = s.toFloor;
     return s;
   });
+  const points: XYZ[] = [];
+  let total = 0,
+    durationS = 0,
+    inLift = false;
+  for (const { arc } of arcs) {
+    const geom = arc.forward ? arc.edge.geometry : [...arc.edge.geometry].reverse();
+    for (const p of points.length ? geom.slice(1) : geom) points.push([p[0], p[1], p[2]]);
+    total += arc.edge.lengthM;
+    const i = g.ind.get(arc.edge.key)!;
+    durationS += arc.forward ? i.walkS : i.walkSBack;
+    if (arc.edge.kind === 'elevator') {
+      if (!inLift) durationS += ELEVATOR_WAIT_S;
+      inLift = true;
+    } else inLift = false;
+  }
   return {
     ok: true,
+    source: 'device',
     nodeKeys: [fromKey, ...arcs.map((a) => a.arc.to)],
+    edgeKeys: arcs.map((a) => a.arc.edge.key),
+    points,
     steps: mergeSteps(steps),
-    totalLengthM: Math.round(arcs.reduce((s, a) => s + a.arc.edge.lengthM, 0) * 10) / 10,
+    totalLengthM: pyRound(total, 2),
+    durationS: pyRound(durationS),
     condition: cond,
   };
 }
 
-const KIND_KO: Record<EdgeKind, string> = {
+const KIND_KO: Record<RouteEdgeKind, string> = {
   walkway: '길',
   sidewalk: '인도',
   crossing: '횡단보도',
@@ -134,6 +228,7 @@ const KIND_KO: Record<EdgeKind, string> = {
   ramp: '경사로',
   elevator: '승강기',
   vehicle_road: '차도',
+  open_area: '열린 공간',
 };
 
 function makeStep(g: Graph, from: string, arc: Arc, lastFloor: string | null): RouteStep {
@@ -154,7 +249,7 @@ function makeStep(g: Graph, from: string, arc: Arc, lastFloor: string | null): R
 }
 
 export function stepText(
-  kind: EdgeKind,
+  kind: RouteEdgeKind,
   lengthM: number,
   name: string | null,
   fromFloor: string | null,
@@ -170,7 +265,7 @@ export function stepText(
 /** 이어진 같은 단계는 하나로: 계단·승강기는 이름과 무관하게 층을 이어 붙이고, 나머지는 같은 종류·이름·층일 때. */
 function mergeSteps(steps: RouteStep[]): RouteStep[] {
   const out: RouteStep[] = [];
-  const vertical = (k: EdgeKind) => k === 'stairs' || k === 'elevator';
+  const vertical = (k: RouteEdgeKind) => k === 'stairs' || k === 'elevator';
   for (const s of steps) {
     const last = out[out.length - 1];
     const lengthM = last ? Math.round((last.lengthM + s.lengthM) * 10) / 10 : 0;

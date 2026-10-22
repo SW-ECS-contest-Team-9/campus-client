@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Edge, MapNode, MapPackage } from '../map/package';
 import { validatePackage } from '../map/package';
-import { buildGraph, deviceCondition, findRoute } from './route';
+import { buildGraph, findRoute } from './route';
 import fixture from '../map/fixture/campus-fixture.json';
 
 const node = (key: string, x: number, floorKey: string | null = null): MapNode => ({
@@ -89,15 +89,47 @@ describe('findRoute', () => {
     expect(r.ok && r.steps.map((s) => s.edgeKey)).toEqual(['m', 'o']);
     expect(findRoute(buildGraph(twoWay), 'a', 'b', 'accessible').ok && true).toBe(true);
   });
-  it('서버 지표가 필요한 방식은 기기에서 가까운 방식으로 계산하고 결과에는 고른 방식을 남긴다', () => {
-    expect(deviceCondition('fastest')).toBe('shortest');
-    expect(deviceCondition('rainProtected')).toBe('shortest');
-    expect(deviceCondition('nightSafe')).toBe('shortest');
-    expect(deviceCondition('accessible')).toBe('accessible');
-    expect(deviceCondition('preferElevator')).toBe('preferElevator');
-    const r = findRoute(buildGraph(twoWay), 'a', 'b', 'rainProtected');
-    expect(r.ok && r.condition).toBe('rainProtected');
-    expect(r.ok && r.steps.map((s) => s.kind)).toEqual(['stairs']);
+  it('빠른 길은 가파른 오르막 대신 평지+승강기, 내려올 때는 곧은 길(서버 test_fastest_avoids_steep_climb)', () => {
+    // s→t 곧은 길 100 m 에 20 m 오르막, 또는 평지 100 m + 승강기 20 m
+    const n = (key: string, x: number, y: number, z: number): MapNode => ({ ...node(key, x), y, z });
+    const ns = [n('s', 0, 0, 100), n('t', 100, 0, 120), n('w', 100, 1, 100)];
+    const line = (key: string, a: MapNode, b: MapNode, kind: Edge['kind'] = 'walkway'): Edge => ({
+      ...edge(key, a.key, b.key, kind, Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z)),
+      geometry: [
+        [a.x, a.y, a.z],
+        [b.x, b.y, b.z],
+      ],
+    });
+    const g = buildGraph(pkg(ns, [line('d', ns[0], ns[1]), line('a', ns[0], ns[2]), line('c', ns[2], ns[1], 'elevator')]));
+    expect(findRoute(g, 's', 't', 'shortest')).toMatchObject({ edgeKeys: ['d'] });
+    const up = findRoute(g, 's', 't', 'fastest');
+    expect(up).toMatchObject({ edgeKeys: ['a', 'c'], condition: 'fastest' });
+    expect(findRoute(g, 't', 's', 'fastest')).toMatchObject({ edgeKeys: ['d'] });
+    // 승강기 기다림 30 s + 20 m / 1 m/s + 8 s 서기 + 평지 100 m / 1.2 m/s ≈ 141 s
+    expect(up.ok && up.durationS).toBe(141);
+  });
+  it('비 안 맞는 길은 지붕 덮인 길로 돌고, 지붕 모르는 길은 비 맞는 것으로 셈', () => {
+    const cover = (e: Edge, coveredRatio: number | null): Edge => ({
+      ...e,
+      indicators: { climbM: 0, descentM: 0, maxSlopePct: 0, walkS: e.lengthM / 1.2, walkSBack: e.lengthM / 1.2, coveredRatio },
+    });
+    const p = pkg(
+      [node('a', 0), node('b', 1), node('c', 2)],
+      [
+        cover(edge('d', 'a', 'b', 'walkway', 10), null),
+        cover(edge('x', 'a', 'c', 'walkway', 7), 1),
+        cover(edge('y', 'c', 'b', 'walkway', 7), 1),
+      ],
+    );
+    expect(findRoute(buildGraph(p), 'a', 'b', 'shortest')).toMatchObject({ edgeKeys: ['d'] });
+    expect(findRoute(buildGraph(p), 'a', 'b', 'rainProtected')).toMatchObject({ edgeKeys: ['x', 'y'] });
+  });
+  it('경로 모양은 지나는 길 선을 방향대로 잇는다', () => {
+    const r = findRoute(buildGraph(twoWay), 'b', 'a', 'shortest');
+    expect(r.ok && r.points).toEqual([
+      [1, 0, 0],
+      [0, 0, 0],
+    ]);
   });
   it('일방 통행을 지킨다', () => {
     const p = pkg([node('a', 0), node('b', 1)], [edge('o', 'a', 'b', 'walkway', 5, 'forward')]);

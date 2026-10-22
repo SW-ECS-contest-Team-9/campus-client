@@ -45,6 +45,42 @@ export interface MapNode {
   y: number;
   z: number;
   estimated: boolean;
+  /** 노드 지표(서버 꾸러미 선택 칸): 가까운 표지 등 */
+  indicators?: NodeIndicators;
+}
+/** 길 지표(서버가 가져올 때 계산, 꾸러미 선택 칸). 없는 칸 = 모름. 경로 계산에 쓰는 것만 적음. */
+export interface EdgeIndicators {
+  horizontalM?: number;
+  climbM: number;
+  descentM: number;
+  maxSlopePct: number | null;
+  /** 정방향(from→to)·역방향 걷는 시간(초) */
+  walkS: number;
+  walkSBack: number;
+  indoor?: boolean;
+  steps?: number | null;
+  minWidthM?: number | null;
+  /** 지붕 덮인 비율 0~1, null 은 모름 */
+  coveredRatio?: number | null;
+  /** 가로등 밝힌 비율 0~1, null 은 모름 */
+  litRatio?: number | null;
+  vehicle?: 'shared' | 'crossing' | 'adjacent' | 'none' | null;
+  wheelchair?: 'yes' | 'likely' | 'steep' | 'unknown' | 'no';
+  [k: string]: unknown;
+}
+export interface NodeIndicators {
+  landmark?: { key: string; name: string; distM: number };
+  [k: string]: unknown;
+}
+/** 경로 방식 하나의 비용 규칙(서버 MODE_SPEC 과 같은 모양). */
+export interface ModeSpec {
+  label: string;
+  base: 'lengthM' | 'walkS';
+  exclude: ('stairs' | 'wheelchairNo')[];
+  mult: Record<string, number>;
+  exposure?: { rain?: number; dark?: number; vehicle?: number };
+  elevatorWaitS?: number;
+  note?: string;
 }
 export interface Edge {
   key: string;
@@ -60,6 +96,7 @@ export interface Edge {
   widthM: number | null;
   geometry: XYZ[];
   estimated: boolean;
+  indicators?: EdgeIndicators;
 }
 export interface Place {
   key: string;
@@ -99,6 +136,8 @@ export interface MapPackage {
   places: Place[];
   walkAreas: WalkArea[];
   walkAreaNodes: WalkAreaNode[];
+  /** 경로 방식별 비용 규칙(서버 꾸러미 선택 칸). 없으면 앱에 든 같은 규칙 */
+  routeModes?: Record<string, ModeSpec>;
 }
 
 export type ValidationResult = { ok: true; pkg: MapPackage } | { ok: false; errors: string[] };

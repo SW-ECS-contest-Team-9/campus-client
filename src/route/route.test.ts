@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Edge, MapNode, MapPackage } from '../map/package';
 import { validatePackage } from '../map/package';
-import { buildGraph, findRoute } from './route';
+import { buildGraph, deviceCondition, findRoute } from './route';
 import fixture from '../map/fixture/campus-fixture.json';
 
 const node = (key: string, x: number, floorKey: string | null = null): MapNode => ({
@@ -75,6 +75,29 @@ describe('findRoute', () => {
   it('승강기 우선은 조금 멀어도 승강기', () => {
     const r = findRoute(buildGraph(twoWay), 'a', 'b', 'preferElevator');
     expect(r.ok && r.steps.map((s) => s.kind)).toEqual(['corridor', 'elevator']);
+  });
+  it('휠체어·유모차는 계단과 휠체어 금지 길을 쓰지 않는다', () => {
+    const p = pkg(
+      [node('a', 0), node('b', 1), node('c', 2)],
+      [
+        { ...edge('n', 'a', 'b', 'walkway', 5), wheelchairAccess: 'prohibited' },
+        edge('m', 'a', 'c', 'ramp', 6),
+        edge('o', 'c', 'b', 'walkway', 6),
+      ],
+    );
+    const r = findRoute(buildGraph(p), 'a', 'b', 'accessible');
+    expect(r.ok && r.steps.map((s) => s.edgeKey)).toEqual(['m', 'o']);
+    expect(findRoute(buildGraph(twoWay), 'a', 'b', 'accessible').ok && true).toBe(true);
+  });
+  it('서버 지표가 필요한 방식은 기기에서 가까운 방식으로 계산하고 결과에는 고른 방식을 남긴다', () => {
+    expect(deviceCondition('fastest')).toBe('shortest');
+    expect(deviceCondition('rainProtected')).toBe('shortest');
+    expect(deviceCondition('nightSafe')).toBe('shortest');
+    expect(deviceCondition('accessible')).toBe('accessible');
+    expect(deviceCondition('preferElevator')).toBe('preferElevator');
+    const r = findRoute(buildGraph(twoWay), 'a', 'b', 'rainProtected');
+    expect(r.ok && r.condition).toBe('rainProtected');
+    expect(r.ok && r.steps.map((s) => s.kind)).toEqual(['stairs']);
   });
   it('일방 통행을 지킨다', () => {
     const p = pkg([node('a', 0), node('b', 1)], [edge('o', 'a', 'b', 'walkway', 5, 'forward')]);

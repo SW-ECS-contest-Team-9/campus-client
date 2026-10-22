@@ -1,7 +1,15 @@
 // 기기 안 경로 계산 (Dijkstra, 거리 가중). 없는 길은 만들지 않는다.
 import type { Edge, EdgeKind, MapNode, MapPackage } from '../map/package';
 
-export type RouteCondition = 'shortest' | 'avoidStairs' | 'preferElevator';
+/** 경로 방식 7가지(서버 GET /v1/route-modes·자연어 Mode 와 같은 이름). */
+export type RouteCondition = 'shortest' | 'fastest' | 'avoidStairs' | 'accessible' | 'preferElevator' | 'rainProtected' | 'nightSafe';
+/** 기기에서 계산할 수 있는 방식. 기기 꾸러미에는 걷는 시간·지붕·조명 지표가 없음. */
+export type DeviceCondition = 'shortest' | 'avoidStairs' | 'accessible' | 'preferElevator';
+
+/** 빠른 길·비 안 맞는 길·밤에 밝은 길은 서버가 그 방식으로 계산하고, 기기는 최단으로 계산한다. */
+export function deviceCondition(c: RouteCondition): DeviceCondition {
+  return c === 'avoidStairs' || c === 'accessible' || c === 'preferElevator' ? c : 'shortest';
+}
 
 export interface RouteStep {
   edgeKey: string;
@@ -56,9 +64,10 @@ export function buildGraph(pkg: MapPackage): Graph {
   return { pkg, nodes, adj, floorLabel };
 }
 
-/** 조건별 길 비용. avoidStairs 는 계단을 아예 쓰지 않는다. */
-function cost(e: Edge, cond: RouteCondition): number {
-  if (cond === 'avoidStairs' && e.kind === 'stairs') return Infinity;
+/** 조건별 길 비용. avoidStairs·accessible 은 계단을 아예 쓰지 않고, accessible 은 휠체어 금지 길도 쓰지 않는다. */
+function cost(e: Edge, cond: DeviceCondition): number {
+  if ((cond === 'avoidStairs' || cond === 'accessible') && e.kind === 'stairs') return Infinity;
+  if (cond === 'accessible' && e.wheelchairAccess === 'prohibited') return Infinity;
   if (cond === 'preferElevator' && e.kind === 'stairs') return e.lengthM * 5 + 30;
   return e.lengthM;
 }
@@ -68,6 +77,7 @@ export function findRoute(g: Graph, fromKey: string, toKey: string, cond: RouteC
     return { ok: false, reason: 'unknown_node', message: '출발 또는 도착이 길에 붙어 있지 않음' };
   if (fromKey === toKey) return { ok: false, reason: 'same_point', message: '출발과 도착이 같음' };
 
+  const dc = deviceCondition(cond);
   const dist = new Map<string, number>([[fromKey, 0]]);
   const prev = new Map<string, { node: string; arc: Arc }>();
   const done = new Set<string>();
@@ -81,7 +91,7 @@ export function findRoute(g: Graph, fromKey: string, toKey: string, cond: RouteC
     done.add(u);
     if (u === toKey) break;
     for (const arc of g.adj.get(u) ?? []) {
-      const c = cost(arc.edge, cond);
+      const c = cost(arc.edge, dc);
       if (!Number.isFinite(c)) continue;
       const nd = dist.get(u)! + c;
       if (nd < (dist.get(arc.to) ?? Infinity)) {

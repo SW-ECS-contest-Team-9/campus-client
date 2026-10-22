@@ -10,6 +10,12 @@ describe('noRouteCopy', () => {
     expect(c.secondary?.action).toBe('allow_stairs');
     expect(c.body).toContain('북악관 입구(2)');
   });
+  it('휠체어·유모차에서 길 없음 → 그 조건 문구, 계단 허용은 두 번째 행동', () => {
+    const c = noRouteCopy({ ...base, reason: 'no_route', condition: 'accessible' });
+    expect(c.cause).toBe('stairs');
+    expect(c.title).toContain('휠체어·유모차');
+    expect(c.secondary?.action).toBe('allow_stairs');
+  });
   it('최단에서 길 없음 → 끊김, 계단 허용 행동 없음', () => {
     const c = noRouteCopy({ ...base, reason: 'no_route' });
     expect(c.cause).toBe('disconnected');

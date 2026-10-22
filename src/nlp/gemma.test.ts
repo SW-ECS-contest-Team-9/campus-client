@@ -87,4 +87,13 @@ describe('Gemma 앞뒤 처리(common.py 옮김)', () => {
     expect(no.kind === 'go' && no.mandatory).toEqual([]);
     expect(no.kind === 'go' && no.condition).toBe('shortest');
   });
+
+  it('합치기: 규칙의 방식(휠체어 → accessible)과 보조 방식을 AI 가 낮추지 않음', () => {
+    const a = parse('휠체어인데 비 와요 북악관 편의점');
+    const g = toRouteRequest(out({ dest: { name: STORE, floor: null }, mandatory: ['avoidStairs'], mode: 'avoidStairs' }), pkg);
+    expect(g.secondaryModes).toEqual([]);
+    const m = mergeWithGemma(a, g);
+    expect(m.mode).toBe('accessible');
+    expect(m.secondaryModes).toEqual(['rainProtected']);
+  });
 });

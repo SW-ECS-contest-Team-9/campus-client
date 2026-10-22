@@ -1,7 +1,7 @@
 // 3D 지도 페이지(campus-tracker frontend/client3d.html)와 주고받는 메시지 v1. 화면·RN 에 의존하지 않음(시험 가능).
 // 페이지 쪽 정의: campus-tracker frontend/src/client3d-protocol.ts. 바꾸면 둘 다 바꾼다.
 import type { MapPackage, XYZ } from '../map/package';
-import type { Graph, RouteResult } from '../route/route';
+import type { Graph, RouteOk } from '../route/route';
 import type { Fix } from '../location/fix';
 import { epsg5186ToWgs84 } from '../location/projection';
 import { DEV_HOST } from '../config/devHost';
@@ -70,20 +70,14 @@ export function parseEvent(raw: unknown): Map3dEvent | null {
   }
 }
 
-/** 경로 → setRoute: 지나는 길의 모양 그대로(EPSG:5186, z), 층이 바뀌는 노드에 표시. */
-export function routeCommand(g: Graph, r: Extract<RouteResult, { ok: true }>): Map3dCommand {
-  const points: XYZ[] = [];
-  const push = (p: XYZ) => {
-    const l = points[points.length - 1];
-    if (!l || l[0] !== p[0] || l[1] !== p[1] || l[2] !== p[2]) points.push(p);
-  };
+/** 경로 → setRoute: 경로 모양 그대로(서버 또는 기기 계산의 points, EPSG:5186, z), 층이 바뀌는 노드에 표시. */
+export function routeCommand(g: Graph, r: RouteOk): Map3dCommand {
   const floorChanges: { at: XYZ; label: string | null }[] = [];
-  let lastFloor = g.floorLabel(r.nodeKeys[0]);
-  for (let i = 0; i < r.nodeKeys.length; i++) {
-    const a = r.nodeKeys[i],
-      b = r.nodeKeys[i + 1];
-    const node = g.nodes.get(a)!;
-    const label = g.floorLabel(a);
+  let lastFloor: string | null = null;
+  for (const k of r.nodeKeys) {
+    const node = g.nodes.get(k); // 서버 경로가 기기 꾸러미보다 새로우면 없는 노드도 있음(표시만 빠짐)
+    if (!node) continue;
+    const label = g.floorLabel(k);
     if (label && lastFloor && label !== lastFloor) {
       const prev = floorChanges[floorChanges.length - 1],
         text = `→ ${label.split(' ').pop() ?? label}`;
@@ -93,20 +87,8 @@ export function routeCommand(g: Graph, r: Extract<RouteResult, { ok: true }>): M
       else floorChanges.push({ at: [node.x, node.y, node.z], label: text });
     }
     if (label) lastFloor = label;
-    if (!b) {
-      push([node.x, node.y, node.z]);
-      break;
-    }
-    const arcs = (g.adj.get(a) ?? []).filter((x) => x.to === b).sort((x, y) => x.edge.lengthM - y.edge.lengthM);
-    const arc = arcs[0];
-    if (!arc || arc.edge.geometry.length < 2) {
-      push([node.x, node.y, node.z]);
-      continue;
-    }
-    const geom = arc.forward ? arc.edge.geometry : [...arc.edge.geometry].reverse();
-    for (const p of geom) push([p[0], p[1], p[2]]);
   }
-  return { v: 1, type: 'setRoute', points, floorChanges };
+  return { v: 1, type: 'setRoute', points: r.points, floorChanges };
 }
 
 /** 현재 위치 → setLocation. 불확실하면 state 'uncertain'(층·높이를 보내지 않음: 건물·층을 다시 확인하게). */

@@ -4,7 +4,7 @@ import { Redirect, router } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { routeCommand } from '../map3d/embed';
-import { minutes } from '../route/time';
+import { minutesOf } from '../route/time';
 import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
 import { FloorCapsule } from '../ui/FloorCapsule';
@@ -21,6 +21,8 @@ export default function GuideScreen() {
   const i = Math.min(app.guideStep, r.steps.length - 1);
   const step = r.steps[i];
   const left = r.steps.slice(i).reduce((a, s) => a + s.lengthM, 0);
+  // 남은 시간: 경로 걷는 시간(오르내림·승강기 포함)을 남은 길이 비율로
+  const leftS = r.totalLengthM > 0 ? (r.durationS * left) / r.totalLengthM : 0;
   const dest = pkg.places.find((p) => p.key === app.destKey);
   const cf = app.confirmedFloor;
   const cfText = cf
@@ -74,7 +76,7 @@ export default function GuideScreen() {
           <Text style={s.nowT}>{step.text.replace(/\s*\([^)]*\)/g, '')}</Text>
           <RouteDrawBar progress={(i + 1) / r.steps.length} height={5} />
           <Text style={s.nowS}>
-            {i + 1}/{r.steps.length}단계 · {dest?.name ?? ''} · 약 {minutes(left)}분 남음
+            {i + 1}/{r.steps.length}단계 · {dest?.name ?? ''} · 약 {minutesOf(leftS)}분 남음
           </Text>
         </Pulse>
       )}
@@ -84,7 +86,7 @@ export default function GuideScreen() {
       <View style={s.map}>
         <CampusMap
           commands={[cmd]}
-          routeNodeKeys={r.nodeKeys}
+          routePoints={r.points}
           pickPlaces={false}
           minimal
           padding={{ top: 68, bottom: 20 }}
@@ -98,7 +100,7 @@ export default function GuideScreen() {
         />
       </View>
       <View style={s.foot}>
-        <Text style={s.min}>약 {minutes(left)}분</Text>
+        <Text style={s.min}>약 {minutesOf(leftS)}분</Text>
         <P tone="muted">
           {Math.round(left)} m 남음{dest?.floorKey ? ` · 목적지 ${pkg.floors.find((f) => f.key === dest.floorKey)?.code}` : ''}
         </P>

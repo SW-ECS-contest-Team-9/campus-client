@@ -1,6 +1,7 @@
 // 화면들이 쓰는 지도: 공용 3D 지도 자리(MapSlot) + 현재 위치·확인한 층 명령, 못 불러오면 평면 지도(MapView).
 import { router } from 'expo-router';
 import { useMemo, type ReactNode } from 'react';
+import type { XYZ } from '../map/package';
 import { floorCommand, locationCommand, packagePlaceKey, type Map3dCommand } from '../map3d/embed';
 import { useApp } from '../state/AppState';
 import { MapSlot } from './Map3D';
@@ -8,7 +9,8 @@ import { MapView } from './MapView';
 
 interface Props {
   commands?: (Map3dCommand | null)[];
-  routeNodeKeys?: string[] | null;
+  /** 경로 모양(평면 지도에 그림. 3D 는 commands 의 setRoute) */
+  routePoints?: XYZ[] | null;
   highlightPlaceKeys?: string[];
   /** 평면 지도의 처음 화면. 없고 경로가 있으면 경로 전체에 맞춤 */
   focus?: { x: number; y: number }[];
@@ -24,7 +26,7 @@ interface Props {
 
 export function CampusMap({
   commands = [],
-  routeNodeKeys = null,
+  routePoints = null,
   highlightPlaceKeys = [],
   focus,
   pickPlaces = true,
@@ -52,10 +54,9 @@ export function CampusMap({
   // 층 고르기(보는 층)
   const floors = useMemo(() => Object.entries(app.floorSel).map(([b, f]) => floorCommand(pkg, b, f)), [app.floorSel, pkg]);
   const routeFocus = useMemo(() => {
-    if (focus || !routeNodeKeys?.length) return focus;
-    const byKey = new Map(pkg.nodes.map((n) => [n.key, n]));
-    return routeNodeKeys.map((k) => byKey.get(k)).filter((n): n is NonNullable<typeof n> => !!n);
-  }, [focus, routeNodeKeys, pkg]);
+    if (focus || !routePoints?.length) return focus;
+    return routePoints.map((p) => ({ x: p[0], y: p[1] }));
+  }, [focus, routePoints]);
   const all = useMemo(() => [loc, ...floors, ...commands], [loc, floors, commands]);
   return (
     <MapSlot
@@ -73,7 +74,7 @@ export function CampusMap({
         <MapView
           pkg={pkg}
           floorSel={app.floorSel}
-          routeNodeKeys={routeNodeKeys}
+          routePoints={routePoints}
           highlightPlaceKeys={highlightPlaceKeys}
           me={app.fix}
           focus={routeFocus}

@@ -1,8 +1,7 @@
 // AI 문장 해석(Gemma) 앞뒤 처리 시험: 프롬프트·스키마·모델 출력 → 요청, 규칙 결과와 합치기(필수 조건 보호). 모델은 돌리지 않음.
 import { describe, expect, it } from 'vitest';
 import type { MapPackage as AppPackage } from '../map/package';
-// 이 시험의 길 key·층·건물 목록은 옛 내장 지도(v0) 자료에 맞춘 것
-import fixtureJson from '../map/fixture/route-v0-package.json';
+import fixtureJson from '../map/fixture/campus-fixture.json';
 import { planFromRequest } from './apply';
 import { AI_STAIRS_QUESTION, buildPrompt, jsonSchema, mergeWithGemma, placesSubset, shouldAskGemma, toRouteRequest } from './gemma';
 import { buildLexicon } from './lexicon';
@@ -30,8 +29,8 @@ describe('Gemma 앞뒤 처리(common.py 옮김)', () => {
     expect(placesSubset('편의점 가는 길', pkg)[0]).toBe(STORE);
     expect(placesSubset('ㅋㅋ', pkg)).toEqual([]);
     const { ctx, places } = buildPrompt('편의점', pkg);
-    expect(ctx.startsWith('건물: 대일관 | 문예관')).toBe(true);
-    expect(ctx).toContain('은주관 (별칭: 은주1관)');
+    expect(ctx.startsWith('건물: 공연실습소 | 대일관 | 문예관 (별칭: 문예관 저층부)')).toBe(true);
+    expect(ctx).toContain('은주관 (별칭: 은주1관, 은주2관)');
     expect(places.length).toBeLessThanOrEqual(8);
   });
 

@@ -1,8 +1,7 @@
 // 위치 보정 v2 연결 시험: 기록한 합성 입력(1 Hz GPS + 걸음 + 기압)을 가짜 센서로 다시 틀어 맞춤기까지 지나가게 한다.
 import { describe, expect, it } from 'vitest';
 import type { MapPackage } from '../map/package';
-// 이 시험의 길 key·층·건물 목록은 옛 내장 지도(v0) 자료에 맞춘 것
-import fixtureJson from '../map/fixture/route-v0-package.json';
+import fixtureJson from '../map/fixture/campus-fixture.json';
 import type { Fix } from './fix';
 import { startNodeForFix } from './fix';
 import { epsg5186ToWgs84 } from './projection';
@@ -12,7 +11,7 @@ import { createTracker, pressureToRelativeAltitude, type PositionSample } from '
 const pkg = fixtureJson as unknown as MapPackage;
 const edge = (k: string) => pkg.edges.find((e) => e.key === k)!;
 const OUTDOOR = 'e:a03d33c3-08b0-4bc6-ae9f-40b83c3296de'; // 바깥 길 193 m
-const BUKAK_6F = 'e:d21b1693-a659-41c4-aedc-d98191848484'; // 북악관 6F 복도(5F·7F 와 겹친 자리)
+const BUKAK_6F = 'e:b36ea64e-113c-475b-8a40-648faf789aa4'; // 북악관 6F 복도 35 m(5F·7F 와 겹친 자리)
 
 type Ev = { t: number } & (
   { k: 'pos'; p: PositionSample } | { k: 'head'; deg: number } | { k: 'steps'; n: number } | { k: 'hpa'; v: number }

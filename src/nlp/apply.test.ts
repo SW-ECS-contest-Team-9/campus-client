@@ -1,8 +1,7 @@
 // 자연어 경로 요청(방식 A) → 앱 흐름 시험. 내장 개발 지도(fixture) 기준.
 import { describe, expect, it } from 'vitest';
 import type { MapPackage } from '../map/package';
-// 이 시험의 길 key·층·건물 목록은 옛 내장 지도(v0) 자료에 맞춘 것
-import fixtureJson from '../map/fixture/route-v0-package.json';
+import fixtureJson from '../map/fixture/campus-fixture.json';
 import { buildGraph, findRoute } from '../route/route';
 import { describe as describeRequest, effectiveCondition, planFromRequest, shortName, type Plan } from './apply';
 import { buildLexicon } from './lexicon';
@@ -105,9 +104,9 @@ describe('자연어 경로 요청 → 앱 흐름', () => {
     }
   });
 
-  it('북악관 3층 → 없는 층은 알림, 건물 안 갈 곳을 번호 붙은 이름으로 되물음', () => {
-    const r = parse('북악관 3층');
-    expect(r.unsupported.map((u) => u.text)).toContain('3층');
+  it('북악관 4층 → 없는 층은 알림, 건물 안 갈 곳을 번호 붙은 이름으로 되물음', () => {
+    const r = parse('북악관 4층');
+    expect(r.unsupported.map((u) => u.text)).toContain('4층');
     const p = planFromRequest(r, pkg);
     expect(p.kind).toBe('ask');
     if (p.kind === 'ask') expect(p.choices.map((c) => c.label)).toContain('북악관 입구(2)');

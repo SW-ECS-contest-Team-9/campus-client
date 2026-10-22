@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { effectiveCondition } from '../nlp/apply';
 import { MODES, modeInfo } from '../route/modes';
+import { hasRouteIndicators } from '../route/route';
 import { useApp } from '../state/AppState';
 import { Btn, Card, Chip, P, Screen, Section, T } from '../ui/kit';
 
@@ -36,7 +37,10 @@ export default function OptionsScreen() {
       title="경로 옵션"
       footer={
         <>
-          <P tone="muted">저장된 지도(v{pkg.release.version})로 기기에서 계산해요. 지금의 통행 제한은 반영되지 않을 수 있어요.</P>
+          <P tone="muted">
+            서버에 연결되면 서버에서, 아니면 저장된 지도(v{pkg.release.version})로 기기에서 계산해요. 지금의 통행 제한은 반영되지 않을 수
+            있어요.
+          </P>
           <Btn label="경로 확인" disabled={!st || !dest} onPress={go} />
         </>
       }
@@ -103,7 +107,9 @@ export default function OptionsScreen() {
       <Card tone="primary">
         <Text style={s.ct}>{cond.label}</Text>
         <P>{cond.note}</P>
-        {cond.device ? <P tone="muted">{cond.device}</P> : null}
+        {cond.device && !hasRouteIndicators(pkg) && !(app.route?.ok && app.route.source === 'server') ? (
+          <P tone="muted">{cond.device}</P>
+        ) : null}
       </Card>
     </Screen>
   );

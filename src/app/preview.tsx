@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { serverRoute, type ServerRoute } from '../api/serverRoute';
 import { routeCommand } from '../map3d/embed';
+import { modeInfo } from '../route/modes';
 import { minutes } from '../route/time';
 import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
@@ -72,13 +73,7 @@ export default function PreviewScreen() {
               <Glass style={s.sum}>
                 <View style={s.sumHead}>
                   <Footprints size={18} color={T.primary} />
-                  <Text style={s.kind}>
-                    {app.condition === 'avoidStairs'
-                      ? '계단 없는 경로'
-                      : app.condition === 'preferElevator'
-                        ? '승강기 우선 경로'
-                        : '최단 경로'}
-                  </Text>
+                  <Text style={s.kind}>{modeInfo(app.condition).title}</Text>
                 </View>
                 <Text style={s.t}>
                   약 {minutes(r.totalLengthM)}분 <Text style={s.len}>· {Math.round(r.totalLengthM)} m</Text>
@@ -97,6 +92,7 @@ export default function PreviewScreen() {
       </View>
       <View style={s.below}>
         <Badge tone={offline ? 'offline' : 'confirmed'} text={offline ? '저장된 지도로 계산' : '방금 받은 지도로 계산'} />
+        {modeInfo(app.condition).device ? <P tone="muted">{modeInfo(app.condition).device}</P> : null}
         {server ? (
           <P tone="muted">
             {server.ok

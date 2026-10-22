@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, Switch, TextInput, View } from 'react-native';
 import { DEFAULT_MAP3D_URL } from '../map3d/embed';
 import { get3dStats } from '../map3d/diag';
+import { MODES } from '../route/modes';
 import { DEFAULT_SERVER_URL, useApp } from '../state/AppState';
 import { Btn, Card, Chip, H, P, Screen, Section, T } from '../ui/kit';
 
@@ -17,9 +18,9 @@ export default function SettingsScreen() {
       <H>내 이동에 맞게</H>
       <Section>이동 경로(기본 조건)</Section>
       <View style={s.chips}>
-        <Chip label="최단" on={app.condition === 'shortest'} onPress={() => app.setCondition('shortest')} />
-        <Chip label="계단 피하기" on={app.condition === 'avoidStairs'} onPress={() => app.setCondition('avoidStairs')} />
-        <Chip label="승강기 우선" on={app.condition === 'preferElevator'} onPress={() => app.setCondition('preferElevator')} />
+        {MODES.map((m) => (
+          <Chip key={m.key} label={m.label} on={app.condition === m.key} onPress={() => app.setCondition(m.key)} />
+        ))}
       </View>
       <Section>화면 표현(기기 등급)</Section>
       <View style={s.chips}>

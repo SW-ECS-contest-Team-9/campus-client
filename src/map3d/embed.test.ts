@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import fixture from '../map/fixture/campus-fixture.json';
+// 이 시험의 길 key·층·건물 목록은 옛 내장 지도(v0) 자료에 맞춘 것
+import fixture from '../map/fixture/route-v0-package.json';
 import type { MapPackage } from '../map/package';
 import { buildGraph, findRoute } from '../route/route';
 import { floorCommand, locationCommand, packagePlaceKey, pageUrl, parseEvent, routeCommand, sceneBuildingId } from './embed';

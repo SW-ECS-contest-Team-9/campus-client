@@ -1,7 +1,8 @@
 // 자연어 경로 요청(방식 A) → 앱 흐름 시험. 내장 개발 지도(fixture) 기준.
 import { describe, expect, it } from 'vitest';
 import type { MapPackage } from '../map/package';
-import fixtureJson from '../map/fixture/campus-fixture.json';
+// 이 시험의 길 key·층·건물 목록은 옛 내장 지도(v0) 자료에 맞춘 것
+import fixtureJson from '../map/fixture/route-v0-package.json';
 import { buildGraph, findRoute } from '../route/route';
 import { describe as describeRequest, effectiveCondition, planFromRequest, shortName, type Plan } from './apply';
 import { buildLexicon } from './lexicon';

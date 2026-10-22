@@ -1,7 +1,8 @@
 // 위치 보정 v2 연결 시험: 기록한 합성 입력(1 Hz GPS + 걸음 + 기압)을 가짜 센서로 다시 틀어 맞춤기까지 지나가게 한다.
 import { describe, expect, it } from 'vitest';
 import type { MapPackage } from '../map/package';
-import fixtureJson from '../map/fixture/campus-fixture.json';
+// 이 시험의 길 key·층·건물 목록은 옛 내장 지도(v0) 자료에 맞춘 것
+import fixtureJson from '../map/fixture/route-v0-package.json';
 import type { Fix } from './fix';
 import { startNodeForFix } from './fix';
 import { epsg5186ToWgs84 } from './projection';

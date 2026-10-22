@@ -1,7 +1,8 @@
 // AI 문장 해석(Gemma) 앞뒤 처리 시험: 프롬프트·스키마·모델 출력 → 요청, 규칙 결과와 합치기(필수 조건 보호). 모델은 돌리지 않음.
 import { describe, expect, it } from 'vitest';
 import type { MapPackage as AppPackage } from '../map/package';
-import fixtureJson from '../map/fixture/campus-fixture.json';
+// 이 시험의 길 key·층·건물 목록은 옛 내장 지도(v0) 자료에 맞춘 것
+import fixtureJson from '../map/fixture/route-v0-package.json';
 import { planFromRequest } from './apply';
 import { AI_STAIRS_QUESTION, buildPrompt, jsonSchema, mergeWithGemma, placesSubset, shouldAskGemma, toRouteRequest } from './gemma';
 import { buildLexicon } from './lexicon';

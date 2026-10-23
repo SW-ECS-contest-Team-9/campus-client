@@ -2,7 +2,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, G, Polygon, Polyline, Text as SvgText } from 'react-native-svg';
-import type { EdgeKind, MapNode, MapPackage } from '../map/package';
+import type { EdgeKind, MapNode, MapPackage, XYZ } from '../map/package';
 
 export const KIND_COLOR: Record<EdgeKind, string> = {
   walkway: '#6b7280',
@@ -18,14 +18,15 @@ export const KIND_COLOR: Record<EdgeKind, string> = {
 interface Props {
   pkg: MapPackage;
   floorSel: Record<string, string>; // buildingKey → floorKey | 'all'
-  routeNodeKeys?: string[] | null;
+  /** 경로 모양(서버 또는 기기 계산) */
+  routePoints?: XYZ[] | null;
   highlightPlaceKeys?: string[];
   me?: { x: number; y: number; accuracyM: number | null; uncertain: boolean } | null;
   onPlacePress?: (key: string) => void;
   focus?: { x: number; y: number }[]; // 처음 화면을 이 점들에 맞춤
 }
 
-export function MapView({ pkg, floorSel, routeNodeKeys, highlightPlaceKeys = [], me, onPlacePress, focus }: Props) {
+export function MapView({ pkg, floorSel, routePoints, highlightPlaceKeys = [], me, onPlacePress, focus }: Props) {
   const [size, setSize] = useState({ w: 360, h: 480 });
   const bounds = useMemo(() => {
     const xs = pkg.nodes.map((n) => n.x),
@@ -70,9 +71,6 @@ export function MapView({ pkg, floorSel, routeNodeKeys, highlightPlaceKeys = [],
     return sel === 'all' || sel === n.floorKey ? 'on' : 'off';
   };
 
-  const routeSet = new Set<string>();
-  if (routeNodeKeys) for (let i = 1; i < routeNodeKeys.length; i++) routeSet.add(`${routeNodeKeys[i - 1]}|${routeNodeKeys[i]}`);
-  const routeEdges = pkg.edges.filter((e) => routeSet.has(`${e.from}|${e.to}`) || routeSet.has(`${e.to}|${e.from}`));
   const pts = (g: [number, number, number?][] | [number, number][]) =>
     g.map((p) => `${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`).join(' ');
 
@@ -103,17 +101,17 @@ export function MapView({ pkg, floorSel, routeNodeKeys, highlightPlaceKeys = [],
             />
           );
         })}
-        {routeEdges.map((e) => (
+        {routePoints && routePoints.length > 1 ? (
           <Polyline
-            key={`r-${e.key}`}
-            points={pts(e.geometry)}
+            points={pts(routePoints)}
             fill="none"
             stroke="#2563eb"
             strokeWidth={6}
             strokeOpacity={0.85}
             strokeLinecap="round"
+            strokeLinejoin="round"
           />
-        ))}
+        ) : null}
         {pkg.buildings.map((b) =>
           b.center ? (
             <SvgText

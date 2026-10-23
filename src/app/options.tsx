@@ -1,20 +1,12 @@
-// CT05 경로 옵션: 출발·도착, 이동 방식(최단 / 계단 피하기 / 승강기 우선). 계단 피하기는 자동으로 풀지 않음(제품 규칙 04).
+// CT05 경로 옵션: 출발·도착, 이동 방식 7가지(서버 경로 방식과 같음). 필수 조건(계단 없이·휠체어)은 자동으로 풀지 않음(제품 규칙 04).
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import type { RouteCondition } from '../route/route';
+import { effectiveCondition } from '../nlp/apply';
+import { MODES, modeInfo } from '../route/modes';
+import { hasRouteIndicators } from '../route/route';
 import { useApp } from '../state/AppState';
 import { Btn, Card, Chip, P, Screen, Section, T } from '../ui/kit';
-
-const CONDS: { key: RouteCondition; label: string; note: string }[] = [
-  { key: 'shortest', label: '최단', note: '계단을 포함해 가장 짧은 길이에요.' },
-  {
-    key: 'avoidStairs',
-    label: '계단 피하기',
-    note: '계단을 전혀 쓰지 않는 길만 찾아요. 없으면 "경로 없음"으로 알려 드리고 조건을 스스로 풀지 않아요. 휠체어 통행(폭·경사·문)을 보장하지는 않아요.',
-  },
-  { key: 'preferElevator', label: '승강기 우선', note: '계단보다 승강기·경사로를 먼저 써요. 필요하면 계단도 써요.' },
-];
 
 export default function OptionsScreen() {
   const app = useApp();
@@ -29,10 +21,12 @@ export default function OptionsScreen() {
     : '고르지 않음';
   const dest = pkg.places.find((p) => p.key === app.destKey);
   const destFloor = dest?.floorKey ? pkg.floors.find((f) => f.key === dest.floorKey)?.code : null;
-  const cond = CONDS.find((c) => c.key === app.condition)!;
-  // 말로 정한 필수 조건(계단 없이)은 하드 필터: 다른 방식으로 바꾸려면 직접 "필수 조건 풀기"
+  const cond = modeInfo(app.condition);
+  // 말로 정한 필수 조건(계단 없이·휠체어)은 하드 필터: 그보다 느슨한 방식으로 바꾸려면 직접 "필수 조건 풀기"
   const nlp = app.nlp;
-  const locked = !!nlp?.mandatory.includes('avoidStairs');
+  const mandatory = nlp?.mandatory ?? [];
+  const locked = mandatory.length > 0;
+  const mustLabel = app.condition === 'accessible' ? '휠체어·유모차' : '계단 없이';
   const go = () => {
     const r = app.route;
     if (!r) return;
@@ -43,7 +37,10 @@ export default function OptionsScreen() {
       title="경로 옵션"
       footer={
         <>
-          <P tone="muted">저장된 지도(v{pkg.release.version})로 기기에서 계산해요. 지금의 통행 제한은 반영되지 않을 수 있어요.</P>
+          <P tone="muted">
+            서버에 연결되면 서버에서, 아니면 저장된 지도(v{pkg.release.version})로 기기에서 계산해요. 지금의 통행 제한은 반영되지 않을 수
+            있어요.
+          </P>
           <Btn label="경로 확인" disabled={!st || !dest} onPress={go} />
         </>
       }
@@ -82,19 +79,19 @@ export default function OptionsScreen() {
       ) : null}
       <Section>이동 방식</Section>
       <View style={s.chips}>
-        {CONDS.map((c) => (
+        {MODES.map((c) => (
           <Chip
             key={c.key}
             label={c.label}
             on={app.condition === c.key}
-            onPress={() => (locked && c.key !== 'avoidStairs' ? setLockMsg(true) : app.setCondition(c.key))}
+            onPress={() => (effectiveCondition(c.key, mandatory) !== c.key ? setLockMsg(true) : app.setCondition(c.key))}
           />
         ))}
       </View>
       {locked ? (
         <Card tone="caution" style={{ gap: 6 }}>
           <P tone="caution">
-            {lockMsg ? '필수 조건이라 다른 방식으로 바꾸지 않았어요. ' : ''}말씀하신 「계단 없이」는 필수 조건이에요. 계단 없는 길이 없으면
+            {lockMsg ? '필수 조건이라 다른 방식으로 바꾸지 않았어요. ' : ''}말씀하신 「{mustLabel}」는 필수 조건이에요. 그런 길이 없으면
             「경로 없음」으로 알려 드려요.
           </P>
           <Btn
@@ -110,6 +107,9 @@ export default function OptionsScreen() {
       <Card tone="primary">
         <Text style={s.ct}>{cond.label}</Text>
         <P>{cond.note}</P>
+        {cond.device && !hasRouteIndicators(pkg) && !(app.route?.ok && app.route.source === 'server') ? (
+          <P tone="muted">{cond.device}</P>
+        ) : null}
       </Card>
     </Screen>
   );

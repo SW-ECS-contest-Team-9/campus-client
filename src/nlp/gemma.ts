@@ -142,6 +142,7 @@ export function toRouteRequest(o: ModelOutput, pkg: MapPackage): RouteRequest {
     origin,
     waypoints: (o.waypoints ?? []).map((w) => lookup(pkg, w, null)),
     mode: o.mode ?? 'shortest',
+    secondaryModes: [],
     mandatory: o.mandatory ?? [],
     preferences: o.preferences ?? [],
     timeLimitMin: o.timeLimitMin ?? null,
@@ -175,6 +176,10 @@ export function mergeWithGemma(a: RouteRequest, g: RouteRequest): RouteRequest {
   for (const u of g.unsupported) if (!unsupported.some((x) => x.text === u.text && x.reason === u.reason)) unsupported.push(u);
   const preferences = [...a.preferences];
   for (const p of g.preferences) if (!preferences.includes(p)) preferences.push(p);
+  // 방식: 규칙의 휠체어·유모차(accessible)는 그대로, 필수 계단 없이면 avoidStairs, 아니면 규칙 → AI. 밀린 규칙 방식은 보조로 남김
+  const mode =
+    a.mode === 'accessible' ? 'accessible' : mandatory.includes('avoidStairs') ? 'avoidStairs' : a.mode !== 'shortest' ? a.mode : g.mode;
+  const secondaryModes = [a.mode, ...a.secondaryModes].filter((x, i, l) => x !== mode && x !== 'shortest' && l.indexOf(x) === i);
   let needsClarification = aiAddedStairs ? { question: AI_STAIRS_QUESTION } : null;
   if (!needsClarification && !has(destination)) needsClarification = g.needsClarification ?? { question: '어디로 갈까요?' };
   return {
@@ -182,7 +187,8 @@ export function mergeWithGemma(a: RouteRequest, g: RouteRequest): RouteRequest {
     destination,
     origin,
     waypoints: a.waypoints.length ? a.waypoints : g.waypoints,
-    mode: mandatory.includes('avoidStairs') ? 'avoidStairs' : a.mode !== 'shortest' ? a.mode : g.mode,
+    mode,
+    secondaryModes,
     mandatory,
     preferences,
     timeLimitMin: a.timeLimitMin ?? g.timeLimitMin,

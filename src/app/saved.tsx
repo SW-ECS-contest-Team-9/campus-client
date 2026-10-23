@@ -4,8 +4,7 @@ import { Building } from 'lucide-react-native';
 import { View } from 'react-native';
 import { placeSubtitle, useApp } from '../state/AppState';
 import { Btn, H, P, Row, Screen, Section, TabBar } from '../ui/kit';
-
-const COND_KO = { shortest: '최단', avoidStairs: '계단 피하기', preferElevator: '승강기 우선' } as const;
+import { modeInfo } from '../route/modes';
 
 export default function SavedScreen() {
   const app = useApp();
@@ -38,7 +37,7 @@ export default function SavedScreen() {
             <Row
               key={r.at}
               title={`${r.startLabel} → ${d?.name ?? '없어진 장소'}`}
-              sub={`${COND_KO[r.condition]} · ${r.at.slice(5, 10).replace('-', '월 ')}일`}
+              sub={`${modeInfo(r.condition).label} · ${r.at.slice(5, 10).replace('-', '월 ')}일`}
               onPress={
                 d
                   ? () => {

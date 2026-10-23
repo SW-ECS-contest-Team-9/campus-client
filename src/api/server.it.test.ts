@@ -36,13 +36,19 @@ describe.skipIf(!BASE)('지도 서버', () => {
     const g = buildGraph(pkg);
     const gate = pkg.places.find((p) => p.name === '정문')!;
     const dest = searchPlaces(pkg, '북악관 입구').find((h) => h.place.nodeKey)!.place;
-    const mine = findRoute(g, gate.nodeKey!, dest.nodeKey!, 'shortest');
-    const theirs = await serverRoute(BASE, gate.key, dest.key, 'shortest');
-    expect(mine.ok && theirs.ok).toBe(true);
-    if (mine.ok && theirs.ok) {
-      console.log(`정문 → ${dest.name}: 기기 ${mine.totalLengthM} m, 서버 ${theirs.distanceM} m`);
-      // 서버는 장소→노드 잇는 몫 등으로 몇 m 다를 수 있음(2026-10-15: 388.8 vs 391.8 m)
-      expect(Math.abs(mine.totalLengthM - theirs.distanceM) / theirs.distanceM).toBeLessThan(0.02);
+    // 같은 꾸러미면 방식 7가지 모두 기기 = 서버(길·거리·시간)
+    for (const mode of ['shortest', 'fastest', 'avoidStairs', 'accessible', 'preferElevator', 'rainProtected', 'nightSafe'] as const) {
+      const mine = findRoute(g, gate.nodeKey!, dest.nodeKey!, mode);
+      const theirs = await serverRoute(BASE, gate.key, dest.key, mode);
+      console.log(
+        `정문 → ${dest.name} ${mode}: 기기 ${mine.ok ? mine.totalLengthM : '없음'} m, 서버 ${theirs.ok ? theirs.route.totalLengthM : theirs.code}`,
+      );
+      expect(mine.ok).toBe(theirs.ok);
+      if (mine.ok && theirs.ok) {
+        expect(mine.edgeKeys).toEqual(theirs.route.edgeKeys);
+        expect(mine.totalLengthM).toBe(theirs.route.totalLengthM);
+        expect(mine.durationS).toBe(theirs.route.durationS);
+      }
     }
     // 알려진 자료 한계: 정문에서 계단 없이 가는 길 없음
     expect(findRoute(g, gate.nodeKey!, dest.nodeKey!, 'avoidStairs').ok).toBe(false);

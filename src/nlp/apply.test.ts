@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { MapPackage } from '../map/package';
 import fixtureJson from '../map/fixture/campus-fixture.json';
 import { buildGraph, findRoute } from '../route/route';
-import { effectiveCondition, planFromRequest, shortName, type Plan } from './apply';
+import { describe as describeRequest, effectiveCondition, planFromRequest, shortName, type Plan } from './apply';
 import { buildLexicon } from './lexicon';
 import { parseRouteRequest } from './parse';
 import type { RouteRequest } from './types';
@@ -47,10 +47,31 @@ describe('자연어 경로 요청 → 앱 흐름', () => {
     expect(p.mandatory).toEqual([]);
   });
 
-  it('비 안 맞고 북악관 2번 입구로 → 입구(2), 지붕 조건은 알림으로', () => {
+  it('비 안 맞고 북악관 2번 입구로 → 입구(2), 비 안 맞는 길(정보 없음 알림 없음)', () => {
     const p = go(plan('비 안 맞고 북악관 2번 입구로'));
     expect(placeName(p.destKey)).toBe('북악관 입구(2)');
-    expect(p.notes.join(' ')).toMatch(/비·지붕: 지도에 그 정보가 아직 없음/);
+    expect(p.condition).toBe('rainProtected');
+    expect(p.notes.join(' ')).not.toMatch(/정보가 아직 없음/);
+  });
+
+  it('빠른 길·밤·실내로 → 그 방식 그대로', () => {
+    expect(go(plan('급해 북악관 편의점')).condition).toBe('fastest');
+    expect(go(plan('밤에 북악관 편의점 가는 길')).condition).toBe('nightSafe');
+    expect(go(plan('실내로 북악관 편의점')).condition).toBe('rainProtected');
+  });
+
+  it('캐리어(선호) → 휠체어·유모차 길, 필수 아님', () => {
+    const p = go(plan('캐리어 끌고 북악관 편의점'));
+    expect(p.condition).toBe('accessible');
+    expect(p.mandatory).toEqual([]);
+  });
+
+  it('여러 조건 → 주 방식 하나, 나머지는 칩과 알림으로', () => {
+    const r = parse('밤인데 비 오고 급해 북악관 편의점');
+    const p = go(planFromRequest(r, pkg));
+    expect(p.condition).toBe('nightSafe');
+    expect(p.notes.join(' ')).toMatch(/비 안 맞는 길, 빠른 길/);
+    expect(describeRequest(r, pkg)).toEqual(expect.arrayContaining(['밤에 밝은 길', '함께 · 비 안 맞는 길', '함께 · 빠른 길']));
   });
 
   it('휠체어로 정문까지 → "정문" 두 곳을 되묻고, 고르면 계단 없이(필수) + 휠체어 자료 없음 알림', () => {
@@ -61,8 +82,9 @@ describe('자연어 경로 요청 → 앱 흐름', () => {
     const p = go(planFromRequest(choose(r, '정문'), pkg));
     expect(placeName(p.destKey)).toBe('정문');
     expect(p.mandatory).toEqual(['avoidStairs', 'wheelchairNeeded']);
-    expect(p.condition).toBe('avoidStairs');
+    expect(p.condition).toBe('accessible');
     expect(p.notes.join(' ')).toMatch(/휠체어/);
+    expect(describeRequest(parse('휠체어로 정문까지'), pkg)).toContain('필수 · 휠체어·유모차');
   });
 
   it('계단 없이 + 계단으로 → 되물음(두 단추), "계단 피하기"를 고르면 필수 유지', () => {
@@ -82,9 +104,9 @@ describe('자연어 경로 요청 → 앱 흐름', () => {
     }
   });
 
-  it('북악관 3층 → 없는 층은 알림, 건물 안 갈 곳을 번호 붙은 이름으로 되물음', () => {
-    const r = parse('북악관 3층');
-    expect(r.unsupported.map((u) => u.text)).toContain('3층');
+  it('북악관 4층 → 없는 층은 알림, 건물 안 갈 곳을 번호 붙은 이름으로 되물음', () => {
+    const r = parse('북악관 4층');
+    expect(r.unsupported.map((u) => u.text)).toContain('4층');
     const p = planFromRequest(r, pkg);
     expect(p.kind).toBe('ask');
     if (p.kind === 'ask') expect(p.choices.map((c) => c.label)).toContain('북악관 입구(2)');
@@ -97,7 +119,9 @@ describe('자연어 경로 요청 → 앱 흐름', () => {
 
   it('필수 조건은 하드 필터: 다른 이동 방식이 골라져도 계단 피하기, 경로에 계단 없음', () => {
     expect(effectiveCondition('shortest', ['avoidStairs'])).toBe('avoidStairs');
-    expect(effectiveCondition('preferElevator', ['avoidStairs', 'wheelchairNeeded'])).toBe('avoidStairs');
+    expect(effectiveCondition('preferElevator', ['avoidStairs', 'wheelchairNeeded'])).toBe('accessible');
+    expect(effectiveCondition('nightSafe', ['avoidStairs'])).toBe('avoidStairs');
+    expect(effectiveCondition('accessible', ['avoidStairs'])).toBe('accessible');
     expect(effectiveCondition('shortest', [])).toBe('shortest');
     const g = buildGraph(pkg);
     const dest = pkg.places.find((x) => x.name === '편의점 (북악관 B1)')!.nodeKey!;

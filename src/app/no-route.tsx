@@ -3,12 +3,11 @@
 import { router } from 'expo-router';
 import { ArrowUpDown, CircleAlert, MapPinOff } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
+import { modeInfo } from '../route/modes';
 import { noRouteCopy, type NoRouteAction } from '../route/noRouteCopy';
 import { useApp } from '../state/AppState';
 import { Btn, Card, H, P, Screen, T } from '../ui/kit';
 import { Character } from '../ui/v3';
-
-const COND_KO = { shortest: '최단', avoidStairs: '계단 피하기', preferElevator: '승강기 우선' } as const;
 
 export default function NoRouteScreen() {
   const app = useApp();
@@ -54,7 +53,7 @@ export default function NoRouteScreen() {
       <H>{copy.title}</H>
       <P>{copy.body}</P>
       <Card tone="caution">
-        <Text style={s.k}>선택한 조건: {COND_KO[app.condition]}</Text>
+        <Text style={s.k}>선택한 조건: {modeInfo(app.condition).label}</Text>
         <P>조건을 그대로 두고 있어요. 바꾸려면 아래에서 직접 골라 주세요.</P>
       </Card>
       {app.condition === 'avoidStairs' ? (

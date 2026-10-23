@@ -43,10 +43,13 @@ export function noRouteCopy(input: {
           primary: { action: 'nearby_dest', label: '가까운 장소 찾기' },
           secondary: { action: 'change_start', label: '출발점 바꾸기' },
         };
-  if (input.condition === 'avoidStairs')
+  if (input.condition === 'avoidStairs' || input.condition === 'accessible')
     return {
       cause: 'stairs',
-      title: '계단을 피하는 경로가\n연결되어 있지 않아요.',
+      title:
+        input.condition === 'accessible'
+          ? '휠체어·유모차로 갈 수 있는 경로가\n연결되어 있지 않아요.'
+          : '계단을 피하는 경로가\n연결되어 있지 않아요.',
       body: `${dest}까지 계단 없이 이어지는 길이 지금 지도에 없어요. 실제로는 길이 있어도 아직 지도에 그려지지 않았을 수 있어요.`,
       primary: { action: 'change_start', label: '출발점·목적지 변경' },
       secondary: { action: 'allow_stairs', label: '계단 허용으로 조건 변경' },

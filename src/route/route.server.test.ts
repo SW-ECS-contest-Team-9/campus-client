@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { MapPackage } from '../map/package';
 import { buildGraph, findRoute, routeBetween, type RouteCondition } from './route';
 import fixture from '../map/fixture/campus-fixture.json';
-import fixtureServer from '../map/fixture/route-v17-server.json';
+import fixtureServer from '../map/fixture/route-v18-server.json';
 import v0 from '../map/fixture/route-v0-package.json';
 import v0Server from '../map/fixture/route-v0-server.json';
 
@@ -53,7 +53,7 @@ function comparePoints(pkg: MapPackage, cases: PointCase[]) {
 
 describe('기기 경로 = 서버 경로', () => {
   it(
-    '내장 fixture(로컬 공개 v17, 지표·routeModes·걷는 면·보행 그물·실내 층 그물 있음): 7가지 방식 모두 같은 길·거리·시간',
+    '내장 fixture(로컬 공개 v18, 지표·routeModes·걷는 면·보행 그물·실내 층 그물 있음): 7가지 방식 모두 같은 길·거리·시간',
     () => {
       const cases = fixtureServer.cases as Case[];
       expect(new Set(cases.map((c) => c.mode)).size).toBe(7);

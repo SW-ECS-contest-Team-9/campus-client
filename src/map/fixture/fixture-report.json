@@ -1,8 +1,8 @@
 {
-  "source": "skuniv-v17-3d461bebe063.json",
+  "source": "skuniv-v18-f5bca5ba66bb.json",
   "release": {
-    "version": 17,
-    "createdAt": "2026-10-23T08:52:31Z",
+    "version": 18,
+    "createdAt": "2026-10-23T09:33:53Z",
     "source": "campus-tracker test api 28265795d5fb0966"
   },
   "counts": {

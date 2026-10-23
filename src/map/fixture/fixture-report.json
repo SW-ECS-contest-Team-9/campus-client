@@ -1,36 +1,42 @@
 {
-  "source": "skuniv-v15-aa48851ca640.json",
+  "source": "skuniv-v18-f5bca5ba66bb.json",
   "release": {
-    "version": 15,
-    "createdAt": "2026-10-23T02:04:44Z",
+    "version": 18,
+    "createdAt": "2026-10-23T09:33:53Z",
     "source": "campus-tracker test api 28265795d5fb0966"
   },
   "counts": {
     "buildings": 13,
-    "floors": 92,
-    "nodes": 498,
-    "edges": 434,
+    "floors": 112,
+    "nodes": 1086,
+    "edges": 1106,
     "places": 50,
     "placesWithoutNode": 2,
     "walkAreas": 5,
-    "walkAreaNodes": 56,
+    "walkAreaNodes": 57,
     "edgesByKind": {
-      "sidewalk": 71,
-      "walkway": 123,
-      "stairs": 48,
-      "corridor": 78,
-      "crossing": 9,
-      "vehicle_road": 77,
-      "elevator": 22,
-      "ramp": 6
+      "corridor": 540,
+      "sidewalk": 80,
+      "elevator": 86,
+      "walkway": 133,
+      "stairs": 151,
+      "crossing": 11,
+      "vehicle_road": 78,
+      "ramp": 27
     },
     "nodesByLocation": {
-      "indoor_floor_known": 81,
-      "outdoor": 407,
+      "indoor_floor_known": 643,
+      "outdoor": 433,
       "indoor_floor_unknown": 10
     },
     "floorsByBuilding": {
-      "공연실습소": [],
+      "공연실습소": [
+        "1F",
+        "2F",
+        "3F",
+        "5F",
+        "6F"
+      ],
       "대일관": [
         "B2",
         "B1",
@@ -76,9 +82,27 @@
         "6F",
         "7F"
       ],
-      "상승관": [],
-      "수인관": [],
-      "외국인 생활관": [],
+      "상승관": [
+        "B1",
+        "1F",
+        "2F",
+        "3F"
+      ],
+      "수인관": [
+        "1F",
+        "2F",
+        "3F",
+        "5F",
+        "6F",
+        "7F"
+      ],
+      "외국인 생활관": [
+        "1F",
+        "2F",
+        "3F",
+        "5F",
+        "6F"
+      ],
       "유담관": [
         "B2",
         "B1",
@@ -147,16 +171,16 @@
     }
   },
   "indicators": {
-    "edges": 434,
-    "coveredRatio": 434,
-    "litRatio": 81,
-    "maxSlopePct": 407,
-    "vehicle": 434,
+    "edges": 1106,
+    "coveredRatio": 1106,
+    "litRatio": 86,
+    "maxSlopePct": 1014,
+    "vehicle": 1106,
     "wheelchair": {
-      "no": 151,
-      "likely": 255,
-      "steep": 23,
-      "unknown": 5
+      "likely": 809,
+      "no": 262,
+      "steep": 29,
+      "unknown": 6
     }
   },
   "routeModes": [

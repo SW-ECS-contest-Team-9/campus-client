@@ -21,8 +21,19 @@ export type Map3dCommand =
       state: 'ok' | 'uncertain';
     }
   | { v: 1; type: 'clearLocation' }
-  | { v: 1; type: 'setRoute'; points: XYZ[]; floorChanges: { at: XYZ; label: string | null }[] }
+  | {
+      v: 1;
+      type: 'setRoute';
+      points: XYZ[];
+      floorChanges: { at: XYZ; label: string | null }[];
+      /** 경로 단계(1인칭이 계단·승강기 종류와 층 이름을 씀. 웹 페이지는 무시) */
+      steps?: { kind: string; floorChange: boolean; toFloor: string | null }[];
+    }
   | { v: 1; type: 'clearRoute' }
+  // 1인칭(네이티브 3D 만): 마지막 setRoute 경로를 눈높이로. follow 면 걸으며 따라가기(목표는 firstPersonFollow), 아니면 미리 보기(speed 1~3배, paused)
+  | { v: 1; type: 'firstPerson'; on: boolean; speed?: number; paused?: boolean; follow?: boolean }
+  | { v: 1; type: 'firstPersonSeek'; m: number }
+  | { v: 1; type: 'firstPersonFollow'; m: number | null }
   | { v: 1; type: 'focus'; x: number; y: number; z: number | null; building: string | null; floor: string | null }
   | { v: 1; type: 'setFloor'; building: string; floor: string | null; explode?: boolean }
   | { v: 1; type: 'setMarkerImages'; ok: string; uncertain: string };
@@ -32,7 +43,22 @@ export type Map3dEvent =
   | { v: 1; type: 'pick'; kind: 'building' | 'place' | 'point'; id?: string; name?: string; x: number; y: number; z: number }
   | { v: 1; type: 'cameraChanged'; x: number; y: number; heightM: number; headingDeg: number; pitchDeg: number }
   | { v: 1; type: 'floorChanged'; building: string | null; floor: string | null; explode: boolean }
-  | { v: 1; type: 'error'; error: string; command?: string };
+  | { v: 1; type: 'error'; error: string; command?: string }
+  | {
+      v: 1;
+      type: 'firstPerson';
+      state: 'playing' | 'paused' | 'done' | 'off';
+      /** 경로 처음부터 지금 자리·전체 길이(m) */
+      s: number;
+      total: number;
+      speed: number;
+      follow: boolean;
+      /** 안내 글("12 m 앞 왼쪽")·보조 글("도착까지 n m")·지금 층(실내일 때) */
+      text: string | null;
+      sub: string | null;
+      floor: string | null;
+      turn: 'left' | 'right' | 'up' | 'down' | 'arrive' | null;
+    };
 
 /** 꾸러미 건물 key("b:북악관") ↔ 3D 장면 건물 id("북악관"). 장소 key("p:<id>") ↔ 장면 장소 id. */
 export const sceneBuildingId = (buildingKey: string) => buildingKey.replace(/^b:/, '');
@@ -65,6 +91,8 @@ export function parseEvent(raw: unknown): Map3dEvent | null {
     case 'floorChanged':
     case 'error':
       return e as unknown as Map3dEvent;
+    case 'firstPerson':
+      return typeof e.state === 'string' && n('s') && n('total') ? (e as unknown as Map3dEvent) : null;
     default:
       return null;
   }
@@ -88,7 +116,8 @@ export function routeCommand(g: Graph, r: RouteOk): Map3dCommand {
     }
     if (label) lastFloor = label;
   }
-  return { v: 1, type: 'setRoute', points: r.points, floorChanges };
+  const steps = r.steps.map((s) => ({ kind: s.kind, floorChange: s.floorChange, toFloor: s.toFloor }));
+  return { v: 1, type: 'setRoute', points: r.points, floorChanges, steps };
 }
 
 /** 현재 위치 → setLocation. 불확실하면 state 'uncertain'(층·높이를 보내지 않음: 건물·층을 다시 확인하게). */

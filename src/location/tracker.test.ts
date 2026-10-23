@@ -6,7 +6,7 @@ import type { Fix } from './fix';
 import { startNodeForFix } from './fix';
 import { epsg5186ToWgs84 } from './projection';
 import { changedEnough, startTracking, type SensorSources } from './sensors';
-import { createTracker, pressureToRelativeAltitude, type PositionSample } from './tracker';
+import { createTracker, GEOID_HEIGHT_M, pressureToRelativeAltitude, type PositionSample } from './tracker';
 
 const pkg = fixtureJson as unknown as MapPackage;
 // 바깥 길 193 m. v13 부터 걷는 면 경계를 지나는 곳마다 나뉘어 있어(~1..~8) 조각을 이어 한 길로 본다.
@@ -96,8 +96,13 @@ function distToEdge(x: number, y: number, key: string): number {
   return best;
 }
 
-async function run(evs: Ev[], has: { steps?: boolean; baro?: boolean } = {}, floor: string | null = null) {
-  const tracker = createTracker(pkg, 'android');
+async function run(
+  evs: Ev[],
+  has: { steps?: boolean; baro?: boolean } = {},
+  floor: string | null = null,
+  platform: 'ios' | 'android' = 'android',
+) {
+  const tracker = createTracker(pkg, platform);
   tracker.setFloor(floor);
   const { src, replay } = fakeSources(has);
   const out: Fix[] = [];
@@ -183,5 +188,16 @@ describe('위치 보정 v2 연결(기록한 합성 입력)', () => {
     const n = startNodeForFix(pkg, f);
     const e = edge(f.match!.edgeKey!);
     expect([e.from, e.to]).toContain(n?.key);
+  });
+
+  it('안드로이드 GPS 높이(타원체고, 수직 정확도 2 m)로 겹친 북악관 층 중 6F 를 고른다, iOS 는 GPS 높이를 안 씀', async () => {
+    const alt = 146.3 + 1.2 + GEOID_HEIGHT_M; // 6F 바닥 + 폰 높이, 정표고 → 타원체고
+    const evs = walkAlong(edge(BUKAK_6F).geometry, 30, 3, 25, { baro: false, steps: false }).map((e) =>
+      e.k === 'pos' ? { ...e, p: { ...e.p, altitudeM: alt, altitudeAccuracyM: 2 } } : e,
+    );
+    const android = (await run(evs, { baro: false, steps: false })).out;
+    expect(android.slice(-10).every((f) => f.match?.floorKey === 'f:북악관:6F')).toBe(true);
+    const ios = (await run(evs, { baro: false, steps: false }, null, 'ios')).out;
+    expect(ios.slice(-10).some((f) => f.match?.floorKey !== 'f:북악관:6F')).toBe(true);
   });
 });

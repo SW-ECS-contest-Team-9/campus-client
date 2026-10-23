@@ -50,6 +50,8 @@ export const expoSensors: SensorSources = {
             accuracyM: p.coords.accuracy ?? null,
             speed: p.coords.speed ?? null,
             course: p.coords.heading ?? null,
+            altitudeM: p.coords.altitude ?? null,
+            altitudeAccuracyM: p.coords.altitudeAccuracy ?? null,
           }),
       );
       return () => sub.remove();

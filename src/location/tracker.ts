@@ -16,7 +16,16 @@ export interface PositionSample {
   speed: number | null;
   /** 도(0 = 북, 시계방향), 모르면 null */
   course: number | null;
+  /** 기기가 준 GPS 높이(m). 안드로이드는 WGS84 타원체고(Location.getAltitude). 모르면 null·생략 */
+  altitudeM?: number | null;
+  /** 수직 정확도(m, 안드로이드 getVerticalAccuracyMeters). 모르면 null·생략 */
+  altitudeAccuracyM?: number | null;
 }
+
+/** 층 사전 점수(floorPrior)를 GPS 가 그 층 건물 외곽선에서 이 거리(m) 안일 때만 쓴다(10-14 평가 결정: 15 m). */
+export const FLOOR_PRIOR_MARGIN_M = 15;
+/** 학교 자리 지오이드고(m): 정표고 = 타원체고 − 이 값(campus-model 개발 가이드). */
+export const GEOID_HEIGHT_M = 23.377;
 
 /** 기압(hPa) → 기준 기압 p0 에 대한 상대 높이(m). 국제 표준 대기 식. */
 export function pressureToRelativeAltitude(hPa: number, p0: number): number {
@@ -38,7 +47,7 @@ export interface Tracker {
 }
 
 export function createTracker(pkg: MapPackage, platform: 'ios' | 'android' = 'android'): Tracker {
-  const matcher = createDefaultMatcher(pkg, platform, trustJson as TrustModelJson);
+  const matcher = createDefaultMatcher(pkg, platform, trustJson as TrustModelJson, { floorPriorMarginM: FLOOR_PRIOR_MARGIN_M });
   const floors = new Map(pkg.floors.map((f) => [f.key, f]));
   let compass: number | null = null;
   let course: number | null = null;
@@ -91,6 +100,8 @@ export function createTracker(pkg: MapPackage, platform: 'ios' | 'android' = 'an
       raw = { x, y };
       acc = p.accuracyM;
       if (p.course != null && p.course >= 0 && (p.speed ?? 0) > 0.5) course = p.course;
+      // GPS 높이는 안드로이드만(맞춤기가 수직 정확도 3 m 이하일 때 층 판정에 씀, iOS 는 실내 오차가 커 끔)
+      const alt = platform === 'android' && p.altitudeM != null && p.altitudeAccuracyM != null ? p.altitudeM - GEOID_HEIGHT_M : undefined;
       return toFix(
         matcher.push({
           type: 'fix',
@@ -100,6 +111,7 @@ export function createTracker(pkg: MapPackage, platform: 'ios' | 'android' = 'an
           acc: p.accuracyM ?? 50,
           speed: p.speed != null && p.speed >= 0 ? p.speed : -1,
           course: p.course != null && p.course >= 0 ? p.course : -1,
+          ...(alt !== undefined ? { alt, vacc: p.altitudeAccuracyM! } : {}),
         }),
         t,
       );

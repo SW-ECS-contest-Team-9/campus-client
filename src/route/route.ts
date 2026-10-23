@@ -1,16 +1,8 @@
 // 기기 안 경로 계산. 서버(/v1/routes)와 같은 규칙: 방식별 길 비용(cost.ts), 열린 면 가상 간선, 승강기 기다림은 탈 때 한 번.
 // 같은 꾸러미면 서버와 같은 길이 나온다(src/route/route.server.test.ts). 없는 길은 만들지 않는다.
 import type { EdgeIndicators, MapNode, MapPackage, ModeSpec, XYZ } from '../map/package';
-import {
-  areaEdges,
-  basicIndicators,
-  DEFAULT_MODE_SPEC,
-  edgeCost,
-  ELEVATOR_WAIT_S,
-  pyRound,
-  type RouteEdge,
-  type RouteEdgeKind,
-} from './cost';
+import { basicIndicators, DEFAULT_MODE_SPEC, edgeCost, ELEVATOR_WAIT_S, pyRound, type RouteEdge, type RouteEdgeKind } from './cost';
+import { nearestNode, nodeAt, pointEdges, pointOn, surfaceHeightAt, walkEdges, walkIndex, type WalkIndex } from './walk';
 
 /** 경로 방식 7가지(서버 GET /v1/route-modes·자연어 Mode 와 같은 이름). */
 export type RouteCondition = 'shortest' | 'fastest' | 'avoidStairs' | 'accessible' | 'preferElevator' | 'rainProtected' | 'nightSafe';
@@ -55,6 +47,8 @@ export interface Graph {
   ind: Map<string, EdgeIndicators>;
   modes: Record<string, ModeSpec>;
   floorLabel: (nodeKey: string) => string | null;
+  /** 열린 면·걷는 면 가로지르기 자료(면 위 아무 점 붙이기에 씀) */
+  walk: WalkIndex;
 }
 
 /** 꾸러미에 서버가 계산한 경로 지표가 있는가(없으면 지붕·조명을 모름). */
@@ -76,21 +70,14 @@ export function buildGraph(pkg: MapPackage): Graph {
     if (e.direction !== 'backward') push(e.from, { edge: e, to: e.to, forward: true });
     if (e.direction !== 'forward') push(e.to, { edge: e, to: e.from, forward: false });
   }
-  for (const e of areaEdges(pkg.walkAreas, pkg.walkAreaNodes, nodes)) {
+  const walk = walkIndex(pkg, nodes);
+  for (const e of walkEdges(walk)) {
     all.push(e);
     push(e.from, { edge: e, to: e.to, forward: true });
     push(e.to, { edge: e, to: e.from, forward: false });
   }
   const ind = new Map<string, EdgeIndicators>();
-  for (const e of all) {
-    let i = e.indicators;
-    if (!i) {
-      const indoor = [e.from, e.to].every((k) => !nodes.has(k) || nodes.get(k)!.location === 'indoor');
-      i = basicIndicators(e, indoor);
-      if (e.kind === 'open_area') i.vehicle = e.areaKind === 'parking_aisle' ? 'shared' : 'none';
-    }
-    ind.set(e.key, i);
-  }
+  for (const e of all) ind.set(e.key, edgeIndicators(e, nodes, walk));
   const floors = new Map(pkg.floors.map((f) => [f.key, f]));
   const buildings = new Map(pkg.buildings.map((b) => [b.key, b]));
   const floorLabel = (nodeKey: string) => {
@@ -100,7 +87,103 @@ export function buildGraph(pkg: MapPackage): Graph {
     const f = n.floorKey ? floors.get(n.floorKey)?.code : null;
     return f ? `${b} ${f}`.trim() : null;
   };
-  return { pkg, nodes, adj, ind, modes: pkg.routeModes ?? DEFAULT_MODE_SPEC, floorLabel };
+  return { pkg, nodes, adj, ind, modes: pkg.routeModes ?? DEFAULT_MODE_SPEC, floorLabel, walk };
+}
+
+/** 길 지표: 꾸러미에 있으면 그대로, 없으면(옛 꾸러미·가상 간선) 길 선으로 계산(서버 MapIndex._indicators). */
+function edgeIndicators(e: RouteEdge, nodes: Map<string, MapNode>, walk: WalkIndex): EdgeIndicators {
+  if (e.indicators) return e.indicators;
+  const indoor = [e.from, e.to].every((k) => !nodes.has(k) || nodes.get(k)!.location === 'indoor');
+  const i = basicIndicators(e, indoor);
+  if (e.kind === 'open_area') {
+    i.vehicle = e.areaKind === 'parking_aisle' ? 'shared' : 'none';
+    if (e.surfaceKey) {
+      // 걷는 면: 아스팔트이거나 빗금 차도·주차면이면 차와 같이 쓰는 곳
+      const sf = walk.surfaces.get(e.surfaceKey)!;
+      if (sf.material === 'asphalt' || ['차도', '주차'].some((w) => (sf.name || '').includes(w))) i.vehicle = 'shared';
+    }
+  }
+  return i;
+}
+
+/** 출발·도착 한쪽: 노드 key 또는 점 [x, y, z]. */
+export type RouteEnd = string | XYZ;
+export type Attached = { nodeKey: string; attached: 'node' | 'surface' | 'nearest_node'; areas?: string[] };
+
+/** 출발·도착이 노드 key 또는 점(서버 route_points 와 같은 규칙). 노드 자리(5 cm 안)면 그 노드,
+ * 열린 면·걷는 면 위 점은 임시 노드(q:from, q:to)로 넣어 그 면 노드와 같은 면 규칙으로 잇고,
+ * 아니면 25 m·높이 차 2 m 안 가장 가까운 노드. 원래 그래프는 바꾸지 않는다. */
+export function routeBetween(
+  g: Graph,
+  start: RouteEnd,
+  goal: RouteEnd,
+  cond: RouteCondition,
+): { result: RouteResult; ends: (Attached | null)[] } {
+  const tmp: { pt: MapNode; on: Set<string> }[] = [];
+  const tmpEdges: RouteEdge[] = [];
+  const ends: (Attached | null)[] = [];
+  for (const [key, spec] of [
+    ['q:from', start],
+    ['q:to', goal],
+  ] as [string, RouteEnd][]) {
+    if (typeof spec === 'string') {
+      ends.push(g.nodes.has(spec) ? { nodeKey: spec, attached: 'node' } : null);
+      continue;
+    }
+    const [x, y, z] = spec;
+    const at = nodeAt(g.pkg.nodes, x, y, z);
+    if (at) {
+      ends.push({ nodeKey: at.key, attached: 'node' });
+      continue;
+    }
+    const hits = pointOn(g.walk, x, y, z);
+    if (hits.length) {
+      const best = hits.reduce((b, h) => (h.dz < b.dz ? h : b));
+      const pt: MapNode = {
+        key,
+        location: 'outdoor',
+        buildingKey: null,
+        floorKey: null,
+        kind: 'point',
+        x: pyRound(x, 2),
+        y: pyRound(y, 2),
+        z: pyRound(best.z, 2),
+        estimated: true,
+      };
+      const es = pointEdges(g.walk, pt, hits, tmp);
+      if (es.length) {
+        tmp.push({ pt, on: new Set(hits.map((h) => h.key)) });
+        tmpEdges.push(...es);
+        ends.push({ nodeKey: key, attached: 'surface', areas: hits.map((h) => h.key) });
+        continue;
+      }
+    }
+    const n = nearestNode(g.pkg.nodes, x, y, z);
+    ends.push(n ? { nodeKey: n.key, attached: 'nearest_node' } : null);
+  }
+  if (!ends[0] || !ends[1]) return { result: { ok: false, reason: 'unknown_node', message: '출발 또는 도착 근처에 길이 없음' }, ends };
+  const view = tmpEdges.length
+    ? withTemp(
+        g,
+        tmp.map((t) => t.pt),
+        tmpEdges,
+      )
+    : g;
+  return { result: findRoute(view, ends[0].nodeKey, ends[1].nodeKey, cond), ends };
+}
+
+/** 임시 노드·간선을 더한 그래프(원래 그래프의 Map·목록은 그대로). */
+function withTemp(g: Graph, pts: MapNode[], edges: RouteEdge[]): Graph {
+  const nodes = new Map(g.nodes);
+  for (const p of pts) nodes.set(p.key, p);
+  const adj = new Map(g.adj);
+  for (const e of edges) {
+    adj.set(e.from, [...(adj.get(e.from) ?? []), { edge: e, to: e.to, forward: true }]);
+    adj.set(e.to, [...(adj.get(e.to) ?? []), { edge: e, to: e.from, forward: false }]);
+  }
+  const ind = new Map(g.ind);
+  for (const e of edges) ind.set(e.key, edgeIndicators(e, nodes, g.walk));
+  return { ...g, nodes, adj, ind };
 }
 
 // 다익스트라 상태 = (노드, 승강기 안인지). 꺼내는 순서는 서버 heapq 와 같게 (비용, 노드 key, 승강기 안) 순.
@@ -307,4 +390,14 @@ function ro(word: string): string {
   if (c < 0 || c > 11171) return '로';
   const jong = c % 28;
   return jong === 0 || jong === 8 ? '로' : '으로';
+}
+
+/** 현재 위치(GPS)에서 출발할 점: (x, y) 가 열린 면·걷는 면 위면 [x, y, 면 높이], 아니면 null(그때는 노드에서 출발).
+ * 높이(z)를 알면 그 높이 ±0.5 m 면만, 모르면 덮는 면 가운데 가까운 바깥 노드 높이에 가까운 면. */
+export function pointStart(g: Graph, x: number, y: number, z: number | null): XYZ | null {
+  const h = z ?? surfaceHeightAt(g.walk, g.pkg.nodes, x, y);
+  if (h === null) return null;
+  const hits = pointOn(g.walk, x, y, h);
+  if (!hits.length) return null;
+  return [x, y, hits.reduce((b, c) => (c.dz < b.dz ? c : b)).z];
 }

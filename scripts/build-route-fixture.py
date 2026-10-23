@@ -2,7 +2,8 @@
 
 사용(백엔드 가상환경으로, shapely 필요):
   uv run --project <campus-backend 폴더> python scripts/build-route-fixture.py <campus-backend 폴더> <꾸러미 JSON> <출력 JSON>
-꾸러미의 장소 쌍마다 7가지 방식으로 서버 MapIndex.route 를 돌려 결과(길 key·거리·시간)를 적는다.
+꾸러미의 장소 쌍마다 7가지 방식으로 서버 MapIndex.route_points 를 돌려 결과(길 key·거리·시간)를 적는다
+(꾸러미에 보행 그물 walkMeshes 가 있으면 그물 길찾기, 가상 길 key 는 w:<번호>:<그물 key>).
 걷는 면·열린 면이 있으면 면마다 안쪽 한 점(shapely representative_point, 높이는 면 높이)에서 장소까지
 7가지 방식(route_points), 이웃 면 점끼리 최단도 적는다(면 위 아무 점 출발 비교).
 """
@@ -34,7 +35,7 @@ def result(r):
 cases = []
 for a, b in pairs:
     for m in MODES:
-        cases.append({"from": a, "to": b, "mode": m} | result(idx.route(a, b, m)))
+        cases.append({"from": a, "to": b, "mode": m} | result(idx.route_points(a, b, m)[0]))
 
 points = []
 for a in sorted(pkg.get("walkAreas", []), key=lambda a: a["key"]):

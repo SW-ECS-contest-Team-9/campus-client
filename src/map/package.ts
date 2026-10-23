@@ -142,21 +142,23 @@ export interface WalkSurfaceNode {
   surfaceKey: string;
   nodeKey: string;
 }
-/** 보행 그물 칸 등급: 방식별 1 m 비용(ppm 정수, 서버 MODE_SPEC 순서, null = 못 지나감)과 지표. 길 띠는 그 길(edge). */
+/** 보행 그물 칸 등급(꾸러미 공용 표 walkMeshClasses 한 줄): 방식별 1 m 비용(ppm 정수, 서버 MODE_SPEC 순서,
+ * null = 못 지나감)과 지표. */
 export interface WalkMeshClass {
   f: (number | null)[];
   coveredRatio: number | null;
   litRatio: number | null;
   vehicle: string | null;
   slopePct: number | null;
-  edge?: string;
 }
 /** 보행 그물(서버 꾸러미 선택 칸): 걷는 면·길 띠를 정사각형 칸(가운데 꼭짓점으로 세모 넷)으로 덮은 격자.
  * 격자 점 (i, j) → origin + cell·(i·ux − j·uy, i·uy + j·ux). tris = 칸마다 4 비트(S1·E2·N4·W8, 한 바이트에 두 칸) base64,
- * cls = 칸 등급 번호 run-length [번호, 개수, ...]. 높이는 top(면) 또는 길 edge 중심선(띠). 설명: src/route/mesh.ts */
+ * cls = 칸 등급 번호(공용 표 walkMeshClasses 번호) run-length [번호, 개수, ...]. 높이는 top(면·실내 바닥) 또는
+ * 길 edge 중심선(띠). seams = 같은 높이로 맞닿은 뒤 그물과의 이음 [그물 key, [꼭짓점, 꼭짓점, ...]].
+ * 실내 바닥(floor)은 floorKey·buildingKey 층에 속한다. 설명: src/route/mesh.ts */
 export interface WalkMesh {
   key: string;
-  kind: 'surface' | 'band';
+  kind: 'surface' | 'band' | 'floor';
   sources: string[];
   name: string;
   areaKind: string;
@@ -170,8 +172,10 @@ export interface WalkMesh {
   rows: number;
   tris: string;
   cover: number;
-  classes: WalkMeshClass[];
   cls: number[];
+  seams?: [string, number[]][];
+  floorKey?: string;
+  buildingKey?: string;
 }
 export interface MapPackage {
   schemaVersion: 1;
@@ -191,6 +195,8 @@ export interface MapPackage {
   routeModes?: Record<string, ModeSpec>;
   /** 보행 그물(선택 칸). 있으면 경로를 그물로 찾는다(src/route/mesh.ts) */
   walkMeshes?: WalkMesh[];
+  /** 보행 그물 칸 등급 공용 표(walkMeshes 의 cls 번호가 가리킨다) */
+  walkMeshClasses?: WalkMeshClass[];
 }
 
 export type ValidationResult = { ok: true; pkg: MapPackage } | { ok: false; errors: string[] };

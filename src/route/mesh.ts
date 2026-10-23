@@ -1,7 +1,8 @@
 // 보행 그물 경로(아3): 서버 campus-backend mapdata/walkmesh.py 의 Mesh·MeshRouter·_Run·_pull 과 같은 계산.
 // 걷는 면·길 띠를 정사각형 칸(가운데 꼭짓점으로 세모 넷)으로 덮은 격자(꾸러미 walkMeshes)를 다시 만들고,
 // 정수 비용(mm × 방식별 칸 계수)으로 8×8 칸 구역 관문 표 + 꾸러미 길 그래프에서 A* 로 찾은 뒤 지난 구역만 풀어
-// 같은 비용 칸만 지나는 직선으로 줄을 당긴다. 같은 꾸러미면 서버와 같은 길·거리·시간이 나온다
+// 같은 비용 칸만 지나는 직선으로 줄을 당긴다. 실내 층 바닥(kind floor)은 같은 층 실내 노드에만 붙고, 그물 사이 이음은
+// 꾸러미 항목 seams(서버가 가져올 때 얇은 벽을 넘지 않게 고른 것)를 그대로 쓴다. 같은 꾸러미면 서버와 같은 길·거리·시간이 나온다
 // (src/route/route.server.test.ts). 서버 쪽을 바꾸면 여기도 바꾸고 scripts/build-route-fixture.py 로 비교 자료를 다시 만든다.
 // 파이썬과 같은 결과를 내려고 연산 순서·반복 순서·동점 처리(번호 작은 쪽)를 그대로 따른다.
 // 기기에서 빠르게: 숫자 배열(Int32Array·Float64Array), 관문 표는 처음 쓰는 방식만 그때 만든다(서버는 한 번에 다 만듦,
@@ -19,7 +20,6 @@ const LOS_STEP = 0.25;
 const ATTACH_CELLS = 1.5;
 const ATTACH_MAX = 8;
 const ATTACH_OUT_MAX = 2;
-const LINK_CELLS = 0.75;
 const STEP_OK_M = 0.2;
 const AREA_DZ_M = 0.5;
 const SURFACE_SAMPLE_M = 2.0;
@@ -160,8 +160,8 @@ export class Mesh {
   rows: number;
   codes: Uint8Array;
   cls: Int32Array;
-  classes: WalkMeshClass[];
-  cf: Int32Array[]; // 방식 → 등급 → ppm (-1 = 못 지나감)
+  classes: WalkMeshClass[]; // 꾸러미 공용 표
+  cf: Int32Array[]; // 방식 → 등급 → ppm (-1 = 못 지나감), 공용
   top: SurfaceTop | null;
   line: XYZ[] | null;
   nc: number;
@@ -194,7 +194,7 @@ export class Mesh {
   sStamp: Int32Array;
   sGen = 0;
 
-  constructor(entry: WalkMesh, edgeGeom: (key: string) => XYZ[]) {
+  constructor(entry: WalkMesh, edgeGeom: (key: string) => XYZ[], classes: WalkMeshClass[], cf: Int32Array[]) {
     this.key = entry.key;
     this.kind = entry.kind ?? 'surface';
     this.entry = entry;
@@ -208,9 +208,8 @@ export class Mesh {
     const n = cols * rows;
     this.codes = decodeBits(entry.tris, n);
     this.cls = decodeRuns(entry.cls, n);
-    this.classes = entry.classes;
-    this.cf = [];
-    for (let m = 0; m < NM; m++) this.cf.push(Int32Array.from(this.classes, (c) => (c.f[m] === null ? -1 : c.f[m]!)));
+    this.classes = classes;
+    this.cf = cf;
     this.top = entry.top ?? null;
     this.line = entry.edge ? edgeGeom(entry.edge) : null;
     const nc = (cols + 1) * (rows + 1);
@@ -550,7 +549,7 @@ type AEdge = { to: number; info: Info; c: number }; // c: 정수 비용(길이�
 type Ref = { k: 'n'; i: number } | { k: 'q'; i: number } | { k: 'v'; mi: number; v: number };
 const refKey = (r: Ref) => (r.k === 'v' ? `v${r.mi}:${r.v}` : `${r.k}${r.i}`);
 type Tmp = Map<number, { key: string; xyz: XYZ; hits: Hit[] }>;
-type Link = [number, number, number, number, number]; // (그물 A, 꼭짓점, 그물 B, 꼭짓점, mm)
+type Link = [number, number, number, number, number]; // (그물 A, 꼭짓점, 그물 B, 꼭짓점, mm), A < B
 
 /** 그물 길찾기가 쓰는 길 그래프(route.ts Graph 의 일부). */
 export interface MeshGraph {
@@ -592,6 +591,8 @@ export class MeshRouter {
   nkeys: string[];
   nid = new Map<string, number>();
   links: Link[] = [];
+  /** 이음이 있는 그물 짝(작은 번호·nm + 큰 번호) */
+  pairs = new Set<number>();
   nodeAtt = new Map<number, Hit[]>();
   live: Set<number>[] = [];
   gateSets: Set<number>[] = [];
@@ -614,9 +615,12 @@ export class MeshRouter {
   constructor(
     private g: MeshGraph,
     entries: WalkMesh[],
+    classes: WalkMeshClass[],
   ) {
     const t0 = Date.now();
-    this.meshes = entries.map((e) => new Mesh(e, g.edgeGeom));
+    const cf: Int32Array[] = [];
+    for (let m = 0; m < NM; m++) cf.push(Int32Array.from(classes, (c) => (c.f[m] === null ? -1 : c.f[m]!)));
+    this.meshes = entries.map((e) => new Mesh(e, g.edgeGeom, classes, cf));
     this.phases.meshes = Date.now() - t0;
     for (const e of entries) if ((e.kind ?? 'surface') === 'surface') for (const k of e.sources) this.covered.add(k);
     this.nkeys = g.nodes.map((n) => n.key);
@@ -642,45 +646,31 @@ export class MeshRouter {
     this.buildMs = Date.now() - t0;
   }
 
+  /** 항목에 실린 이음(서버가 가져올 때 계산, 서버 _seams). */
   private seams() {
-    const links = new Map<string, Link>();
-    const ms = this.meshes;
-    for (let ai = 0; ai < ms.length; ai++)
-      for (let bi = 0; bi < ms.length; bi++) {
-        if (bi === ai) continue;
-        const A = ms[ai],
-          B = ms[bi];
-        const r = LINK_CELLS * Math.max(A.cell, B.cell);
-        if (!(A.bbox[0] - r <= B.bbox[2] && B.bbox[0] - r <= A.bbox[2] && A.bbox[1] - r <= B.bbox[3] && B.bbox[1] - r <= A.bbox[3]))
-          continue;
-        for (const v of A.rim) {
-          const x = A.xs[v],
-            y = A.ys[v],
-            z = A.zs[v];
-          if (!inBbox(B.bbox, x, y, r)) continue;
-          let bd = -1,
-            bw = -1;
-          for (const w of B.nearVertices(x, y, r))
-            if (Math.abs(B.zs[w] - z) <= STEP_OK_M) {
-              const d = distMm(x, y, z, B.xs[w], B.ys[w], B.zs[w]);
-              if (bw < 0 || d < bd) {
-                bd = d;
-                bw = w;
-              }
-            }
-          if (bw >= 0) {
-            const k: Link = ai < bi ? [ai, v, bi, bw, bd] : [bi, bw, ai, v, bd];
-            const ks = `${k[0]},${k[1]},${k[2]},${k[3]}`;
-            if (!links.has(ks)) links.set(ks, k);
-          }
+    const pos = new Map(this.meshes.map((M, i) => [M.key, i]));
+    const links: Link[] = [];
+    this.meshes.forEach((A, ai) => {
+      for (const [bkey, flat] of A.entry.seams ?? []) {
+        const bi = pos.get(bkey);
+        if (bi === undefined) continue;
+        const B = this.meshes[bi];
+        for (let p = 0; p + 1 < flat.length; p += 2) {
+          const v = flat[p],
+            w = flat[p + 1];
+          links.push([ai, v, bi, w, distMm(A.xs[v], A.ys[v], A.zs[v], B.xs[w], B.ys[w], B.zs[w])]);
         }
       }
-    this.links = [...links.values()].sort(cmpNums);
+    });
+    this.links = links.sort(cmpNums);
+    for (const [a, , b] of this.links) this.pairs.add(a * this.meshes.length + b);
   }
 
-  attachPoint(x: number, y: number, z: number, needInside: boolean): Hit[] {
+  /** floor: undefined 면 모든 그물, null 이면 바깥 그물, 문자열이면 그 층 실내 바닥에만. */
+  attachPoint(x: number, y: number, z: number, needInside: boolean, floor?: string | null): Hit[] {
     const out: Hit[] = [];
     this.meshes.forEach((M, mi) => {
+      if (floor !== undefined && (M.entry.floorKey ?? null) !== floor) return;
       const r = ATTACH_CELLS * M.cell;
       if (!inBbox(M.bbox, x, y, r) || Math.abs(z - M.z(x, y)) > AREA_DZ_M) return;
       const inside = M.usable(x, y) >= 0;
@@ -697,8 +687,8 @@ export class MeshRouter {
 
   private attachNodes() {
     this.g.nodes.forEach((n, i) => {
-      if (n.location !== 'outdoor') return;
-      const hits = this.attachPoint(n.x, n.y, n.z, false);
+      if (n.location !== 'outdoor' && !n.floorKey) return;
+      const hits = this.attachPoint(n.x, n.y, n.z, false, n.location === 'indoor' ? n.floorKey : null); // 실내 노드는 같은 층 바닥에만
       if (hits.length) this.nodeAtt.set(i, hits);
     });
   }
@@ -1205,6 +1195,9 @@ export class MeshRouter {
     const run = new Run(
       meshIds.map((i) => this.meshes[i]),
       modeI,
+      meshIds,
+      this.pairs,
+      this.meshes.length,
     );
     const own = refs.map((r) => (r.k === 'v' ? meshIds.indexOf(r.mi) : null));
     const keep = pull(run, pts, own);
@@ -1245,7 +1238,7 @@ export class MeshRouter {
         geometry: geom,
       };
       if (M.kind === 'surface') e.areaKind = (M.entry.areaKind || 'surface') as RouteEdge['areaKind'];
-      e.indicators = { ...basicIndicators(e, false), ...classIndicators(cls) };
+      e.indicators = { ...basicIndicators(e, M.kind === 'floor'), ...classIndicators(cls) };
       out.push(e);
       k = j + 1;
     }
@@ -1276,6 +1269,9 @@ class Run {
   constructor(
     public meshes: Mesh[],
     private modeI: number,
+    private ids: number[] = [],
+    private pairs = new Set<number>(),
+    private nm = 0,
   ) {
     this.step = (meshes.length ? Math.min(...meshes.map((M) => M.cell)) : 1.0) * LOS_STEP;
     this.cellMax = meshes.length ? Math.max(...meshes.map((M) => M.cell)) : 1.0;
@@ -1326,6 +1322,7 @@ class Run {
       }
       const M = this.meshes[got];
       if (gap && pm >= 0 && got === pm && !seam) return false;
+      if ((gap || seam) && pm >= 0 && got !== pm && !this.linked(pm, got)) return false; // 틈 건너 다른 그물: 이음 있는 짝만
       seam = false;
       const g = M.cf[this.modeI][M.cls[this.atK]];
       if (first) {
@@ -1337,6 +1334,11 @@ class Run {
       gap = 0;
     }
     return !first && !(gap && qm0 !== null && qm0 === pm);
+  }
+  linked(p: number, q: number): boolean {
+    const a = Math.min(this.ids[p], this.ids[q]),
+      b = Math.max(this.ids[p], this.ids[q]);
+    return this.pairs.has(a * this.nm + b);
   }
   seamy(x: number, y: number): boolean {
     let n = 0;

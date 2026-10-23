@@ -104,6 +104,7 @@ export function buildGraph(pkg: MapPackage): Graph {
           nearestNode: (x, y, z) => nearestNode(pkg.nodes, x, y, z),
         },
         pkg.walkMeshes,
+        pkg.walkMeshClasses ?? [],
       )
     : null;
   return { pkg, nodes, adj, ind, modes, floorLabel, walk, mesh };

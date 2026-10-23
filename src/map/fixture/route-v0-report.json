@@ -1,0 +1,116 @@
+{
+  "source": "campus-mobility-20261012c.sql",
+  "counts": {
+    "roadSegmentsTotal": 322,
+    "roadSegmentsActive": 247,
+    "networkNodesTotal": 268,
+    "networkNodesOrphan": 47,
+    "buildings": 11,
+    "floors": 4,
+    "nodes": 221,
+    "edges": 247,
+    "places": 47,
+    "placesWithoutNode": 3,
+    "walkAreas": 5,
+    "walkAreaNodes": 46,
+    "edgesByKind": {
+      "walkway": 71,
+      "sidewalk": 12,
+      "corridor": 75,
+      "stairs": 41,
+      "ramp": 17,
+      "elevator": 22,
+      "vehicle_road": 3,
+      "crossing": 6
+    },
+    "nodesByLocation": {
+      "outdoor": 112,
+      "indoor_floor_unknown": 85,
+      "indoor_floor_known": 24
+    }
+  },
+  "unmapped": [
+    {
+      "what": "network_node.level_id",
+      "id": "2c228325-1083-4ac4-a46f-72cc1e073fdf",
+      "why": "층 이름 해석 못 함 북악관_Z154.51_추정 → 층 모름"
+    },
+    {
+      "what": "network_node.level_id",
+      "id": "62c49cff-ddee-4180-aec2-1afd0156cf30",
+      "why": "층 이름 해석 못 함 북악관_Z154.51_추정 → 층 모름"
+    },
+    {
+      "what": "network_node.level_id",
+      "id": "577d75ff-6421-42f3-bb29-c0f2bd77ee69",
+      "why": "층 이름 해석 못 함 북악관_Z151.79_추정 → 층 모름"
+    },
+    {
+      "what": "network_node.level_id",
+      "id": "9f48b4d8-971f-467b-b917-1d51a235a659",
+      "why": "층 이름 해석 못 함 북악관_Z151.79_추정 → 층 모름"
+    },
+    {
+      "what": "network_node.level_id",
+      "id": "961562f7-52aa-4b29-8c5a-d1052c019c32",
+      "why": "층 이름 해석 못 함 북악관_Z146.18_추정 → 층 모름"
+    },
+    {
+      "what": "network_node.level_id",
+      "id": "51e1f4f1-4df0-4d60-ae87-9dc747ad36b5",
+      "why": "층 이름 해석 못 함 북악관_Z154.51_추정 → 층 모름"
+    },
+    {
+      "what": "network_node.level_id",
+      "id": "b9854aa3-fe03-462e-b035-e0727d830a65",
+      "why": "층 이름 해석 못 함 북악관_Z146.18_추정 → 층 모름"
+    },
+    {
+      "what": "network_node.level_id",
+      "id": "8d47f845-3159-4d24-8d6d-f1a7de9e01f5",
+      "why": "층 이름 해석 못 함 북악관_Z148.92_추정 → 층 모름"
+    },
+    {
+      "what": "network_node.level_id",
+      "id": "b9d8e78f-cdb1-4676-a5b8-af5ac2cbb9bc",
+      "why": "층 이름 해석 못 함 북악관_Z146.18_추정 → 층 모름"
+    },
+    {
+      "what": "network_node.level_id",
+      "id": "e57f45e3-f457-4004-ae0b-91e33563b8b1",
+      "why": "층 이름 해석 못 함 북악관_Z148.92_추정 → 층 모름"
+    },
+    {
+      "what": "network_node.level_id",
+      "id": "2f378d78-5eea-42e7-a838-f3550bdd8781",
+      "why": "층 이름 해석 못 함 북악관_Z148.92_추정 → 층 모름"
+    },
+    {
+      "what": "network_node.level_id",
+      "id": "457cc960-64d6-44bc-b13e-607ba3443ef9",
+      "why": "층 이름 해석 못 함 북악관_Z151.79_추정 → 층 모름"
+    },
+    {
+      "what": "place.node",
+      "id": "551f3d72-de23-429a-9ed3-a655fd724933",
+      "why": "운동장 지하 2층 주차장 (이름·자리 추정): 25 m 안에 걸을 수 있는 노드 없음 (가장 가까움 35.21 m)"
+    },
+    {
+      "what": "place.node",
+      "id": "13ef4728-79ce-443e-b57c-d7cde10c880f",
+      "why": "서문(후문) = 서문 주차장 출입구 (옹벽의 터널 입구): 25 m 안에 걸을 수 있는 노드 없음 (가장 가까움 32.17 m)"
+    },
+    {
+      "what": "place.node",
+      "id": "3f9a0e6c-be18-4e53-bb4f-7a52e0ad99ea",
+      "why": "운동장 지하 1층 주차장 (이름·자리 추정): 25 m 안에 걸을 수 있는 노드 없음 (가장 가까움 26.22 m)"
+    }
+  ],
+  "notes": [
+    "status DRAFT 길도 넣음(원천이 거의 DRAFT). estimated=true 로 표시",
+    "places 에 층(level_id)이 하나도 없음 → 장소 층은 전부 모름. 건물 있는 장소는 indoor 로 둠(입구 포함)",
+    "open_area 1 kind other → other",
+    "open_areas 는 건물 없음 → 지하 주차장 면도 outdoor 로 둠(층 없음). 면-노드 연결 = 면 안 또는 경계 3 m 안 + 높이차 3 m 안",
+    "건물 외곽선(footprint)은 이 덤프에 없음 → null"
+  ]
+}

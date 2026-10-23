@@ -52,6 +52,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build:fixture": "node scripts/build-fixture.mjs",
+    "build:fixture:v0": "node scripts/build-fixture-v0.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

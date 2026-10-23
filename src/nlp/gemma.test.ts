@@ -29,8 +29,8 @@ describe('Gemma 앞뒤 처리(common.py 옮김)', () => {
     expect(placesSubset('편의점 가는 길', pkg)[0]).toBe(STORE);
     expect(placesSubset('ㅋㅋ', pkg)).toEqual([]);
     const { ctx, places } = buildPrompt('편의점', pkg);
-    expect(ctx.startsWith('건물: 대일관 | 문예관')).toBe(true);
-    expect(ctx).toContain('은주관 (별칭: 은주1관)');
+    expect(ctx.startsWith('건물: 공연실습소 | 대일관 | 문예관 (별칭: 문예관 저층부)')).toBe(true);
+    expect(ctx).toContain('은주관 (별칭: 은주1관, 은주2관)');
     expect(places.length).toBeLessThanOrEqual(8);
   });
 
@@ -86,5 +86,14 @@ describe('Gemma 앞뒤 처리(common.py 옮김)', () => {
     expect(yes.kind === 'go' && yes.mandatory).toEqual(['avoidStairs']);
     expect(no.kind === 'go' && no.mandatory).toEqual([]);
     expect(no.kind === 'go' && no.condition).toBe('shortest');
+  });
+
+  it('합치기: 규칙의 방식(휠체어 → accessible)과 보조 방식을 AI 가 낮추지 않음', () => {
+    const a = parse('휠체어인데 비 와요 북악관 편의점');
+    const g = toRouteRequest(out({ dest: { name: STORE, floor: null }, mandatory: ['avoidStairs'], mode: 'avoidStairs' }), pkg);
+    expect(g.secondaryModes).toEqual([]);
+    const m = mergeWithGemma(a, g);
+    expect(m.mode).toBe('accessible');
+    expect(m.secondaryModes).toEqual(['rainProtected']);
   });
 });

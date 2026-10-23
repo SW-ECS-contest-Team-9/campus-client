@@ -2,6 +2,7 @@
 // 원칙(campus-nlp 통합 안내): 장소를 지어내지 않음, 지원 안 하는 조건은 늘 알림, 필수 조건(계단 없이)은 하드 필터라 스스로 풀지 않음.
 // 화면·RN 에 의존하지 않음(시험 가능).
 import type { MapPackage } from '../map/package';
+import { modeInfo } from '../route/modes';
 import type { RouteCondition } from '../route/route';
 import { AI_STAIRS_QUESTION } from './gemma';
 import type { Mandatory, RouteRequest, Target } from './types';
@@ -33,16 +34,25 @@ export function shortName(name: string): string {
   );
 }
 
-/** 필수 조건이 있으면 이동 방식보다 앞섬(계단 없이 = 계단 완전 제외). */
+/** 필수 조건이 있으면 이동 방식보다 앞섬(계단 없이 = 계단 완전 제외, 휠체어 = 휠체어·유모차 길). 휠체어·유모차는 계단 없이보다 엄격해 그대로 둠. */
 export function effectiveCondition(condition: RouteCondition, mandatory: readonly Mandatory[]): RouteCondition {
+  if (mandatory.includes('wheelchairNeeded') || (mandatory.includes('avoidStairs') && condition === 'accessible')) return 'accessible';
   return mandatory.includes('avoidStairs') ? 'avoidStairs' : condition;
 }
 
-/** 말에서 고른 이동 방식. "짐이 많아서"(계단 적게, 선호)는 계단을 빼지 않고 승강기 우선으로. */
+const isMandatory = (r: RouteRequest) => r.mandatory.includes('avoidStairs') || r.mandatory.includes('wheelchairNeeded');
+
+/** 말에서 고른 이동 방식(주 방식). "짐이 많아서"(계단 적게, 선호)는 계단을 빼지 않고 승강기 우선으로. */
 export function conditionOf(r: RouteRequest): RouteCondition {
-  if (r.mandatory.includes('avoidStairs')) return 'avoidStairs';
-  if (r.mode === 'preferElevator' || r.mode === 'avoidStairs' || r.preferences.includes('fewerStairs')) return 'preferElevator';
-  return 'shortest';
+  if (isMandatory(r)) return effectiveCondition(r.mode, r.mandatory);
+  if (r.mode === 'avoidStairs' || (r.mode === 'shortest' && r.preferences.includes('fewerStairs'))) return 'preferElevator';
+  return r.mode;
+}
+
+/** 주 방식에 밀린 방식(경로에는 한 방식만 넣음). 선호로 남은 계단 피하기는 "계단 적게". */
+function secondaryLabels(r: RouteRequest): string[] {
+  const c = conditionOf(r);
+  return (r.secondaryModes ?? []).filter((m) => m !== c).map((m) => (m === 'avoidStairs' ? '계단 적게' : modeInfo(m).label));
 }
 
 /** 알아들은 것(칩으로 보여 줌) */
@@ -57,8 +67,11 @@ export function describe(r: RouteRequest, pkg: MapPackage): string[] {
   if (r.destination.text) out.push(`도착 · ${name(r.destination)}`);
   out.push(`출발 · ${r.origin.useCurrentLocation ? '현재 위치' : name(r.origin)}`);
   for (const w of r.waypoints) out.push(`경유 · ${name(w)}`);
-  if (r.mandatory.includes('avoidStairs')) out.push('필수 · 계단 없이');
-  else if (conditionOf(r) === 'preferElevator') out.push(r.mode === 'preferElevator' ? '승강기 우선' : '계단 적게(선호)');
+  const cond = conditionOf(r);
+  if (isMandatory(r)) out.push(cond === 'accessible' ? '필수 · 휠체어·유모차' : '필수 · 계단 없이');
+  else if (cond === 'preferElevator') out.push(r.mode === 'preferElevator' ? '승강기 우선' : '계단 적게(선호)');
+  else if (cond !== 'shortest') out.push(modeInfo(cond).label);
+  for (const l of secondaryLabels(r)) out.push(`함께 · ${l}`);
   if (r.preferences.includes('indoor')) out.push('실내 선호');
   if (r.timeLimitMin != null) out.push(`${r.timeLimitMin}분 안`);
   return out;
@@ -179,7 +192,12 @@ export function planFromRequest(r: RouteRequest, pkg: MapPackage): Plan {
   }
   // 경로 계산에 아직 못 쓰는 것은 버리지 않고 알림
   if (r.waypoints.length) notes.push(`경유(${r.waypoints.map((w) => w.text).join(', ')})는 아직 경로에 넣지 못해요`);
-  if (r.preferences.includes('indoor')) notes.push('실내 선호는 아직 경로 계산에 반영하지 못해요');
+  const condition = conditionOf(r);
+  if (r.preferences.includes('indoor') && condition !== 'rainProtected') notes.push('실내 선호는 아직 경로 계산에 반영하지 못해요');
   if (r.timeLimitMin != null) notes.push(`${r.timeLimitMin}분 안: 경로 미리보기의 예상 시간을 확인해 주세요`);
-  return { kind: 'go', destKey, origin, condition: conditionOf(r), mandatory: r.mandatory.slice(), notes };
+  const sec = secondaryLabels(r);
+  if (sec.length)
+    notes.push(`함께 말한 조건(${sec.join(', ')})은 「${modeInfo(condition).label}」 경로에 같이 넣지 못해요(한 가지 방식으로 계산)`);
+  if (condition === 'accessible') notes.push('휠체어·유모차: 문턱·문·바닥 상태는 지도에서 아직 확인되지 않았어요');
+  return { kind: 'go', destKey, origin, condition, mandatory: r.mandatory.slice(), notes };
 }

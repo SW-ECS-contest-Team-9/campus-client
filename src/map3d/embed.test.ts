@@ -11,7 +11,7 @@ describe('3D 페이지 메시지', () => {
   it('경로: 길 모양 그대로 EPSG:5186 + z, 층 바뀜은 한 자리에 하나(도착 층)', () => {
     const g = buildGraph(pkg);
     const gate = pkg.places.find((p) => p.name === '정문')!.nodeKey!;
-    const to = pkg.nodes.find((n) => n.floorKey === 'f:북악관:8F')!.key;
+    const to = pkg.nodes.find((n) => n.floorKey === 'f:북악관:7F')!.key;
     const r = findRoute(g, gate, to, 'shortest');
     expect(r.ok).toBe(true);
     const c = routeCommand(g, r as Extract<typeof r, { ok: true }>);
@@ -28,7 +28,7 @@ describe('3D 페이지 메시지', () => {
       pkg.nodes.find((n) => n.key === gate)!.y,
       pkg.nodes.find((n) => n.key === gate)!.z,
     ]);
-    expect(c.floorChanges.map((f) => f.label)).toEqual(['→ 8F']);
+    expect(c.floorChanges.map((f) => f.label)).toEqual(['→ B1', '→ 7F']); // v4: 정문에서 지하 1층으로 들어가 승강기로 7층
   });
 
   it('위치: 확실하면 층·건물을 보내고, 불확실하면 보내지 않음', () => {

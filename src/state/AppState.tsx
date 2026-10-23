@@ -3,10 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { checkForUpdate, loadLocal, type Deps, type LoadedPackage } from '../api/mapRelease';
+import { serverRoute as fetchServerRoute, type ServerRoute } from '../api/serverRoute';
 import type { MapPackage } from '../map/package';
 import fixtureJson from '../map/fixture/campus-fixture.json';
-import { buildGraph, findRoute, type Graph, type RouteCondition, type RouteResult } from '../route/route';
-import type { Fix } from '../location/fix';
+import { buildGraph, findRoute, pointStart, routeBetween, type Graph, type RouteCondition, type RouteResult } from '../route/route';
+import { startNodeForFix, type Fix } from '../location/fix';
 import { createTracker, type Tracker } from '../location/tracker';
 import { startTracking, type SensorStatus } from '../location/sensors';
 import { expoSensors, hasLocationPermission, requestLocationPermission } from '../location/expoSensors';
@@ -77,7 +78,19 @@ export interface NlpState {
   notes: string[];
   mandatory: Mandatory[];
 }
-export type StartPoint = { type: 'place'; placeKey: string } | { type: 'node'; nodeKey: string; label: string };
+export type StartPoint =
+  | { type: 'place'; placeKey: string }
+  | { type: 'node'; nodeKey: string; label: string }
+  /** 걷는 면·열린 면 위 현재 위치(면 높이): 노드가 아니라 그 점에서 면을 가로질러 출발 */
+  | { type: 'point'; x: number; y: number; z: number; label: string };
+
+/** 현재 위치에서 출발: 걷는 면·열린 면 위면 그 점(면을 가로질러 출발), 아니면 맞춘 길의 가까운 끝 노드(50 m 안 바깥 노드). */
+export function startFromFix(pkg: MapPackage, graph: Graph | null, fix: Fix, label: string): StartPoint | null {
+  const p = graph ? pointStart(graph, fix.x, fix.y, fix.match?.z ?? null) : null;
+  if (p) return { type: 'point', x: p[0], y: p[1], z: p[2], label };
+  const n = startNodeForFix(pkg, fix);
+  return n ? { type: 'node', nodeKey: n.key, label } : null;
+}
 
 const SETTINGS_KEY = 'settings.v1';
 const FAVORITES_KEY = 'favorites.v1';
@@ -122,7 +135,10 @@ interface AppState {
   /** 말로 요청한 길찾기(검색창 문장): 알아들은 것·알림·필수 조건. 필수 조건은 사용자가 직접 풀 때만 없어짐. */
   nlp: NlpState | null;
   setNlp: (n: NlpState | null) => void;
+  /** 지금 쓰는 경로: 서버(/v1/routes)가 고른 방식으로 계산했으면 그것, 아니면(오프라인·요청 중) 기기 계산 */
   route: RouteResult | null;
+  /** 서버 경로 요청 결과. null = 요청 중이거나 출발·도착이 없음 */
+  serverRoute: ServerRoute | null;
   startNodeKey: string | null;
   /** 현재 위치(위치 보정 v2 로 통로 위에 끌린 점). 센서가 켜져 있으면 계속 바뀜. */
   fix: Fix | null;
@@ -314,15 +330,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const startNodeKey = useMemo(() => {
     if (!pkg || !start) return null;
     if (start.type === 'node') return start.nodeKey;
+    if (start.type === 'point') return null; // 면 위 점: routeBetween 이 임시 노드로 붙임
     return pkg.places.find((p) => p.key === start.placeKey)?.nodeKey ?? null;
   }, [pkg, start]);
 
-  const route = useMemo<RouteResult | null>(() => {
+  const deviceRoute = useMemo<RouteResult | null>(() => {
     if (!graph || !pkg || !start || !destKey) return null;
     const dest = pkg.places.find((p) => p.key === destKey);
+    if (start.type === 'point' && dest?.nodeKey) return routeBetween(graph, [start.x, start.y, start.z], dest.nodeKey, condition).result;
     if (!startNodeKey || !dest?.nodeKey) return { ok: false, reason: 'unknown_node', message: '길에 붙지 않은 장소 — 길 없음' };
     return findRoute(graph, startNodeKey, dest.nodeKey, condition);
   }, [graph, pkg, start, startNodeKey, destKey, condition]);
+
+  // 서버 경로: 출발(장소 key 또는 노드 좌표)·도착·방식이 바뀔 때마다 요청. 늦게 온 옛 응답은 버림.
+  const routeReq = useMemo(() => {
+    if (!pkg || !start || !destKey) return null;
+    const n = start.type === 'node' ? pkg.nodes.find((x) => x.key === start.nodeKey) : null;
+    const from =
+      start.type === 'place'
+        ? start.placeKey
+        : start.type === 'point'
+          ? `${start.x},${start.y},${start.z}`
+          : n
+            ? `${n.x},${n.y},${n.z}`
+            : '';
+    return from ? { key: `${settings.serverUrl}|${from}|${destKey}|${condition}`, from } : null;
+  }, [pkg, start, destKey, condition, settings.serverUrl]);
+  const [server, setServer] = useState<{ key: string; r: ServerRoute } | null>(null);
+  useEffect(() => {
+    if (!routeReq || !destKey) return;
+    let dead = false;
+    void fetchServerRoute(settings.serverUrl, routeReq.from, destKey, condition).then((r) => {
+      if (!dead) setServer({ key: routeReq.key, r });
+    });
+    return () => {
+      dead = true;
+    };
+  }, [routeReq, destKey, condition, settings.serverUrl]);
+  const serverRoute = server && routeReq && server.key === routeReq.key ? server.r : null;
+  const route = serverRoute?.ok ? serverRoute.route : deviceRoute;
 
   const setFloor = useCallback((b: string, f: string) => setFloorSel((s) => ({ ...s, [b]: f })), []);
 
@@ -356,6 +402,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     nlp,
     setNlp,
     route,
+    serverRoute,
     startNodeKey,
     fix,
     setFix,

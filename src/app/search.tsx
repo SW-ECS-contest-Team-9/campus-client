@@ -4,7 +4,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Building, MessageCircleQuestion, Search } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
-import { startNodeForFix } from '../location/fix';
 import { describe as describeRequest, planFromRequest } from '../nlp/apply';
 import { mergeWithGemma, shouldAskGemma } from '../nlp/gemma';
 import { cancelInterpret, interpretWithGemma } from '../nlp/gemmaRuntime';
@@ -13,7 +12,7 @@ import { buildLexicon } from '../nlp/lexicon';
 import { parseRouteRequest } from '../nlp/parse';
 import type { RouteRequest } from '../nlp/types';
 import { searchPlaces } from '../search/search';
-import { placeSubtitle, useApp } from '../state/AppState';
+import { placeSubtitle, startFromFix, useApp } from '../state/AppState';
 import { SearchInput } from '../ui/components';
 import { Badge, Btn, Card, P, Row, Screen, Section, T } from '../ui/kit';
 import { shape } from '../ui/theme';
@@ -94,8 +93,7 @@ export default function SearchScreen() {
     if (plan.origin.type === 'place') app.setStart({ type: 'place', placeKey: plan.origin.placeKey });
     else {
       const f = app.fix;
-      const n = f && !f.uncertain ? startNodeForFix(pkg, f) : null;
-      app.setStart(n ? { type: 'node', nodeKey: n.key, label: '현재 위치' } : null);
+      app.setStart(f && !f.uncertain ? startFromFix(pkg, app.graph, f, '현재 위치') : null);
     }
     router.push('/options');
   };

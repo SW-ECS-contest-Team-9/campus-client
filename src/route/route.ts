@@ -2,6 +2,7 @@
 // 같은 꾸러미면 서버와 같은 길이 나온다(src/route/route.server.test.ts). 없는 길은 만들지 않는다.
 import type { EdgeIndicators, MapNode, MapPackage, ModeSpec, XYZ } from '../map/package';
 import { basicIndicators, DEFAULT_MODE_SPEC, edgeCost, ELEVATOR_WAIT_S, pyRound, type RouteEdge, type RouteEdgeKind } from './cost';
+import { MeshRouter } from './mesh';
 import { nearestNode, nodeAt, pointEdges, pointOn, surfaceHeightAt, walkEdges, walkIndex, type WalkIndex } from './walk';
 
 /** 경로 방식 7가지(서버 GET /v1/route-modes·자연어 Mode 와 같은 이름). */
@@ -49,6 +50,8 @@ export interface Graph {
   floorLabel: (nodeKey: string) => string | null;
   /** 열린 면·걷는 면 가로지르기 자료(면 위 아무 점 붙이기에 씀) */
   walk: WalkIndex;
+  /** 보행 그물 길찾기(꾸러미에 walkMeshes 가 있을 때). 있으면 경로는 모두 그물로 찾는다(서버와 같음) */
+  mesh: MeshRouter | null;
 }
 
 /** 꾸러미에 서버가 계산한 경로 지표가 있는가(없으면 지붕·조명을 모름). */
@@ -87,7 +90,23 @@ export function buildGraph(pkg: MapPackage): Graph {
     const f = n.floorKey ? floors.get(n.floorKey)?.code : null;
     return f ? `${b} ${f}`.trim() : null;
   };
-  return { pkg, nodes, adj, ind, modes: pkg.routeModes ?? DEFAULT_MODE_SPEC, floorLabel, walk };
+  const modes = pkg.routeModes ?? DEFAULT_MODE_SPEC;
+  const edgeByKey = new Map(pkg.edges.map((e) => [e.key, e]));
+  const mesh = pkg.walkMeshes?.length
+    ? new MeshRouter(
+        {
+          nodes: pkg.nodes,
+          out: (k) => adj.get(k) ?? [],
+          ind: (e) => ind.get(e.key) ?? e.indicators!,
+          modes,
+          edgeGeom: (k) => edgeByKey.get(k)!.geometry,
+          nodeAt: (x, y, z) => nodeAt(pkg.nodes, x, y, z),
+          nearestNode: (x, y, z) => nearestNode(pkg.nodes, x, y, z),
+        },
+        pkg.walkMeshes,
+      )
+    : null;
+  return { pkg, nodes, adj, ind, modes, floorLabel, walk, mesh };
 }
 
 /** 길 지표: 꾸러미에 있으면 그대로, 없으면(옛 꾸러미·가상 간선) 길 선으로 계산(서버 MapIndex._indicators). */
@@ -119,6 +138,11 @@ export function routeBetween(
   goal: RouteEnd,
   cond: RouteCondition,
 ): { result: RouteResult; ends: (Attached | null)[] } {
+  if (g.mesh) {
+    const { route, ends } = g.mesh.route(start, goal, cond);
+    if (!ends[0] || !ends[1]) return { result: { ok: false, reason: 'unknown_node', message: '출발 또는 도착 근처에 길이 없음' }, ends };
+    return { result: meshResult(g, route, cond), ends };
+  }
   const tmp: { pt: MapNode; on: Set<string> }[] = [];
   const tmpEdges: RouteEdge[] = [];
   const ends: (Attached | null)[] = [];
@@ -230,6 +254,7 @@ export function findRoute(g: Graph, fromKey: string, toKey: string, cond: RouteC
   if (!g.nodes.has(fromKey) || !g.nodes.has(toKey))
     return { ok: false, reason: 'unknown_node', message: '출발 또는 도착이 길에 붙어 있지 않음' };
   if (fromKey === toKey) return { ok: false, reason: 'same_point', message: '출발과 도착이 같음' };
+  if (g.mesh) return meshResult(g, g.mesh.route(fromKey, toKey, cond).route, cond);
 
   const spec = g.modes[cond] ?? DEFAULT_MODE_SPEC[cond];
   const start = sk(fromKey, false);
@@ -267,6 +292,17 @@ export function findRoute(g: Graph, fromKey: string, toKey: string, cond: RouteC
     arcs.unshift({ from: p.node, arc: p.arc });
     k = p.state;
   }
+  return routeOk(g, fromKey, arcs, cond);
+}
+
+/** 그물 길찾기 결과(서버 MeshRouter 와 같은 길·가상 길) → RouteResult. */
+function meshResult(g: Graph, route: ReturnType<MeshRouter['route']>['route'], cond: RouteCondition): RouteResult {
+  if (!route) return { ok: false, reason: 'no_route', message: '길 없음' };
+  const arcs = route.edges.map(({ edge, forward }, i) => ({ from: route.nodeKeys[i], arc: { edge, to: route.nodeKeys[i + 1], forward } }));
+  return routeOk(g, route.nodeKeys[0], arcs, cond);
+}
+
+function routeOk(g: Graph, fromKey: string, arcs: { from: string; arc: Arc }[], cond: RouteCondition): RouteOk {
   // 층을 모르는 노드(계단참 등)를 지나도 층 바뀜을 잡도록 마지막으로 알던 층과 비교
   let lastFloor = g.floorLabel(fromKey);
   const steps = arcs.map(({ from, arc }) => {
@@ -282,7 +318,7 @@ export function findRoute(g: Graph, fromKey: string, toKey: string, cond: RouteC
     const geom = arc.forward ? arc.edge.geometry : [...arc.edge.geometry].reverse();
     for (const p of points.length ? geom.slice(1) : geom) points.push([p[0], p[1], p[2]]);
     total += arc.edge.lengthM;
-    const i = g.ind.get(arc.edge.key)!;
+    const i = g.ind.get(arc.edge.key) ?? arc.edge.indicators!;
     durationS += arc.forward ? i.walkS : i.walkSBack;
     if (arc.edge.kind === 'elevator') {
       if (!inLift) durationS += ELEVATOR_WAIT_S;

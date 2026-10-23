@@ -1,32 +1,32 @@
 {
-  "source": "skuniv-v4-2a921e08aa2d.json",
+  "source": "skuniv-v13-c56cf84d6973.json",
   "release": {
-    "version": 4,
-    "createdAt": "2026-10-22T08:55:49Z",
+    "version": 13,
+    "createdAt": "2026-10-23T01:29:02Z",
     "source": "campus-tracker test api 28265795d5fb0966"
   },
   "counts": {
     "buildings": 13,
     "floors": 92,
-    "nodes": 234,
-    "edges": 262,
+    "nodes": 496,
+    "edges": 430,
     "places": 50,
-    "placesWithoutNode": 3,
+    "placesWithoutNode": 2,
     "walkAreas": 5,
-    "walkAreaNodes": 32,
+    "walkAreaNodes": 56,
     "edgesByKind": {
-      "sidewalk": 12,
-      "walkway": 78,
-      "stairs": 45,
-      "corridor": 76,
-      "crossing": 6,
-      "vehicle_road": 20,
+      "sidewalk": 71,
+      "walkway": 119,
+      "stairs": 48,
+      "corridor": 78,
+      "crossing": 9,
+      "vehicle_road": 77,
       "elevator": 22,
-      "ramp": 3
+      "ramp": 6
     },
     "nodesByLocation": {
-      "indoor_floor_known": 78,
-      "outdoor": 146,
+      "indoor_floor_known": 81,
+      "outdoor": 405,
       "indoor_floor_unknown": 10
     },
     "floorsByBuilding": {
@@ -147,16 +147,16 @@
     }
   },
   "indicators": {
-    "edges": 262,
-    "coveredRatio": 262,
-    "litRatio": 54,
-    "maxSlopePct": 239,
-    "vehicle": 262,
+    "edges": 430,
+    "coveredRatio": 430,
+    "litRatio": 81,
+    "maxSlopePct": 403,
+    "vehicle": 430,
     "wheelchair": {
-      "no": 92,
-      "likely": 161,
-      "steep": 8,
-      "unknown": 1
+      "no": 152,
+      "likely": 251,
+      "steep": 22,
+      "unknown": 5
     }
   },
   "routeModes": [

@@ -9,8 +9,14 @@ import { changedEnough, startTracking, type SensorSources } from './sensors';
 import { createTracker, pressureToRelativeAltitude, type PositionSample } from './tracker';
 
 const pkg = fixtureJson as unknown as MapPackage;
-const edge = (k: string) => pkg.edges.find((e) => e.key === k)!;
-const OUTDOOR = 'e:a03d33c3-08b0-4bc6-ae9f-40b83c3296de'; // 바깥 길 193 m
+// 바깥 길 193 m. v13 부터 걷는 면 경계를 지나는 곳마다 나뉘어 있어(~1..~8) 조각을 이어 한 길로 본다.
+const OUTDOOR = 'e:a03d33c3-08b0-4bc6-ae9f-40b83c3296de';
+const outdoorParts = pkg.edges.filter((e) => e.key.startsWith(`${OUTDOOR}~`));
+const edge = (k: string) =>
+  k === OUTDOOR
+    ? { ...outdoorParts[0], geometry: outdoorParts.flatMap((e, i) => (i ? e.geometry.slice(1) : e.geometry)) }
+    : pkg.edges.find((e) => e.key === k)!;
+const onOutdoor = (k: string | null | undefined) => !!k && (k === OUTDOOR || k.startsWith(`${OUTDOOR}~`));
 const BUKAK_6F = 'e:b36ea64e-113c-475b-8a40-648faf789aa4'; // 북악관 6F 복도 35 m(5F·7F 와 겹친 자리)
 
 type Ev = { t: number } & (
@@ -111,7 +117,7 @@ describe('위치 보정 v2 연결(기록한 합성 입력)', () => {
       expect(f.match?.onNetwork).toBe(true);
       if (f.match?.edgeKey) expect(distToEdge(f.x, f.y, f.match.edgeKey)).toBeLessThan(0.5);
     }
-    const onWalk = out.filter((f) => f.match?.edgeKey === OUTDOOR).length / out.length;
+    const onWalk = out.filter((f) => onOutdoor(f.match?.edgeKey)).length / out.length;
     expect(onWalk).toBeGreaterThan(0.8);
     const med = (a: number[]) => [...a].sort((p, q) => p - q)[Math.floor(a.length / 2)];
     const snapped = med(out.map((f) => distToEdge(f.x, f.y, OUTDOOR)));

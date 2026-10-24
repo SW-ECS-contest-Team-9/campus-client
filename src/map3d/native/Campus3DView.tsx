@@ -88,6 +88,8 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
   const shownPlaces = useRef<{ pl: Campus3DPlace; x: number; y: number }[]>([]);
   useEffect(() => { placeList.current = places; placeAnchors.current = null; labelsDirty.current = true; }, [places]);
   const layoutLabels = useCallback((sc: CampusScene) => {
+    // 1인칭 동안은 이름표·장소 점을 감춤(눈높이에서는 겹쳐 어지러움)
+    if (sc.firstPerson.active()) { shownPlaces.current = []; if (labelKeys.current) { labelKeys.current = ''; setLabels([]); } return; }
     const k = scale.current;
     if (!placeAnchors.current) placeAnchors.current = (placeList.current ?? []).map((pl) => ({ pl, p: sc.toScene(pl.x, pl.y, pl.z) }));
     if (!changeAnchors.current) changeAnchors.current = changes.current.filter((c) => c.label).map((c) => ({ label: c.label!, p: sc.toScene(c.at[0], c.at[1], Number.isFinite(c.at[2]) ? c.at[2] : null) }));
@@ -200,7 +202,7 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
     onPanResponderGrant: (e) => { const t = e.nativeEvent.touches; g.n = t.length; g.x = t[0].pageX; g.y = t[0].pageY; g.moved = 0; g.t = Date.now(); if (t.length > 1) two(t); },
     onPanResponderMove: (e) => {
       const s = sceneRef.current; const t = e.nativeEvent.touches;
-      if (!s || !t.length) return;
+      if (!s || !t.length || s.firstPerson.active()) return; // 1인칭: 손 조작 없음
       const k = scale.current;
       if (t.length === 1) {
         if (g.n !== 1) { g.n = 1; g.x = t[0].pageX; g.y = t[0].pageY; return; }
@@ -219,7 +221,7 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       }
     },
     onPanResponderRelease: (e) => {
-      if (g.moved < 8 && Date.now() - g.t < 350 && sceneRef.current) {
+      if (g.moved < 8 && Date.now() - g.t < 350 && sceneRef.current && !sceneRef.current.firstPerson.active()) {
         // 장소 점 가까이(22 dp)를 누르면 그 장소
         const lx = e.nativeEvent.locationX, ly = e.nativeEvent.locationY;
         const hit = shownPlaces.current.find((q) => Math.hypot(q.x - lx, q.y - ly) < 22);

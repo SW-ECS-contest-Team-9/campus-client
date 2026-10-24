@@ -11,11 +11,13 @@ import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
 import { FloorCapsule } from '../ui/FloorCapsule';
 import { Badge, Btn, P, Screen, T } from '../ui/kit';
+import { useMap3dControls } from '../ui/Map3D';
 import { Glass, RouteDrawBar, WaveEdge } from '../ui/v3';
 import { Footprints } from 'lucide-react-native';
 
 export default function PreviewScreen() {
   const app = useApp();
+  const ctl = useMap3dControls();
   const r = app.route;
   const server = app.serverRoute;
   const cmd = useMemo(() => (app.graph && r?.ok ? routeCommand(app.graph, r) : null), [app.graph, r]);
@@ -98,6 +100,14 @@ export default function PreviewScreen() {
           />
         )}
         {partial ? <P tone="muted">{partial}</P> : null}
+        {/* 1인칭 미리 보기: 경로를 눈높이로 2~3배속 걸어 봄(앱 내장 3D 일 때만) */}
+        {ctl.available ? (
+          <Btn
+            kind="soft"
+            label="1인칭 미리 보기"
+            onPress={() => router.push({ pathname: '/first-person', params: { mode: 'preview' } })}
+          />
+        ) : null}
         {server && !server.ok ? (
           <P tone="muted">
             {server.code === 'no_route' ? '서버는 같은 조건의 경로가 없다고 해요' : '서버에 연결하지 못해 기기에서 계산했어요'}

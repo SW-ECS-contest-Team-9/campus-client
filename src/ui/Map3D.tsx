@@ -60,8 +60,16 @@ export interface Map3dControls {
   home: () => void;
   toggleExplode: () => boolean;
   focusMe: () => void;
+  /** 한 번 보내는 명령(1인칭 넘기기·따라가기 목표처럼 상태가 아닌 것). 네이티브 3D 일 때만 */
+  send: (c: Map3dCommand) => void;
 }
-const ControlsCtx = createContext<Map3dControls>({ available: false, home: () => {}, toggleExplode: () => false, focusMe: () => {} });
+const ControlsCtx = createContext<Map3dControls>({
+  available: false,
+  home: () => {},
+  toggleExplode: () => false,
+  focusMe: () => {},
+  send: () => {},
+});
 export const useMap3dControls = () => useContext(ControlsCtx);
 
 /** 앱 뿌리에 한 번. children(화면들) 위에 3D 지도 하나를 겹쳐 둠. */
@@ -118,6 +126,7 @@ export function Map3DHost({
       home: () => native.current?.home(),
       toggleExplode: () => native.current?.toggleExplode() ?? false,
       focusMe: () => native.current?.focusMe(),
+      send: (c) => native.current?.post(c),
     }),
     [useNative, status],
   );
@@ -154,6 +163,8 @@ export function Map3DHost({
     };
     if (!slot.commands.some((c) => c.type === 'setRoute')) send({ v: 1, type: 'clearRoute' });
     if (!slot.commands.some((c) => c.type === 'setLocation')) send({ v: 1, type: 'clearLocation' });
+    // 1인칭은 그 명령을 가진 화면에서만(다른 화면으로 가면 끔). 웹 페이지는 모르는 명령이라 네이티브만
+    if (useNative && !slot.commands.some((c) => c.type === 'firstPerson')) send({ v: 1, type: 'firstPerson', on: false });
     for (const c of slot.commands) send(c);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- cmdKey 가 slot 의 내용
   }, [status, cmdKey, post]);

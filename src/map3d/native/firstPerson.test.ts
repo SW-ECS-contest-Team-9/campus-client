@@ -159,6 +159,16 @@ describe('1인칭: 경로 → 카메라', () => {
     expect(fp.progress()).toMatchObject({ playing: false });
   });
 
+  it('도착이 승강기 안이면 문 쪽(타러 들어간 방향의 반대)을 봄', () => {
+    // 동쪽으로 20 m 걸어 승강기 → 10 m 올라 끝
+    const R2 = [P(0, 0, 100), P(20, 0, 100), P(20, 0.2, 110)];
+    const fp = createFirstPerson(host());
+    fp.start(R2, [{ kind: 'elevator', floorChange: true, toFloor: '북악관 6F' }]);
+    fp.seek(fp.info().total);
+    // 동쪽(−90°)으로 들어갔으니 서쪽(+90°)을 봄
+    expect(fp.pose().yawDeg).toBeCloseTo(90, 0);
+  });
+
   it('시야: 보이는 부분이 세로로 길수록 넓히되 65~75°', () => {
     expect(fpFov(16 / 9)).toBe(65);
     expect(fpFov(0.75)).toBeCloseTo(75, 0);

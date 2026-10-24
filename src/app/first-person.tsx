@@ -9,7 +9,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { routeCommand, type Map3dCommand, type Map3dEvent } from '../map3d/embed';
-import { createRouteFollower, followNotice, type FollowState } from '../route/follow';
+import { DEFAULT_GPS_DISTRUST } from '../location/matcher';
+import { createRouteFollower, distrustZones, followNotice, type FollowState } from '../route/follow';
 import { useApp } from '../state/AppState';
 import { Btn, T } from '../ui/kit';
 import { MapSlot, useMap3dControls } from '../ui/Map3D';
@@ -43,7 +44,14 @@ export default function FirstPersonScreen() {
   const commands = useMemo(() => [route, fpCmd], [route, fpCmd]);
 
   // 따라가기: 보정 위치(app.fix: 맞춤기가 통로로 끌어당긴 점) → 경로 위 거리 → 3D 목표
-  const follower = useMemo(() => (follow && r?.ok ? createRouteFollower(r.points) : null), [follow, r]);
+  // 날 GPS 보조 이탈 판정은 보정기가 GPS 를 덜 믿는 구역(북악관 외곽선 + 15 m)에서 끔
+  const follower = useMemo(
+    () =>
+      follow && r?.ok && pkg
+        ? createRouteFollower(r.points, { zones: distrustZones(pkg.buildings, Object.keys(DEFAULT_GPS_DISTRUST)) })
+        : null,
+    [follow, r, pkg],
+  );
   const send = useRef(ctl.send);
   useEffect(() => {
     send.current = ctl.send;
@@ -54,7 +62,14 @@ export default function FirstPersonScreen() {
     if (!f) return;
     const fk = app.confirmedFloor?.floorKey ?? f.match?.floorKey ?? null;
     const floorZ = fk ? (pkg.floors.find((x) => x.key === fk)?.floorZ ?? null) : null;
-    const st = follower.update({ x: f.x, y: f.y, z: floorZ ?? f.match?.z ?? null, uncertain: f.uncertain });
+    const st = follower.update({
+      x: f.x,
+      y: f.y,
+      z: floorZ ?? f.match?.z ?? null,
+      uncertain: f.uncertain,
+      // 날 GPS 보조: 실내 층(지하 포함)이면 쓰지 않음
+      raw: f.raw ? { x: f.raw.x, y: f.raw.y, accuracyM: f.accuracyM, t: f.timestamp / 1000, indoor: !!f.match?.floorKey } : null,
+    });
     // 보정 위치(밖의 상태)가 바뀔 때마다 한 번: 따라가기 상태를 화면에 옮김
     setFs(st); // eslint-disable-line react-hooks/set-state-in-effect
     send.current({ v: 1, type: 'firstPersonFollow', m: st.status === 'following' ? st.m : null });

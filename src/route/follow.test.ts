@@ -6,7 +6,8 @@ import type { MapPackage, XYZ } from '../map/package';
 import { epsg5186ToWgs84 } from '../location/projection';
 import { createTracker } from '../location/tracker';
 import { createFirstPerson, FP } from '../map3d/native/firstPerson';
-import { createRouteFollower, followNotice } from './follow';
+import { DEFAULT_GPS_DISTRUST } from '../location/matcher';
+import { createRouteFollower, distrustZones, followNotice } from './follow';
 
 const pkg = fixtureJson as unknown as MapPackage;
 
@@ -37,6 +38,41 @@ describe('따라가기: 위치 → 경로 위 거리', () => {
     expect(off).toMatchObject({ m: null, status: 'offRoute' });
     expect(followNotice(off, true)).toContain('경로에서 벗어났어요');
     expect(f.update({ x: 38, y: 2, z: null, uncertain: false })).toMatchObject({ m: 38, status: 'following' });
+  });
+  it('날 GPS 보조: (정확도 + 15 m) 넘게 10 s 이어지면 이탈, 불신 구역·실내 층에서는 안 씀', () => {
+    const raw = (x: number, y: number, t: number, indoor = false) => ({ x, y, accuracyM: 5, t, indoor });
+    const on = (f: ReturnType<typeof createRouteFollower>, t: number, rx: number, ry: number, indoor = false) =>
+      f.update({ x: 50, y: 0, z: null, uncertain: false, raw: raw(rx, ry, t, indoor) });
+    const f = createRouteFollower(R);
+    for (let t = 0; t < 10; t++) expect(on(f, t, 50, 25).status).toBe('following'); // 25 m > 20 m 이지만 10 s 안 됨
+    expect(on(f, 10, 50, 25)).toMatchObject({ status: 'offRoute', byRaw: true });
+    expect(on(f, 11, 50, 5).status).toBe('following'); // 돌아오면 풀림
+    // 18 m(≤ 5 + 15) 는 이탈 아님
+    const g = createRouteFollower(R);
+    for (let t = 0; t < 30; t++) expect(on(g, t, 50, 18).status).toBe('following');
+    // 불신 구역(경로 옆 상자 + 15 m) 안이면 안 씀
+    const z = createRouteFollower(R, {
+      zones: [
+        {
+          ring: [
+            [40, 20],
+            [60, 20],
+            [60, 40],
+            [40, 40],
+          ],
+          marginM: 15,
+        },
+      ],
+    });
+    for (let t = 0; t < 30; t++) expect(on(z, t, 50, 25).status).toBe('following');
+    // 실내 층이면 안 씀
+    const h = createRouteFollower(R);
+    for (let t = 0; t < 30; t++) expect(on(h, t, 50, 25, true).status).toBe('following');
+  });
+  it('불신 구역: 보정기 설정(북악관)의 외곽선으로', () => {
+    const zs = distrustZones(pkg.buildings, Object.keys(DEFAULT_GPS_DISTRUST));
+    expect(zs.length).toBe(1);
+    expect(zs[0].marginM).toBe(15);
   });
   it('불확실하면 그 자리에서 기다림', () => {
     const f = createRouteFollower(R);
@@ -78,9 +114,10 @@ describe('따라가기: 합성 위치 열 → 보정(tracker) → 카메라', ()
     seconds: number,
     gps: (t: number, p: { x: number; y: number }) => { x: number; y: number },
     truthAt: (t: number) => { x: number; y: number; head: number } = (t) => at(1.2 * t),
+    rawAid = true,
   ) {
     const tracker = createTracker(pkg);
-    const follower = createRouteFollower(route);
+    const follower = createRouteFollower(route, { rawAid });
     const X0 = route[0][0],
       Y0 = route[0][1];
     const camera = new THREE.PerspectiveCamera(45, 0.75, 1, 5000);
@@ -106,7 +143,13 @@ describe('따라가기: 합성 위치 열 → 보정(tracker) → 카메라', ()
       const w = epsg5186ToWgs84(g.x, g.y);
       const fix = tracker.position({ lon: w.lon, lat: w.lat, accuracyM: 8, speed: 1.2, course: p.head }, t);
       if (fix) {
-        const st = follower.update({ x: fix.x, y: fix.y, z: fix.match?.z ?? null, uncertain: fix.uncertain });
+        const st = follower.update({
+          x: fix.x,
+          y: fix.y,
+          z: fix.match?.z ?? null,
+          uncertain: fix.uncertain,
+          raw: fix.raw ? { x: fix.raw.x, y: fix.raw.y, accuracyM: fix.accuracyM, t, indoor: !!fix.match?.floorKey } : null,
+        });
         fp.setTarget(st.status === 'following' ? st.m : null);
         for (let k = 0; k < 60; k++) fp.tick(1 / 60);
         log.push({ t, m: st.m, status: st.status, cam: fp.progress().s, truth });
@@ -147,6 +190,12 @@ describe('따라가기: 합성 위치 열 → 보정(tracker) → 카메라', ()
     const log = walk(90, (_t, p) => ({ x: p.x, y: p.y }), truthAt);
     const off = log.filter((r) => r.status === 'offRoute');
     expect(off.length).toBeGreaterThan(10);
+    // 날 GPS 보조 없이(보정 위치만): 이탈 알림이 늦음. 보조를 쓰면 (정확도 8 + 15 m) 넘은 뒤 10 s 에 알림
+    const noAid = walk(90, (_t, p) => ({ x: p.x, y: p.y }), truthAt, false).find((r) => r.status === 'offRoute')!;
+    const lateAid = off[0].t - 40,
+      lateNoAid = noAid.t - 40;
+    expect(lateAid).toBeLessThan(lateNoAid);
+    expect(lateAid).toBeLessThanOrEqual(Math.ceil((8 + 15) / 1.2) + 10 + 1);
     // 이탈 동안 카메라는 그 자리
     const cams = off.map((r) => r.cam);
     expect(Math.max(...cams) - Math.min(...cams)).toBeLessThan(0.5);

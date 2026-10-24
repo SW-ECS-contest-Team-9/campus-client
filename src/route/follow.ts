@@ -80,3 +80,12 @@ export function createRouteFollower(points: XYZ[]) {
   return { update, total: () => total, reset: () => ((cur = null), (backN = 0), (offN = 0)) };
 }
 export type RouteFollower = ReturnType<typeof createRouteFollower>;
+
+/** 따라가기 상태 → 알림 글(없으면 null) */
+export function followNotice(f: FollowState | null, hasFix: boolean): string | null {
+  if (!hasFix) return '위치를 기다리는 중이에요 · 위치 권한과 GPS 를 확인해 주세요';
+  if (!f || f.status === 'waiting') return '위치를 경로에 맞추는 중이에요';
+  if (f.status === 'uncertain') return '위치가 불확실해요 · 확인될 때까지 그 자리에서 기다려요';
+  if (f.status === 'offRoute') return `경로에서 벗어났어요${f.distM != null ? `(약 ${Math.round(f.distM)} m)` : ''} · 1인칭을 멈췄어요`;
+  return null;
+}

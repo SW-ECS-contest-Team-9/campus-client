@@ -9,11 +9,13 @@ import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
 import { FloorCapsule } from '../ui/FloorCapsule';
 import { Btn, P, Screen, T } from '../ui/kit';
+import { useMap3dControls } from '../ui/Map3D';
 import { Character, Gradient, Pulse, RouteDrawBar, WaveEdge } from '../ui/v3';
 import { gradient, shape } from '../ui/theme';
 
 export default function GuideScreen() {
   const app = useApp();
+  const ctl = useMap3dControls();
   const r = app.route;
   const cmd = useMemo(() => (app.graph && r?.ok ? routeCommand(app.graph, r) : null), [app.graph, r]);
   if (!app.pkg || !r?.ok) return <Redirect href="/" />;
@@ -56,6 +58,14 @@ export default function GuideScreen() {
               <Btn label="도착 확인" onPress={() => router.push('/arrive')} style={{ flex: 2 }} />
             )}
           </View>
+          {/* 걸으며 1인칭: 보정 위치(길 쪽으로 끌어당긴 위치)를 경로 위에서 따라감 */}
+          {ctl.available ? (
+            <Btn
+              kind="soft"
+              label="1인칭으로 따라가기"
+              onPress={() => router.push({ pathname: '/first-person', params: { mode: 'follow' } })}
+            />
+          ) : null}
           <Btn kind="ghost" label="안내 종료" onPress={() => router.replace('/')} />
         </>
       }

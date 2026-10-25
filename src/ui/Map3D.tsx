@@ -48,6 +48,7 @@ interface Slot {
 interface Api {
   put: (s: Slot) => void;
   focus: (id: string, on: boolean) => void;
+  remove: (id: string) => void;
 }
 
 const ApiCtx = createContext<Api | null>(null);
@@ -116,6 +117,15 @@ export function Map3DHost({
       put: (s) => setSlots((all) => ({ ...all, [s.id]: s })),
       // 초점 잃어도 자리 정보는 남김(뒤로 와서 다시 초점 받을 때 바로 씀)
       focus: (id, on) => setActive((cur) => (on ? id : cur === id ? null : cur)),
+      remove: (id) => {
+        setActive((cur) => (cur === id ? null : cur));
+        setSlots((all) => {
+          if (!(id in all)) return all;
+          const next = { ...all };
+          delete next[id];
+          return next;
+        });
+      },
     }),
     [],
   );
@@ -306,7 +316,25 @@ export function Map3DHost({
                   </View>
                 </View>
               ) : null}
-              <BlurTargetCtx.Provider value={blurTarget}>{shown ? slot?.overlay : null}</BlurTargetCtx.Provider>
+              <BlurTargetCtx.Provider value={blurTarget}>
+                {/* 초점만 잃은 화면의 UI는 숨겨서 유지(시트 위치·등장 효과가 복귀 때 초기화되지 않게). */}
+                {status !== 'failed' &&
+                  Object.values(slots).map((entry) => {
+                    if (entry.overlay == null) return null;
+                    const visible = shown && entry.id === active;
+                    return (
+                      <View
+                        key={entry.id}
+                        style={[StyleSheet.absoluteFill, !visible && s.hiddenOverlay]}
+                        pointerEvents={visible ? 'box-none' : 'none'}
+                        accessibilityElementsHidden={!visible}
+                        importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}
+                      >
+                        {entry.overlay}
+                      </View>
+                    );
+                  })}
+              </BlurTargetCtx.Provider>
             </View>
           </View>
         </StatusCtx.Provider>
@@ -347,6 +375,8 @@ export function MapSlot({
   useEffect(() => {
     api?.put({ id, rect, commands: list, minimal, onEvent, overlay, padding });
   });
+  // 화면이 스택에서 제거될 때 보관한 UI도 함께 정리.
+  useEffect(() => () => api?.remove(id), [api, id]);
   useFocusEffect(
     useCallback(() => {
       measure();
@@ -377,6 +407,7 @@ export function MapSlot({
 const s = StyleSheet.create({
   root: { flex: 1 },
   host: { position: 'absolute', overflow: 'hidden', backgroundColor: color.canvas },
+  hiddenOverlay: { display: 'none' },
   fill: { flex: 1, backgroundColor: color.canvas, overflow: 'hidden' },
   notice: { backgroundColor: color.warningSoft, paddingHorizontal: 12, paddingVertical: 8 },
   noticeT: { color: color.warning, fontSize: 13, fontWeight: '600' },

@@ -20,13 +20,16 @@ export default function RootLayout() {
           <StatusBar style="dark" />
           <Shared3D>
             <Stack
+              initialRouteName="(tabs)"
               screenOptions={{
                 headerShown: false,
                 contentStyle: { backgroundColor: '#F6F8FB' },
                 animation: 'fade_from_bottom',
                 animationDuration: 240,
               }}
-            />
+            >
+              <Stack.Screen name="(tabs)" />
+            </Stack>
           </Shared3D>
         </AppProvider>
       </SafeAreaProvider>

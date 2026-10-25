@@ -173,7 +173,7 @@ export const P = ({ children, tone }: { children: ReactNode; tone?: 'caution' | 
 export function TabBar({ at }: { at: TabKey }) {
   const inset = useSafeAreaInsets();
   const to = { map: '/', saved: '/saved', offline: '/offline' } as const;
-  return <TabBarView at={at} bottomInset={inset.bottom} onSelect={(k) => router.replace(to[k])} />;
+  return <TabBarView at={at} bottomInset={inset.bottom} onSelect={(k) => router.navigate(to[k])} />;
 }
 
 export const s = StyleSheet.create({

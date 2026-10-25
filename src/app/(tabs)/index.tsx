@@ -5,13 +5,13 @@ import { Bookmark, Clock, House, Layers, MapPin, Navigation, Search, Settings } 
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useApp } from '../state/AppState';
-import { CampusMap } from '../ui/CampusMap';
-import { useMap3dControls } from '../ui/Map3D';
-import { IconButton, PressScale, SearchInput } from '../ui/components';
-import { Badge, T, TabBar } from '../ui/kit';
-import { color, gradient, shape } from '../ui/theme';
-import { Character, Glass, Gradient, Sheet } from '../ui/v3';
+import { useApp } from '../../state/AppState';
+import { CampusMap } from '../../ui/CampusMap';
+import { useMap3dControls } from '../../ui/Map3D';
+import { IconButton, PressScale, SearchInput } from '../../ui/components';
+import { Badge, T, TabBar } from '../../ui/kit';
+import { color, gradient, shape } from '../../ui/theme';
+import { Character, Glass, Gradient, Sheet } from '../../ui/v3';
 
 const TAB_H = 88;
 

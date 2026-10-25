@@ -30,7 +30,7 @@ export default function OptionsScreen() {
   const go = () => {
     const r = app.route;
     if (!r) return;
-    router.push(r.ok ? '/preview' : '/no-route');
+    router.navigate(r.ok ? '/preview' : '/no-route');
   };
   return (
     <Screen

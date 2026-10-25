@@ -52,7 +52,7 @@ export default function PreviewScreen() {
               app.setGuideStep(0);
               if (dest && startLabel)
                 app.addRecentRoute({ startLabel, destKey: dest.key, condition: app.condition, at: new Date().toISOString() });
-              router.push('/guide');
+              router.navigate('/guide');
             }}
             style={{ flex: 2 }}
           />

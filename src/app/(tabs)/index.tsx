@@ -1,9 +1,9 @@
 // CT01 캠퍼스 지도(V3): 3D 지도가 화면 전체(V3-1), 위에 유리 검색 알약, 아래 끄는 시트("어디로 갈까요?"), 떠 있는 탭 캡슐.
 // 지도 위 부품은 모두 overlay 로 공용 3D 지도와 함께 그림(3D 가 화면 위에 겹쳐 있어서).
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Bookmark, Clock, House, Layers, MapPin, Navigation, Search, Settings } from 'lucide-react-native';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../state/AppState';
 import { CampusMap } from '../../ui/CampusMap';
@@ -21,6 +21,17 @@ export default function Home() {
   const [locMsg, setLocMsg] = useState<string | null>(null);
   const [exploded, setExploded] = useState(false);
   const map = useMap3dControls();
+  // 지도에서는 탭 방문 기록 대신 앱 종료. 화면을 떠나면 다른 화면의 뒤로가기에 맡긴다.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') return;
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        BackHandler.exitApp();
+        return true;
+      });
+      return () => subscription.remove();
+    }, []),
+  );
   if (!app.pkg)
     return (
       <View style={s.loading}>

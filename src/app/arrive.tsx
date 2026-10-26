@@ -21,7 +21,7 @@ export default function ArriveScreen() {
             onPress={() => {
               app.setStart(null);
               app.setDestKey(null);
-              router.replace('/');
+              router.dismissTo('/');
             }}
           />
           <Btn kind="soft" label="아직이에요 · 위치 확인" onPress={() => router.push('/recheck')} />

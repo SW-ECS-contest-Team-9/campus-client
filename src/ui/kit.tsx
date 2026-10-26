@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { elevation, glass, shape } from './theme';
-import { Appear, Gradient, WaveHeader } from './v3';
+import { Gradient, WaveHeader } from './v3';
 import { Button, color, FloorItem, IconButton, PressScale, ResultRow, StatusChip, TabBarView, type TabKey } from './components';
 
 /** Foundations 토큰(옛 이름 유지). 색은 components 의 color 와 같음. */
@@ -83,7 +83,7 @@ export function Screen({
       ) : (
         <View style={{ height: inset.top }} />
       )}
-      <Appear style={{ flex: 1 }}>{body}</Appear>
+      <View style={{ flex: 1 }}>{body}</View>
       {footer ? <View style={[s.footer, { paddingBottom: inset.bottom + 12 }]}>{footer}</View> : null}
     </View>
   );
@@ -173,7 +173,7 @@ export const P = ({ children, tone }: { children: ReactNode; tone?: 'caution' | 
 export function TabBar({ at }: { at: TabKey }) {
   const inset = useSafeAreaInsets();
   const to = { map: '/', saved: '/saved', offline: '/offline' } as const;
-  return <TabBarView at={at} bottomInset={inset.bottom} onSelect={(k) => router.replace(to[k])} />;
+  return <TabBarView at={at} bottomInset={inset.bottom} onSelect={(k) => router.navigate(to[k])} />;
 }
 
 export const s = StyleSheet.create({

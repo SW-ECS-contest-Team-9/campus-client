@@ -1,17 +1,17 @@
 // CT01 캠퍼스 지도(V3): 3D 지도가 화면 전체(V3-1), 위에 유리 검색 알약, 아래 끄는 시트("어디로 갈까요?"), 떠 있는 탭 캡슐.
 // 지도 위 부품은 모두 overlay 로 공용 3D 지도와 함께 그림(3D 가 화면 위에 겹쳐 있어서).
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Bookmark, Clock, House, Layers, MapPin, Navigation, Search, Settings } from 'lucide-react-native';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useApp } from '../state/AppState';
-import { CampusMap } from '../ui/CampusMap';
-import { useMap3dControls } from '../ui/Map3D';
-import { IconButton, PressScale, SearchInput } from '../ui/components';
-import { Badge, T, TabBar } from '../ui/kit';
-import { color, gradient, shape } from '../ui/theme';
-import { Character, Glass, Gradient, Sheet } from '../ui/v3';
+import { useApp } from '../../state/AppState';
+import { CampusMap } from '../../ui/CampusMap';
+import { useMap3dControls } from '../../ui/Map3D';
+import { IconButton, PressScale, SearchInput } from '../../ui/components';
+import { Badge, T, TabBar } from '../../ui/kit';
+import { color, gradient, shape } from '../../ui/theme';
+import { Character, Glass, Gradient, Sheet } from '../../ui/v3';
 
 const TAB_H = 88;
 
@@ -21,6 +21,17 @@ export default function Home() {
   const [locMsg, setLocMsg] = useState<string | null>(null);
   const [exploded, setExploded] = useState(false);
   const map = useMap3dControls();
+  // 지도에서는 탭 방문 기록 대신 앱 종료. 화면을 떠나면 다른 화면의 뒤로가기에 맡긴다.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') return;
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        BackHandler.exitApp();
+        return true;
+      });
+      return () => subscription.remove();
+    }, []),
+  );
   if (!app.pkg)
     return (
       <View style={s.loading}>
@@ -79,7 +90,7 @@ export default function Home() {
                   </Text>
                 </Glass>
               </View>
-              <SearchInput onPress={() => router.push('/search')} />
+              <SearchInput onPress={() => router.navigate('/search')} />
               {fixText ? (
                 <View pointerEvents="none" accessibilityLiveRegion="polite">
                   <Badge text={fixText} tone={fix && !fix.uncertain ? 'confirmed' : 'caution'} />
@@ -89,7 +100,7 @@ export default function Home() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="이 휴대폰엔 기압계가 없어 층을 알 수 없어요. 지금 층 고르기"
-                  onPress={() => router.push('/recheck')}
+                  onPress={() => router.navigate('/recheck')}
                   style={s.unsaved}
                 >
                   <Badge text="기압계 없음 · 지금 층 고르기" tone="caution" />
@@ -99,7 +110,7 @@ export default function Home() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="저장된 지도 없음, 내장 개발 지도 사용 중. 자세히 보기"
-                  onPress={() => router.push('/unsaved')}
+                  onPress={() => router.navigate('/unsaved')}
                   style={s.unsaved}
                 >
                   <Badge text="저장된 지도 없음" tone="caution" />
@@ -131,8 +142,8 @@ export default function Home() {
               <View style={s.sheet}>
                 <View style={s.sheetHead}>
                   <Text style={s.sheetT}>어디로 갈까요?</Text>
-                  <IconButton icon={Settings} label="설정" onPress={() => router.push('/settings')} style={s.settings} />
-                  <PressScale accessibilityLabel="장소 찾기" onPress={() => router.push('/search')} style={s.findBtn}>
+                  <IconButton icon={Settings} label="설정" onPress={() => router.navigate('/settings')} style={s.settings} />
+                  <PressScale accessibilityLabel="장소 찾기" onPress={() => router.navigate('/search')} style={s.findBtn}>
                     <Gradient angle="right" />
                     <Search size={18} color={color.onPrimary} strokeWidth={2.4} />
                     <Text style={s.findT}>장소 찾기</Text>
@@ -145,7 +156,7 @@ export default function Home() {
                         key={p.key}
                         accessibilityLabel={`${p.name}${fav ? ', 저장한 장소' : ', 최근 도착지'}`}
                         style={(on) => [s.quickB, on && { backgroundColor: color.primarySoftPressed }]}
-                        onPress={() => router.push({ pathname: '/place/[key]', params: { key: p.key } })}
+                        onPress={() => router.navigate({ pathname: '/place/[key]', params: { key: p.key } })}
                       >
                         {fav ? <Bookmark size={16} color={T.primary} /> : <Clock size={16} color={T.primary} />}
                         <Text style={s.quickT} numberOfLines={1}>

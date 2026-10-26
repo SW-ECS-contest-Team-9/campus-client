@@ -61,7 +61,7 @@ export default function PlaceScreen() {
             onPress={() => {
               app.setNlp(null); // 말로 한 요청의 필수 조건은 그 요청에만
               app.setDestKey(p.key);
-              router.push('/start');
+              router.navigate('/start');
             }}
             style={{ flex: 2 }}
           />

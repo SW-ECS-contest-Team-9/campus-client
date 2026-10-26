@@ -2,9 +2,9 @@
 import { router } from 'expo-router';
 import { Building } from 'lucide-react-native';
 import { View } from 'react-native';
-import { placeSubtitle, useApp } from '../state/AppState';
-import { Btn, H, P, Row, Screen, Section, TabBar } from '../ui/kit';
-import { modeInfo } from '../route/modes';
+import { placeSubtitle, useApp } from '../../state/AppState';
+import { Btn, H, P, Row, Screen, Section, TabBar } from '../../ui/kit';
+import { modeInfo } from '../../route/modes';
 
 export default function SavedScreen() {
   const app = useApp();

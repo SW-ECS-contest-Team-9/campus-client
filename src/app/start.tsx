@@ -37,7 +37,7 @@ export default function StartScreen() {
       scroll={false}
       footer={
         <>
-          <Btn label="이 위치에서 경로 보기" disabled={!st} onPress={() => router.push('/options')} />
+          <Btn label="이 위치에서 경로 보기" disabled={!st} onPress={() => router.navigate('/options')} />
           <View style={s.two}>
             <Btn kind="soft" label="위치 다시 읽기" onPress={useHere} style={{ flex: 1 }} />
             <Btn

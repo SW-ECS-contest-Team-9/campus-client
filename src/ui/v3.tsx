@@ -187,16 +187,6 @@ export function Character({
   );
 }
 
-/** 내용이 서서히 나타남(화면 전환 단서). 동작 줄이기면 그냥 보임. 위치 이동은 넣지 않음: 3D 지도 자리 재기(measureInWindow)가 어긋나서. */
-export function Appear({ children, delay = 0, style }: { children: ReactNode; delay?: number; style?: StyleProp<ViewStyle> }) {
-  const look = useLook();
-  return (
-    <Animated.View entering={look.moving ? FadeInDown.delay(delay).duration(motion.base * look.motionScale) : undefined} style={style}>
-      {children}
-    </Animated.View>
-  );
-}
-
 /** 경로 그리기 진행(V3-7): 그라데이션 막대가 0 → progress 로 차오름. 동작 줄이기면 바로. */
 export function RouteDrawBar({ progress = 1, height = 6 }: { progress?: number; height?: number }) {
   const look = useLook();

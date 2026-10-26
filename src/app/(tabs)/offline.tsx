@@ -1,9 +1,9 @@
 // CT11 오프라인 지도: 기기에 저장된 지도 꾸러미(버전·크기·날짜·범위)와 갱신. 3D 지도: 기본(네이티브)은 앱에 들어 있어 인터넷 없이, 웹 엔진은 인터넷 필요.
 import { StyleSheet, Text, View } from 'react-native';
-import { useApp } from '../state/AppState';
-import { MapPackCard } from '../ui/components';
-import { Btn, Card, H, P, Screen, T, TabBar } from '../ui/kit';
-import { Character } from '../ui/v3';
+import { useApp } from '../../state/AppState';
+import { MapPackCard } from '../../ui/components';
+import { Btn, Card, H, P, Screen, T, TabBar } from '../../ui/kit';
+import { Character } from '../../ui/v3';
 
 export default function OfflineScreen() {
   const app = useApp();

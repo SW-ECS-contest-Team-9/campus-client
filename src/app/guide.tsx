@@ -55,7 +55,7 @@ export default function GuideScreen() {
             {i < r.steps.length - 1 ? (
               <Btn label="다음 단계" onPress={() => app.setGuideStep(i + 1)} style={{ flex: 2 }} />
             ) : (
-              <Btn label="도착 확인" onPress={() => router.push('/arrive')} style={{ flex: 2 }} />
+              <Btn label="도착 확인" onPress={() => router.navigate('/arrive')} style={{ flex: 2 }} />
             )}
           </View>
           {/* 걸으며 1인칭: 보정 위치(길 쪽으로 끌어당긴 위치)를 경로 위에서 따라감 */}
@@ -66,7 +66,7 @@ export default function GuideScreen() {
               onPress={() => router.push({ pathname: '/first-person', params: { mode: 'follow' } })}
             />
           ) : null}
-          <Btn kind="ghost" label="안내 종료" onPress={() => router.replace('/')} />
+          <Btn kind="ghost" label="안내 종료" onPress={() => router.dismissTo('/')} />
         </>
       }
     >

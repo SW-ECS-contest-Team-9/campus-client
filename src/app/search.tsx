@@ -2,7 +2,7 @@
 // mode=start 면 자연어 모드 없이 고른 장소를 출발점으로 지정하고 CT04 로 돌아간다.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Building, MessageCircleQuestion, Search } from 'lucide-react-native';
+import { Building, MapPin, MessageCircleQuestion, Search } from 'lucide-react-native';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import { describe as describeRequest, planFromRequest } from '../nlp/apply';
 import { mergeWithGemma, shouldAskGemma } from '../nlp/gemma';
@@ -11,7 +11,7 @@ import { note3dStat } from '../map3d/diag';
 import { buildLexicon } from '../nlp/lexicon';
 import { parseRouteRequest } from '../nlp/parse';
 import type { RouteRequest } from '../nlp/types';
-import { searchPlaces } from '../search/search';
+import { searchResults } from '../search/search';
 import { placeSubtitle, startFromFix, useApp } from '../state/AppState';
 import { SearchInput } from '../ui/components';
 import { Badge, Btn, Card, P, Row, Screen, Section, T } from '../ui/kit';
@@ -19,6 +19,9 @@ import { shape } from '../ui/theme';
 import { Character } from '../ui/v3';
 
 type SearchMode = 'place' | 'natural';
+const INITIAL_BUILDINGS = 4;
+const INITIAL_PLACES = 8;
+const INITIAL_BUILDING_PLACES = 3;
 
 export default function SearchScreen() {
   const params = useLocalSearchParams<{ q?: string; mode?: string }>();
@@ -38,9 +41,14 @@ export default function SearchScreen() {
   // 되물음에서 고른 후보를 반영한 요청(같은 문장일 때만)
   const [picked, setPicked] = useState<{ text: string; req: RouteRequest } | null>(null);
   const [ai, setAi] = useState<{ text: string; state: 'running' | 'done' | 'failed' } | null>(null);
+  const [expandedBuilding, setExpandedBuilding] = useState<string | null>(null);
+  const [showAllResults, setShowAllResults] = useState(false);
   const aiRun = useRef(0);
   const pkg = app.pkg;
-  const hits = useMemo(() => (pkg && !naturalSearch ? searchPlaces(pkg, q) : []), [pkg, q, naturalSearch]);
+  const results = useMemo(
+    () => (pkg && !naturalSearch ? searchResults(pkg, q) : { buildingHits: [], placeHits: [] }),
+    [pkg, q, naturalSearch],
+  );
   const lex = useMemo(() => (pkg && naturalSearch ? buildLexicon(pkg) : null), [pkg, naturalSearch]);
   const parsed = useMemo(() => (pkg && lex && q.trim().length >= 2 ? parseRouteRequest(q, pkg, lex) : null), [pkg, lex, q]);
   const req = naturalSearch ? (picked && picked.text === q ? picked.req : parsed) : null;
@@ -87,11 +95,15 @@ export default function SearchScreen() {
   const changeSearchMode = (on: boolean) => {
     stopAi();
     setPicked(null);
+    setExpandedBuilding(null);
+    setShowAllResults(false);
     setSearchModeOverride(on ? 'natural' : 'place');
   };
   const changeQuery = (text: string) => {
     if (ai) stopAi();
     setPicked(null);
+    setExpandedBuilding(null);
+    setShowAllResults(false);
     setQ(text);
   };
 
@@ -119,6 +131,11 @@ export default function SearchScreen() {
   const sub = (key: string, nodeKey: string | null) =>
     `${pkg ? placeSubtitle(pkg, key) : ''}${nodeKey ? '' : ' · 길에 붙지 않아 길찾기 불가'}`;
   const offline = app.loaded?.source !== 'server';
+  const visibleBuildings = showAllResults ? results.buildingHits : results.buildingHits.slice(0, INITIAL_BUILDINGS);
+  const visiblePlaces = showAllResults ? results.placeHits : results.placeHits.slice(0, INITIAL_PLACES);
+  const hiddenResultCount =
+    Math.max(0, results.buildingHits.length - INITIAL_BUILDINGS) + Math.max(0, results.placeHits.length - INITIAL_PLACES);
+  const resultCount = results.buildingHits.length + results.placeHits.length;
   return (
     <Screen title={choosingStart ? '출발 장소 고르기' : naturalSearch ? '자연어 검색' : '장소 검색'}>
       {!choosingStart ? (
@@ -207,19 +224,54 @@ export default function SearchScreen() {
           )}
         </Card>
       ) : null}
-      {!naturalSearch && q && hits.length ? <Section>장소 {hits.length}</Section> : null}
-      {hits.map((h) => (
+      {!naturalSearch && q && results.buildingHits.length ? <Section>건물 {results.buildingHits.length}</Section> : null}
+      {visibleBuildings.map((h) => {
+        const expanded = expandedBuilding === h.building.key;
+        const unavailable = h.places.length - h.routablePlaceCount;
+        const visibleBuildingPlaces = expanded ? h.places : h.places.slice(0, INITIAL_BUILDING_PLACES);
+        const hiddenBuildingPlaces = Math.max(0, h.places.length - INITIAL_BUILDING_PLACES);
+        const detail = h.places.length
+          ? `세부 위치 ${h.places.length}개${unavailable ? ` · 길찾기 가능 ${h.routablePlaceCount}개` : ''}`
+          : '등록된 세부 위치 없음';
+        return (
+          <View key={h.building.key} style={s.buildingGroup}>
+            <Row icon={Building} title={h.building.name} sub={detail} />
+            {visibleBuildingPlaces.map((p) => (
+              <View key={p.place.key} style={s.childResult}>
+                <Row icon={MapPin} title={p.place.name} sub={sub(p.place.key, p.place.nodeKey)} onPress={() => pick(p.place.key)} />
+              </View>
+            ))}
+            {hiddenBuildingPlaces ? (
+              <Btn
+                kind="ghost"
+                label={expanded ? '세부 위치 접기' : `세부 위치 ${hiddenBuildingPlaces}개 더 보기`}
+                onPress={() => setExpandedBuilding(expanded ? null : h.building.key)}
+                style={s.childMore}
+              />
+            ) : null}
+          </View>
+        );
+      })}
+      {!naturalSearch && q && results.placeHits.length ? <Section>장소 {results.placeHits.length}</Section> : null}
+      {visiblePlaces.map((h) => (
         <Row
           key={h.place.key}
-          icon={Building}
+          icon={MapPin}
           title={h.place.name}
           sub={sub(h.place.key, h.place.nodeKey)}
           onPress={() => pick(h.place.key)}
         />
       ))}
+      {!naturalSearch && hiddenResultCount ? (
+        <Btn
+          kind="ghost"
+          label={showAllResults ? '검색 결과 접기' : `검색 결과 ${hiddenResultCount}개 더 보기`}
+          onPress={() => setShowAllResults((v) => !v)}
+        />
+      ) : null}
       {!q && app.recentSearches.length ? <Section>최근 검색</Section> : null}
       {!q ? app.recentSearches.map((r) => <Row key={r} icon={Search} title={r} onPress={() => changeQuery(r)} />) : null}
-      {!naturalSearch && q && !hits.length ? (
+      {!naturalSearch && q && !resultCount ? (
         <Card tone="primary" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Character name="emptySearch" size={84} />
           <View style={{ flex: 1, gap: 4 }}>
@@ -236,6 +288,9 @@ const s = StyleSheet.create({
   modeCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   modeCopy: { flex: 1, gap: 2 },
   modeTitle: { fontSize: T.small, fontWeight: '800', color: T.text },
+  buildingGroup: { gap: 6 },
+  childResult: { marginLeft: 16 },
+  childMore: { marginLeft: 16 },
   nlp: { gap: 10 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   headT: { fontSize: T.small, fontWeight: '800', color: T.primary },

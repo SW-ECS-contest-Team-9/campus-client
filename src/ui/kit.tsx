@@ -153,8 +153,20 @@ export function Chip({ label, on, onPress }: { label: string; on?: boolean; onPr
   return <FloorItem label={label} state={on ? 'selected' : 'idle'} onPress={onPress} />;
 }
 
-export function Row({ title, sub, onPress, icon }: { title: string; sub?: string | null; onPress?: () => void; icon?: LucideIcon }) {
-  return <ResultRow title={title} sub={sub} onPress={onPress} icon={icon} />;
+export function Row({
+  title,
+  sub,
+  onPress,
+  icon,
+  trailing,
+}: {
+  title: string;
+  sub?: string | null;
+  onPress?: () => void;
+  icon?: LucideIcon;
+  trailing?: ReactNode;
+}) {
+  return <ResultRow title={title} sub={sub} onPress={onPress} icon={icon} trailing={trailing} />;
 }
 
 export const H = ({ children }: { children: ReactNode }) => (

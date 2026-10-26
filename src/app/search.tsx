@@ -2,7 +2,7 @@
 // mode=start 면 자연어 모드 없이 고른 장소를 출발점으로 지정하고 CT04 로 돌아간다.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Building, MapPin, MessageCircleQuestion, Search } from 'lucide-react-native';
+import { Building, Info, MapPin, MessageCircleQuestion, Navigation, Search } from 'lucide-react-native';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import { describe as describeRequest, planFromRequest } from '../nlp/apply';
 import { mergeWithGemma, shouldAskGemma } from '../nlp/gemma';
@@ -13,7 +13,7 @@ import { parseRouteRequest } from '../nlp/parse';
 import type { RouteRequest } from '../nlp/types';
 import { searchResults } from '../search/search';
 import { placeSubtitle, startFromFix, useApp } from '../state/AppState';
-import { SearchInput } from '../ui/components';
+import { IconButton, SearchInput } from '../ui/components';
 import { Badge, Btn, Card, P, Row, Screen, Section, T } from '../ui/kit';
 import { shape } from '../ui/theme';
 import { Character } from '../ui/v3';
@@ -107,12 +107,34 @@ export default function SearchScreen() {
     setQ(text);
   };
 
-  const pick = (key: string) => {
+  const rememberSearch = () => {
     if (q.trim()) app.addRecentSearch(q.trim());
+  };
+  const openDetails = (key: string) => {
+    rememberSearch();
+    router.push({ pathname: '/place/[key]', params: { key } });
+  };
+  const beginRouteToPlace = (key: string) => {
+    if (!pkg) return;
+    rememberSearch();
+    app.setNlp(null);
+    app.setDestKey(key);
+    const fix = app.fix;
+    const currentStart = fix && !fix.uncertain ? startFromFix(pkg, app.graph, fix, '현재 위치') : null;
+    if (currentStart) {
+      app.setStart(currentStart);
+      router.push('/options');
+      return;
+    }
+    app.setStart(null);
+    router.push('/start');
+  };
+  const pick = (key: string) => {
+    rememberSearch();
     if (choosingStart) {
       app.setStart({ type: 'place', placeKey: key });
       router.back();
-    } else router.push({ pathname: '/place/[key]', params: { key } });
+    }
   };
   // 알아들은 조건을 채워 경로 옵션으로. 필수 조건은 앱 상태에 남아 경로 계산의 하드 필터가 됨.
   const go = () => {
@@ -128,8 +150,17 @@ export default function SearchScreen() {
     }
     router.push('/options');
   };
-  const sub = (key: string, nodeKey: string | null) =>
-    `${pkg ? placeSubtitle(pkg, key) : ''}${nodeKey ? '' : ' · 길에 붙지 않아 길찾기 불가'}`;
+  const sub = (key: string, nodeKey: string | null) => {
+    const place = pkg ? placeSubtitle(pkg, key) : '';
+    if (choosingStart) return place;
+    return `${place}${nodeKey ? ' · 눌러서 바로 길찾기' : ' · 길에 붙지 않아 길찾기 불가'}`;
+  };
+  const placeAction = (key: string, name: string, nodeKey: string | null) => ({
+    onPress: choosingStart ? () => pick(key) : nodeKey ? () => beginRouteToPlace(key) : () => openDetails(key),
+    icon: choosingStart || !nodeKey ? MapPin : Navigation,
+    trailing:
+      !choosingStart && nodeKey ? <IconButton icon={Info} label={`${name} 상세 보기`} onPress={() => openDetails(key)} /> : undefined,
+  });
   const offline = app.loaded?.source !== 'server';
   const visibleBuildings = showAllResults ? results.buildingHits : results.buildingHits.slice(0, INITIAL_BUILDINGS);
   const visiblePlaces = showAllResults ? results.placeHits : results.placeHits.slice(0, INITIAL_PLACES);
@@ -238,7 +269,11 @@ export default function SearchScreen() {
             <Row icon={Building} title={h.building.name} sub={detail} />
             {visibleBuildingPlaces.map((p) => (
               <View key={p.place.key} style={s.childResult}>
-                <Row icon={MapPin} title={p.place.name} sub={sub(p.place.key, p.place.nodeKey)} onPress={() => pick(p.place.key)} />
+                <Row
+                  title={p.place.name}
+                  sub={sub(p.place.key, p.place.nodeKey)}
+                  {...placeAction(p.place.key, p.place.name, p.place.nodeKey)}
+                />
               </View>
             ))}
             {hiddenBuildingPlaces ? (
@@ -256,10 +291,9 @@ export default function SearchScreen() {
       {visiblePlaces.map((h) => (
         <Row
           key={h.place.key}
-          icon={MapPin}
           title={h.place.name}
           sub={sub(h.place.key, h.place.nodeKey)}
-          onPress={() => pick(h.place.key)}
+          {...placeAction(h.place.key, h.place.name, h.place.nodeKey)}
         />
       ))}
       {!naturalSearch && hiddenResultCount ? (

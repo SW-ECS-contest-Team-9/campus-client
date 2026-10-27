@@ -2,9 +2,9 @@
 // 설정 "3D 엔진: 웹" 이거나 웹 빌드면 campus-tracker 의 client3d.html(웹 <iframe>, 네이티브 react-native-webview). 두 엔진 모두 메시지 형식 v1.
 // 화면은 <MapSlot> 으로 자리만 잡고, 초점을 받은 화면의 자리로 그 하나를 옮겨 보여 준다(화면 바꿀 때 다시 불러오지 않음).
 // 명령은 페이지가 ready 를 보낸 뒤 보내고, 자리·명령이 바뀔 때마다 다시 보낸다. 못 불러오면 각 자리에 평면 지도 + 알림.
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useNavigation } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurTargetView } from 'expo-blur';
@@ -13,6 +13,7 @@ import { Character } from './v3';
 import { parseEvent, type Map3dCommand, type Map3dEvent } from '../map3d/embed';
 import { CHARACTER_OK, CHARACTER_UNCERTAIN } from './characterImages';
 import { color } from './components';
+import { tabSlideSpec } from './theme';
 import { Campus3DView, type Campus3DHandle } from '../map3d/native/Campus3DView';
 import { note3dStat } from '../map3d/diag';
 
@@ -44,6 +45,8 @@ interface Slot {
   overlay?: ReactNode;
   /** 지도 위·아래를 가리는 카드 높이(dp) */
   padding?: { top: number; bottom: number };
+  /** 탭 전환 때 3D 를 화면과 함께 옆으로 미는 값(dp) */
+  offset?: Animated.Value;
 }
 interface Api {
   put: (s: Slot) => void;
@@ -234,6 +237,10 @@ export function Map3DHost({
 
   const rect = slot?.rect;
   const shown = !!rect && status !== 'failed';
+  // 다시 보일 때 바로 한 프레임 그림(숨긴 동안 표면이 비워져 흰 화면으로 밀려 들어오던 문제)
+  useEffect(() => {
+    if (shown) native.current?.redraw();
+  }, [shown]);
   // 숨길 때도 마지막 크기를 유지(지도 다시 그리기 비용 줄임)
   const [r, setR] = useState<Rect>({ x: 0, y: 0, w: 360, h: 400 });
   if (rect && (rect.x !== r.x || rect.y !== r.y || rect.w !== r.w || rect.h !== r.h)) setR(rect);
@@ -251,9 +258,13 @@ export function Map3DHost({
             }}
           >
             {children}
-            <View
+            <Animated.View
               pointerEvents={shown ? 'box-none' : 'none'}
-              style={[s.host, { left: r.x - origin.x, top: r.y - origin.y, width: r.w, height: r.h, opacity: shown ? 1 : 0 }]}
+              style={[
+                s.host,
+                { left: r.x - origin.x, top: r.y - origin.y, width: r.w, height: r.h, opacity: shown ? 1 : 0 },
+                { transform: [{ translateX: slot?.offset ?? 0 }] },
+              ]}
               accessibilityElementsHidden={!shown}
               importantForAccessibility={shown ? 'auto' : 'no-hide-descendants'}
             >
@@ -335,7 +346,7 @@ export function Map3DHost({
                     );
                   })}
               </BlurTargetCtx.Provider>
-            </View>
+            </Animated.View>
           </View>
         </StatusCtx.Provider>
       </ControlsCtx.Provider>
@@ -352,6 +363,7 @@ export function MapSlot({
   fallback,
   style,
   padding,
+  tabSlide,
 }: {
   /** 지도 위·아래를 가리는 카드 높이(dp): 네이티브 3D 가 보이는 부분 가운데에 맞춤 */
   padding?: { top: number; bottom: number };
@@ -362,6 +374,8 @@ export function MapSlot({
   overlay?: ReactNode;
   fallback: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** 아래 탭 화면이면: 이 탭의 route 이름과, 탭 전환으로 밀려났을 때 화면이 가 있는 x(dp). 지도 탭은 맨 왼쪽이라 -너비 */
+  tabSlide?: { route: string; exitX: number };
 }) {
   const api = useContext(ApiCtx);
   const status = useContext(StatusCtx);
@@ -370,19 +384,59 @@ export function MapSlot({
   const ref = useRef<View | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
   const list = useMemo(() => commands.filter((c): c is Map3dCommand => !!c), [commands]);
-  const measure = useCallback(() => ref.current?.measureInWindow((x, y, w, h) => w > 0 && h > 0 && setRect({ x, y, w, h })), []);
+  const exitX = tabSlide?.exitX;
+  const tabRoute = tabSlide?.route;
+  // 아래 탭 화면은 전환 때 옆으로 밀리므로, 밀려나 있는 채로 잰 자리는 제자리 값으로 고치고 전환 중간값은 버림
+  const measure = useCallback(
+    () =>
+      ref.current?.measureInWindow((x, y, w, h) => {
+        if (!(w > 0 && h > 0)) return;
+        if (exitX != null && Math.abs(x - exitX) < 2) x -= exitX;
+        else if (exitX != null && Math.abs(x) >= Math.abs(exitX) / 2) return;
+        setRect({ x, y, w, h });
+      }),
+    [exitX],
+  );
 
+  const [offset] = useState(() => new Animated.Value(0));
   useEffect(() => {
-    api?.put({ id, rect, commands: list, minimal, onEvent, overlay, padding });
+    api?.put({ id, rect, commands: list, minimal, onEvent, overlay, padding, offset });
   });
   // 화면이 스택에서 제거될 때 보관한 UI도 함께 정리.
   useEffect(() => () => api?.remove(id), [api, id]);
+
+  // 아래 탭 전환: 공용 3D 는 탭 화면들 위에 그려지므로, 이 화면이 밀려날 때 3D 도 같은 시간·곡선으로 밀어 두고(초점은 유지)
+  // 돌아올 때 transitionStart 에서 바로 되밀어 옴(React 재렌더를 기다리지 않아 흰 화면이 없음).
+  // 스택 화면(미리보기·안내 등)으로 갈 때는 전처럼 초점을 넘김. 전환이 끝나면 자리를 다시 잼.
+  const nav = useNavigation() as unknown as {
+    addListener: (type: string, cb: () => void) => () => void;
+    getState: () => { type?: string; index: number; routes: { name: string }[] } | undefined;
+  };
+  const slideTo = (to: number) => Animated.timing(offset, { toValue: to, ...tabSlideSpec, useNativeDriver: true }).start();
+  useEffect(() => {
+    if (exitX == null) return;
+    const a = nav.addListener('transitionStart', () => {
+      offset.setValue(exitX);
+      slideTo(0);
+    });
+    const b = nav.addListener('transitionEnd', measure);
+    return () => {
+      a();
+      b();
+    };
+  }, [nav, exitX, offset, measure]); // eslint-disable-line react-hooks/exhaustive-deps -- slideTo 는 offset 만 씀
   useFocusEffect(
     useCallback(() => {
-      measure();
       api?.focus(id, true);
-      return () => api?.focus(id, false);
-    }, [api, id, measure]),
+      const t = setTimeout(measure, exitX == null ? 0 : tabSlideSpec.duration + 150);
+      return () => {
+        clearTimeout(t);
+        const st = nav.getState();
+        const leftByTab = exitX != null && st?.type === 'tab' && st.routes[st.index]?.name !== tabRoute;
+        if (leftByTab) slideTo(exitX);
+        else api?.focus(id, false);
+      };
+    }, [api, id, measure, nav, exitX, tabRoute]), // eslint-disable-line react-hooks/exhaustive-deps -- slideTo 는 offset 만 씀
   );
 
   return (

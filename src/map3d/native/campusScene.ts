@@ -432,7 +432,7 @@ export async function createCampusScene(o: SceneOptions) {
   resize(o.width, o.height);
   const info = () => ({ ...renderer.info.render, geometries: renderer.info.memory.geometries });
   emit({ type: 'ready', buildings: [...buildings.values()].filter((b) => baseId(b.id) === b.id).map((b) => ({ id: b.id, name: b.name })), light });
-  return { command, frameTick, resize, pan, zoom, rotate, tilt, tap, home, markerScreen, info, resumeFollow: () => { follow.paused = false; },
+  return { command, frameTick, resize, pan, zoom, rotate, tilt, tap, home, markerScreen, info, redraw: dirty, resumeFollow: () => { follow.paused = false; },
     firstPerson,
     buildingAnchors: () => anchors, screenOf, toScene, cameraDistance: () => cam.dist, setPadding, toggleExplode, focusMe, exploded: () => !!floorState?.explode };
 }

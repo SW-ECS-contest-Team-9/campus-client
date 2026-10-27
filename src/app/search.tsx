@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Building, Info, MapPin, MessageCircleQuestion, Navigation, Search } from 'lucide-react-native';
 import { StyleSheet, Switch, Text, View } from 'react-native';
+import { currentLocationLabel } from '../location/fix';
 import { describe as describeRequest, planFromRequest } from '../nlp/apply';
 import { mergeWithGemma, shouldAskGemma } from '../nlp/gemma';
 import { cancelInterpret, interpretWithGemma } from '../nlp/gemmaRuntime';
@@ -120,7 +121,7 @@ export default function SearchScreen() {
     app.setNlp(null);
     app.setDestKey(key);
     const fix = app.fix;
-    const currentStart = fix && !fix.uncertain ? startFromFix(pkg, app.graph, fix, '현재 위치') : null;
+    const currentStart = fix && !fix.uncertain ? startFromFix(pkg, app.graph, fix, currentLocationLabel(pkg, fix)) : null;
     app.setStart(currentStart);
     router.push('/start');
   };
@@ -141,7 +142,7 @@ export default function SearchScreen() {
     if (plan.origin.type === 'place') app.setStart({ type: 'place', placeKey: plan.origin.placeKey });
     else {
       const f = app.fix;
-      app.setStart(f && !f.uncertain ? startFromFix(pkg, app.graph, f, '현재 위치') : null);
+      app.setStart(f && !f.uncertain ? startFromFix(pkg, app.graph, f, currentLocationLabel(pkg, f)) : null);
     }
     router.push('/start');
   };

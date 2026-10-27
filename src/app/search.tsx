@@ -121,12 +121,7 @@ export default function SearchScreen() {
     app.setDestKey(key);
     const fix = app.fix;
     const currentStart = fix && !fix.uncertain ? startFromFix(pkg, app.graph, fix, '현재 위치') : null;
-    if (currentStart) {
-      app.setStart(currentStart);
-      router.push('/options');
-      return;
-    }
-    app.setStart(null);
+    app.setStart(currentStart);
     router.push('/start');
   };
   const pick = (key: string) => {
@@ -136,7 +131,7 @@ export default function SearchScreen() {
       router.back();
     }
   };
-  // 알아들은 조건을 채워 경로 옵션으로. 필수 조건은 앱 상태에 남아 경로 계산의 하드 필터가 됨.
+  // 알아들은 조건과 출발점을 채운 뒤 출발점 확인으로. 필수 조건은 앱 상태에 남아 경로 계산의 하드 필터가 됨.
   const go = () => {
     if (!pkg || !req || plan?.kind !== 'go') return;
     app.addRecentSearch(q.trim());
@@ -148,7 +143,7 @@ export default function SearchScreen() {
       const f = app.fix;
       app.setStart(f && !f.uncertain ? startFromFix(pkg, app.graph, f, '현재 위치') : null);
     }
-    router.push('/options');
+    router.push('/start');
   };
   const sub = (key: string, nodeKey: string | null) => {
     const place = pkg ? placeSubtitle(pkg, key) : '';

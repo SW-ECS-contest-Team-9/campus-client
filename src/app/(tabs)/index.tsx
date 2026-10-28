@@ -138,17 +138,22 @@ export default function Home() {
               ) : null}
               <IconButton icon={Navigation} label="내 위치" onPress={locate} iconColor={T.route} />
             </View>
-            <Sheet snaps={[PEEK, 300]} bottomOffset={bottom}>
-              <View style={s.sheet}>
-                <View style={s.sheetHead}>
-                  <Text style={s.sheetT}>어디로 갈까요?</Text>
+            <Sheet
+              snaps={[PEEK, 300]}
+              bottomOffset={bottom}
+              header={<Text style={s.sheetT}>어디로 갈까요?</Text>}
+              headerActions={
+                <>
                   <IconButton icon={Settings} label="설정" onPress={() => router.navigate('/settings')} style={s.settings} />
                   <PressScale accessibilityLabel="장소 찾기" onPress={() => router.navigate('/search')} style={s.findBtn}>
                     <Gradient angle="right" />
                     <Search size={18} color={color.onPrimary} strokeWidth={2.4} />
                     <Text style={s.findT}>장소 찾기</Text>
                   </PressScale>
-                </View>
+                </>
+              }
+            >
+              <View style={s.sheet}>
                 {shortcuts.length ? (
                   <View style={s.quick}>
                     {shortcuts.map(({ p, fav }) => (
@@ -197,9 +202,8 @@ const s = StyleSheet.create({
   brandT: { color: '#FFFFFF', fontSize: T.small, fontWeight: '800', letterSpacing: -0.2 },
   unsaved: { alignSelf: 'flex-start' },
   ctl: { position: 'absolute', right: 16, gap: 10, alignItems: 'center' },
-  sheet: { paddingHorizontal: 20, gap: 14 },
-  sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  sheetT: { fontSize: T.title - 2, fontWeight: '800', color: T.text, letterSpacing: -0.5, flex: 1 },
+  sheet: { paddingHorizontal: 20, paddingTop: 14 },
+  sheetT: { fontSize: T.title - 2, fontWeight: '800', color: T.text, letterSpacing: -0.5 },
   settings: { shadowOpacity: 0, elevation: 0, borderColor: 'rgba(49,46,129,0.10)' },
   findBtn: {
     flexDirection: 'row',

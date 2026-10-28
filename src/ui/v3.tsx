@@ -275,8 +275,9 @@ export function Sheet({
     scheduleOnRN(next);
   });
   return (
-    <Animated.View style={[s.sheet, { height: max + 24, bottom: bottomOffset - 24 }, st]}>
-      <Glass strong radius={shape.sheetTop} style={s.sheetIn}>
+    // 탭 자리만큼 아래로 면을 연장해 펼쳐도 화면 하단에 틈이 생기지 않게 한다.
+    <Animated.View style={[s.sheet, { height: max + bottomOffset + 24, bottom: -24 }, st]}>
+      <Glass strong radius={shape.sheetTop} style={[s.sheetIn, { paddingBottom: bottomOffset + 24 }]}>
         <GestureDetector gesture={Gesture.Exclusive(pan, tap)}>
           <View
             style={s.grab}
@@ -301,7 +302,7 @@ const s = StyleSheet.create({
   edge: { position: 'absolute', left: 0, right: 0 },
   track: { backgroundColor: 'rgba(79,70,229,0.12)', overflow: 'hidden' },
   sheet: { position: 'absolute', left: 0, right: 0 },
-  sheetIn: { flex: 1, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, paddingBottom: 24 },
+  sheetIn: { flex: 1, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   grab: { height: 28, alignItems: 'center', justifyContent: 'center' },
   grabBar: { width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(20,34,53,0.22)' },
 });

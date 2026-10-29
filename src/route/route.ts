@@ -90,7 +90,8 @@ export function buildGraph(pkg: MapPackage): Graph {
     const f = n.floorKey ? floors.get(n.floorKey)?.code : null;
     return f ? `${b} ${f}`.trim() : null;
   };
-  const modes = pkg.routeModes ?? DEFAULT_MODE_SPEC;
+  // 꾸러미에 방식이 빠져 있어도(옛 릴리스) 기본값으로 메움: mesh 가 모든 방식을 전제로 함
+  const modes = { ...DEFAULT_MODE_SPEC, ...pkg.routeModes };
   const edgeByKey = new Map(pkg.edges.map((e) => [e.key, e]));
   const mesh = pkg.walkMeshes?.length
     ? new MeshRouter(

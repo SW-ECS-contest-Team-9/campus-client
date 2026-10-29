@@ -1,7 +1,7 @@
 // 사용자용 3D 페이지(client3d.html)의 끼워 넣기 메시지 형식 v1. 브라우저·Cesium 에 의존하지 않음(시험 가능).
 // 받는 명령: setLocation, clearLocation, setRoute, clearRoute, focus, setFloor, setMarkerImages, setMode,
 //   firstPerson·firstPersonSeek·firstPersonFollow(네이티브 3D 만: 마지막 setRoute 경로를 1인칭으로 미리 걷기·걸으며 따라가기).
-// 보내는 사건: ready, pick, cameraChanged, floorChanged, error, firstPerson(네이티브 3D 만). 모든 메시지에 v: 1.
+// 보내는 사건: ready, pick, error, firstPerson(네이티브 3D 만). 모든 메시지에 v: 1.
 // 좌표: 경로·focus 는 EPSG:5186 [x, y, z(MSL m)], 위치는 WGS84 lon/lat + z(MSL m).
 
 export const PROTOCOL_VERSION = 1;
@@ -10,7 +10,7 @@ export type Xyz = [number, number, number];
 export type FloorRef = string | null;
 
 export type Command =
-  | { type: 'setLocation'; lon: number; lat: number; z: number | null; accuracyM: number; floor: FloorRef; building: string | null; state: 'ok' | 'uncertain'; markerUrl: string | null }
+  | { type: 'setLocation'; lon: number; lat: number; z: number | null; accuracyM: number; floor: FloorRef; building: string | null; state: 'ok' | 'uncertain' }
   | { type: 'clearLocation' }
   | { type: 'setRoute'; points: Xyz[]; floorChanges: { at: Xyz; label: string | null }[]; steps: RouteStepRef[] }
   | { type: 'clearRoute' }
@@ -30,8 +30,6 @@ export type FirstPersonTurn = 'left' | 'right' | 'up' | 'down' | 'arrive' | null
 export type PageEvent =
   | { v: 1; type: 'ready'; buildings: { id: string; name: string }[]; light: boolean }
   | { v: 1; type: 'pick'; kind: 'building' | 'place' | 'point'; id?: string; name?: string; x: number; y: number; z: number }
-  | { v: 1; type: 'cameraChanged'; x: number; y: number; heightM: number; headingDeg: number; pitchDeg: number }
-  | { v: 1; type: 'floorChanged'; building: string | null; floor: string | null; explode: boolean }
   | { v: 1; type: 'error'; error: string; command?: string }
   | { v: 1; type: 'firstPerson'; state: FirstPersonState; s: number; total: number; speed: number; follow: boolean; text: string | null; sub: string | null; floor: string | null; turn: FirstPersonTurn };
 
@@ -65,7 +63,7 @@ const tm = (v: unknown, name: string): Xyz => {
 };
 
 /** 표시용 그림 주소: data:image/(png|gif|jpeg|webp);base64 (2 MB 이하) 또는 http(s)/같은 출처 경로. */
-export function imageUrl(v: unknown): boolean {
+function imageUrl(v: unknown): boolean {
   if (typeof v !== 'string' || !v) return false;
   if (v.startsWith('data:')) return v.length <= LIMITS.dataUrlBytes && /^data:image\/(png|gif|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(v);
   if (/^https?:\/\//i.test(v)) return v.length <= 2000 && !/[\s"'<>]/.test(v);
@@ -88,10 +86,8 @@ export function parseCommand(raw: unknown): Parsed {
         need(num(data.lon) && num(data.lat) && Math.abs(data.lon as number) <= 180 && Math.abs(data.lat as number) <= 90, 'lon/lat: WGS84 숫자');
         need(num(data.accuracyM) && (data.accuracyM as number) >= 0 && (data.accuracyM as number) <= LIMITS.accuracyM, `accuracyM: 0~${LIMITS.accuracyM}`);
         need(data.state === 'ok' || data.state === 'uncertain', "state: 'ok' 또는 'uncertain'");
-        const markerUrl = data.markerUrl === undefined || data.markerUrl === null ? null : data.markerUrl;
-        need(markerUrl === null || imageUrl(markerUrl), 'markerUrl: data:image 또는 http(s) 주소');
         return { ok: true, command: { type, lon: data.lon as number, lat: data.lat as number, z: optNum(data.z, 'z'), accuracyM: data.accuracyM as number,
-          floor: floorRef(data.floor, 'floor'), building: optText(data.building, 'building'), state: data.state as 'ok' | 'uncertain', markerUrl: markerUrl as string | null } };
+          floor: floorRef(data.floor, 'floor'), building: optText(data.building, 'building'), state: data.state as 'ok' | 'uncertain' } };
       }
       case 'clearLocation': case 'clearRoute':
         return { ok: true, command: { type } };
@@ -156,16 +152,8 @@ export function parseCommand(raw: unknown): Parsed {
   }
 }
 
-/** 출처 허용 목록(쉼표 구분, 빈 값 = 모두 허용). React Native WebView 의 메시지(출처 없음)는 그 안에서만 받는다. */
-export function originAllowed(origin: string, allowList: string, inNativeWebView: boolean): boolean {
-  const list = allowList.split(',').map((s) => s.trim()).filter(Boolean);
-  if (!list.length) return true;
-  if ((origin === '' || origin === 'null') && inNativeWebView) return true;
-  return list.includes(origin);
-}
-
 /** 층 문자열 → 층 번호("5F" 5, "B1" -1, "지하 1층" -1); 모르면 null. */
-export function floorNumber(ref: string | null): number | null {
+function floorNumber(ref: string | null): number | null {
   if (!ref) return null;
   const m = /^\s*(?:지하\s*(\d{1,2})\s*층|B(\d{1,2})|(\d{1,2})\s*(?:층|F))\s*$/i.exec(ref);
   if (!m) return null;
@@ -182,15 +170,4 @@ export function matchFloor(floors: { m: number; name: string | null }[], ref: st
     return best;
   }
   return -1;
-}
-
-/** 일정 간격보다 자주 부르지 않게(마지막 호출은 반드시 보냄). */
-export function throttle<T extends unknown[]>(fn: (...a: T) => void, ms: number, now: () => number = Date.now) {
-  let last = -Infinity, timer: ReturnType<typeof setTimeout> | null = null, pending: T | null = null;
-  return (...a: T) => {
-    const t = now();
-    if (t - last >= ms) { last = t; fn(...a); return; }
-    pending = a;
-    if (!timer) timer = setTimeout(() => { timer = null; last = now(); if (pending) fn(...pending); pending = null; }, ms - (t - last));
-  };
 }

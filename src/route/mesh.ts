@@ -608,20 +608,15 @@ export class MeshRouter {
   private pkgAdj: AEdge[][] = [];
   hppm: Record<string, number> = {};
   private pkgCost: Map<string, number>[] = Array.from({ length: NM }, () => new Map());
-  buildMs: number;
-  /** 만들기 단계별 누적 시간(ms) */
-  phases: Record<string, number> = {};
 
   constructor(
     private g: MeshGraph,
     entries: WalkMesh[],
     classes: WalkMeshClass[],
   ) {
-    const t0 = Date.now();
     const cf: Int32Array[] = [];
     for (let m = 0; m < NM; m++) cf.push(Int32Array.from(classes, (c) => (c.f[m] === null ? -1 : c.f[m]!)));
     this.meshes = entries.map((e) => new Mesh(e, g.edgeGeom, classes, cf));
-    this.phases.meshes = Date.now() - t0;
     for (const e of entries) if ((e.kind ?? 'surface') === 'surface') for (const k of e.sources) this.covered.add(k);
     this.nkeys = g.nodes.map((n) => n.key);
     this.nkeys.forEach((k, i) => this.nid.set(k, i));
@@ -630,7 +625,6 @@ export class MeshRouter {
       this.hppm[m] = Math.floor(Math.min(1.0, ...Object.values(s.mult)) * (s.base === 'walkS' ? WALK_MIN_S_PER_M : 1.0) * 0.99 * PPM);
     }
     this.seams();
-    this.phases.seams = Date.now() - t0;
     this.attachNodes();
     this.live = this.meshes.map(() => new Set<number>());
     for (const hits of this.nodeAtt.values())
@@ -639,11 +633,8 @@ export class MeshRouter {
       this.live[a].add(this.meshes[a].comp[va]);
       this.live[b].add(this.meshes[b].comp[vb]);
     }
-    this.phases.attach = Date.now() - t0;
     this.gates();
     this.prepareTables();
-    this.phases.gates = Date.now() - t0;
-    this.buildMs = Date.now() - t0;
   }
 
   /** 항목에 실린 이음(서버가 가져올 때 계산, 서버 _seams). */
@@ -859,7 +850,6 @@ export class MeshRouter {
   private tables(modeI: number): AEdge[][] {
     const have = this.aadj[modeI];
     if (have) return have;
-    const t0 = Date.now();
     const aadj: AEdge[][] = Array.from({ length: this.nAbs }, (_, i) => (i < this.pkgAdj.length ? [...this.pkgAdj[i]] : []));
     for (const [mi, b] of this.blockList) {
       const M = this.meshes[mi];
@@ -913,13 +903,7 @@ export class MeshRouter {
       aadj[gbb].push({ to: ga, info: { t: 'seam', a: b, va: vb, b: a, vb: va }, c });
     }
     this.aadj[modeI] = aadj;
-    this.phases[`tables:${MESH_MODES[modeI]}`] = Date.now() - t0;
     return aadj;
-  }
-
-  /** 방식 하나의 관문 표를 미리 만든다(앱이 쉴 때 부르면 첫 길찾기가 빠름). */
-  warm(mode = 'shortest') {
-    this.tables(MESH_MODES.indexOf(mode));
   }
 
   /** 출발·도착 = 노드 key 또는 점 [x, y, z]. 서버 route_points. */

@@ -1,4 +1,5 @@
 // CT11 오프라인 지도: 기기에 저장된 지도 꾸러미(버전·크기·날짜·범위)와 갱신. 3D 지도: 기본(네이티브)은 앱에 들어 있어 인터넷 없이, 웹 엔진은 인터넷 필요.
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useApp } from '../../state/AppState';
 import { MapPackCard } from '../../ui/components';
@@ -9,8 +10,8 @@ export default function OfflineScreen() {
   const app = useApp();
   const l = app.loaded;
   const pkg = app.pkg;
+  const kb = useMemo(() => (pkg ? Math.round(JSON.stringify(pkg).length / 1024) : 0), [pkg]); // 지도 전체 직렬화: 렌더마다 하지 않음
   if (!l || !pkg) return null;
-  const kb = Math.round(JSON.stringify(pkg).length / 1024);
   const indoor = pkg.buildings.filter((b) => pkg.floors.some((f) => f.buildingKey === b.key));
   const src =
     l.source === 'server' ? '방금 서버에서 받음' : l.source === 'stored' ? '기기에 저장됨' : '저장된 지도 없음 · 앱에 들어 있는 개발 지도';

@@ -67,12 +67,10 @@ function findMentions(c: string, lex: Lexicon, starts: Set<number>): Mention[] {
       }
     }
     const after = c.slice(m.end);
-    const before = c.slice(Math.max(0, m.start - 3), m.start);
     if (/^(?:은|는|이|가)?(?:말고|아니고|아니라|빼고)/.test(after)) m.role = 'negated';
     else if (/^(?:으로|로|에)?(?:거쳐|들러|들렸|들렀|경유|지나서|지나)/.test(after) || /^(?:을|를)?(?:거쳐|들러|경유)/.test(after)) m.role = 'waypoint';
     else if (/^(?:에서|에서부터|부터|서출발|출발)/.test(after) || /^(?:이|가)?(?:근처인데|앞인데|인데|에있는데|에있어)/.test(after)) m.role = 'origin';
     else if (/^(?:에서|서)/.test(after)) m.role = 'origin';
-    void before;
     out.push(m);
     i = prevEnd = m.end;
   }

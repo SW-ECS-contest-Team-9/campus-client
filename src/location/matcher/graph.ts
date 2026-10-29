@@ -233,15 +233,3 @@ export function footprintDist(g: { footprints: [number, number][][] }, x: number
   return best;
 }
 
-/** 선분이 다각형 경계를 가로지르는가. */
-export function segCrossesPoly(ax: number, ay: number, bx: number, by: number, poly: [number, number][]): boolean {
-  const cr = (ox: number, oy: number, px: number, py: number, qx: number, qy: number) => (px - ox) * (qy - oy) - (py - oy) * (qx - ox);
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [cx, cy] = poly[j];
-    const [dx, dy] = poly[i];
-    const d1 = cr(ax, ay, bx, by, cx, cy), d2 = cr(ax, ay, bx, by, dx, dy);
-    const d3 = cr(cx, cy, dx, dy, ax, ay), d4 = cr(cx, cy, dx, dy, bx, by);
-    if (d1 * d2 < 0 && d3 * d4 < 0) return true;
-  }
-  return false;
-}

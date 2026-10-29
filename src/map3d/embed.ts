@@ -41,8 +41,6 @@ export type Map3dCommand =
 export type Map3dEvent =
   | { v: 1; type: 'ready'; buildings: { id: string; name: string }[]; light: boolean }
   | { v: 1; type: 'pick'; kind: 'building' | 'place' | 'point'; id?: string; name?: string; x: number; y: number; z: number }
-  | { v: 1; type: 'cameraChanged'; x: number; y: number; heightM: number; headingDeg: number; pitchDeg: number }
-  | { v: 1; type: 'floorChanged'; building: string | null; floor: string | null; explode: boolean }
   | { v: 1; type: 'error'; error: string; command?: string }
   | {
       v: 1;
@@ -62,7 +60,6 @@ export type Map3dEvent =
 
 /** 꾸러미 건물 key("b:북악관") ↔ 3D 장면 건물 id("북악관"). 장소 key("p:<id>") ↔ 장면 장소 id. */
 export const sceneBuildingId = (buildingKey: string) => buildingKey.replace(/^b:/, '');
-export const packageBuildingKey = (sceneId: string) => `b:${sceneId}`;
 export const packagePlaceKey = (sceneId: string) => `p:${sceneId}`;
 
 /** 받은 사건(객체 또는 JSON 문자열)을 확인. 모르는 것·v 가 다른 것은 null. */
@@ -86,9 +83,6 @@ export function parseEvent(raw: unknown): Map3dEvent | null {
       return (e.kind === 'building' || e.kind === 'place' || e.kind === 'point') && n('x') && n('y') && n('z')
         ? (e as unknown as Map3dEvent)
         : null;
-    case 'cameraChanged':
-      return n('x') && n('y') ? (e as unknown as Map3dEvent) : null;
-    case 'floorChanged':
     case 'error':
       return e as unknown as Map3dEvent;
     case 'firstPerson':
@@ -146,11 +140,10 @@ export function floorCommand(pkg: MapPackage, buildingKey: string, floorKey: str
   return { v: 1, type: 'setFloor', building: sceneBuildingId(buildingKey), floor: code, explode };
 }
 
-/** 페이지 주소 + 가벼운 모드(light=1) + 페이지 자체 층 판 숨김(ui=min: 앱이 층 고르기를 보여 줄 때). */
-export function pageUrl(base: string, light = false, minimal = false): string {
+/** 페이지 주소 + 가벼운 모드(light=1: 구조물·이름표 빼고 MSAA 끔). 층 판 숨김(ui=min)은 setMode 로 따로 보냄. */
+export function pageUrl(base: string, light = false): string {
   const u = base.trim() || DEFAULT_MAP3D_URL;
-  // 가벼운(tier 2): 구조물·이름표 빼고 MSAA 끔(FXAA) — client3d-android.patch 의 msaa 쿼리
-  const q = [light ? 'light=1&msaa=1' : '', minimal ? 'ui=min' : ''].filter(Boolean).join('&');
-  return q ? `${u}${u.includes('?') ? '&' : '?'}${q}` : u;
+  if (!light) return u;
+  return `${u}${u.includes('?') ? '&' : '?'}light=1&msaa=1`;
 }
 export const DEFAULT_MAP3D_URL = `http://${DEV_HOST}:5273/client3d.html`;

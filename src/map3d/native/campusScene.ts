@@ -122,15 +122,6 @@ export async function createCampusScene(o: SceneOptions) {
   home();
 
   // ---------- 다시 그리기: 바뀐 것이 있을 때만(배터리) ----------
-  let lastCam = '';
-  let lastSent = 0;
-  const sendCamera = () => {
-    const p = toTm(camera.position);
-    const key = `${p.x.toFixed(1)},${p.y.toFixed(1)},${cam.dist.toFixed(1)},${cam.heading.toFixed(3)},${cam.pitch.toFixed(3)}`;
-    if (key === lastCam || now() - lastSent < 300) return;
-    lastCam = key; lastSent = now();
-    emit({ type: 'cameraChanged', x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10, heightM: Math.round(p.z * 10) / 10, headingDeg: Math.round(cam.heading / DEG), pitchDeg: Math.round(cam.pitch / DEG) });
-  };
 
   // ---------- 땅 높이(위치 표지를 바닥에 놓을 때) ----------
   const ray = new THREE.Raycaster();
@@ -187,7 +178,7 @@ export async function createCampusScene(o: SceneOptions) {
       for (const f of b.floors) { f.node.visible = false; f.node.position.y = 0; }
     }
     const b = id ? buildings.get(id) ?? blocksOf(id).find((x) => x.floors.length) ?? null : null;
-    if (!b) { floorState = null; emit({ type: 'floorChanged', building: null, floor: null, explode: false }); dirty(); return; }
+    if (!b) { floorState = null; dirty(); return; }
     const index = ref || z !== null ? matchFloor(b.floors, ref, z) : -1;
     floorState = { building: b.id, index: index >= 0 ? index : null, explode };
     if (explode) {
@@ -198,7 +189,6 @@ export async function createCampusScene(o: SceneOptions) {
       for (const o2 of buildings.values()) { const m = o2.node.material as THREE.MeshStandardMaterial; m.transparent = true; m.opacity = 0.25; m.depthWrite = false; }
       const f = b.floors[index]; f.node.visible = true; (f.node.material as THREE.MeshLambertMaterial).color.setHex(COLOR.floorNow); (f.node.material as THREE.MeshLambertMaterial).opacity = 0.95;
     }
-    emit({ type: 'floorChanged', building: baseId(b.id), floor: index >= 0 ? b.floors[index].name : null, explode });
     placeMarker();
     dirty();
   }
@@ -329,13 +319,10 @@ export async function createCampusScene(o: SceneOptions) {
     dirty();
   }
   const firstPerson = {
-    start: (route: { points: number[][]; steps?: FpStep[] }, opts: { speed?: number; paused?: boolean; follow?: boolean } = {}) => { fpRoute = { points: route.points, steps: route.steps ?? [] }; fpCommand({ type: 'firstPerson', on: true, speed: opts.speed ?? null, paused: opts.paused ?? null, follow: !!opts.follow }); return fp.active(); },
-    stop: () => fpCommand({ type: 'firstPerson', on: false, speed: null, paused: null, follow: false }),
     /** 따라가기 목표(m). 지금보다 8 m 넘게 뒤면 바로 옮김(되돌아감), 조금 뒤면 그 자리 */
     follow: (m: number | null) => { const p = fp.progress(); if (m != null && m < p.s - 8) fp.seek(m); fp.setTarget(m); fpEmit(true); dirty(); },
     seek: (s: number) => { fp.seek(s); fpEmit(true); dirty(); },
-    setPaused: (p: boolean) => { fp.setPaused(p); fpEmit(true); }, setSpeed: (k: number) => { fp.setSpeed(k); fpEmit(true); },
-    info: fp.info, active: fp.active, progress: fp.progress, pose: fp.pose,
+    active: fp.active,
   };
 
   // ---------- 손 조작(앱·미리보기가 부름) ----------
@@ -351,7 +338,7 @@ export async function createCampusScene(o: SceneOptions) {
   const rotate = (rad: number) => { cam.heading += rad; dirty(); };
   const tilt = (dy: number) => { cam.pitch += dy * 0.004; dirty(); };
 
-  function resize(w: number, h: number) { o.width = w; o.height = h; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false); if (typeof applyPadding === 'function' && (pad.top || pad.bottom || pad.left || pad.right)) applyPadding(); dirty(); }
+  function resize(w: number, h: number) { o.width = w; o.height = h; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false); if (pad.top || pad.bottom || pad.left || pad.right) applyPadding(); dirty(); }
   /** 그릴 것이 있으면 그리고 true. 앱의 rAF 고리가 매 프레임 부름. */
   function frameTick() {
     if (fp.active()) {
@@ -367,7 +354,6 @@ export async function createCampusScene(o: SceneOptions) {
     applyCamera();
     placeMarker();
     renderer.render(scene, camera);
-    sendCamera();
     return true;
   }
   // ---------- 이름표 자리(campus-client 추가): 건물 이름(지붕 가운데 위), 화면 좌표 ----------
@@ -431,9 +417,9 @@ export async function createCampusScene(o: SceneOptions) {
   resize(o.width, o.height);
   const info = () => ({ ...renderer.info.render, geometries: renderer.info.memory.geometries });
   emit({ type: 'ready', buildings: [...buildings.values()].filter((b) => baseId(b.id) === b.id).map((b) => ({ id: b.id, name: b.name })), light });
-  return { command, frameTick, resize, pan, zoom, rotate, tilt, tap, home, markerScreen, info, redraw: dirty, resumeFollow: () => { follow.paused = false; },
+  return { command, frameTick, resize, pan, zoom, rotate, tilt, tap, home, markerScreen, info, redraw: dirty,
     firstPerson,
-    buildingAnchors: () => anchors, screenOf, toScene, cameraDistance: () => cam.dist, setPadding, toggleExplode, focusMe, exploded: () => !!floorState?.explode };
+    buildingAnchors: () => anchors, screenOf, toScene, cameraDistance: () => cam.dist, setPadding, toggleExplode, focusMe };
 }
 
 export type CampusScene = Awaited<ReturnType<typeof createCampusScene>>;

@@ -12,22 +12,17 @@ export const MODEL_URI = `file:///storage/emulated/0/Android/data/kr.ac.skuniv.c
 
 let ctx: LlamaContext | null = null;
 let loading: Promise<LlamaContext> | null = null;
-export let lastLoadMs: number | null = null;
+let lastLoadMs: number | null = null;
 
-let available: boolean | null = null;
-/** 모델 파일이 있고 읽히는가(마지막 확인 값, 아직 모르면 false). expo-file-system 은 앱 밖 경로를 못 봐서 llama.rn 으로 머리말만 읽어 봄. */
-export function modelAvailable(): boolean {
-  return available === true;
-}
+/** 모델 파일이 있고 읽히는가. expo-file-system 은 앱 밖 경로를 못 봐서 llama.rn 으로 머리말만 읽어 봄. */
 export async function checkModel(): Promise<boolean> {
-  if (Platform.OS !== 'android') return (available = false);
+  if (Platform.OS !== 'android') return false;
   try {
     await loadLlamaModelInfo(MODEL_URI);
-    available = true;
+    return true;
   } catch {
-    available = false;
+    return false;
   }
-  return available;
 }
 
 async function load(): Promise<LlamaContext> {

@@ -147,9 +147,8 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
     const t0 = Date.now();
     try {
       // campus-client: 가벼운 모드도 해상도는 그대로(TextureView 표면은 보기 크기라 작은 viewport 는 왼쪽 아래에만 그려짐). 선만 끔
-      const k = 1;
-      const w = Math.round(gl.drawingBufferWidth * k), h = Math.round(gl.drawingBufferHeight * k);
-      scale.current = (PixelRatio.get() * k);
+      const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
+      scale.current = PixelRatio.get();
       const canvas: any = { width: w, height: h, style: {}, clientWidth: w, clientHeight: h, addEventListener: () => {}, removeEventListener: () => {}, getContext: () => gl };
       // expo-gl 의 문맥은 GLES 3(WebGL2 함수 있음)이지만 WebGLRenderingContext 의 인스턴스라 three(r163+)가 WebGL1 로 보고 거절함 → 만들 때만 전역을 숨김
       const G = globalThis as any, saved = G.WebGLRenderingContext;

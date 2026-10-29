@@ -27,6 +27,20 @@ export interface FixMatch {
   onNetwork: boolean;
 }
 
+/** 위치 보정 결과를 사용자가 알아볼 수 있는 캠퍼스 내 위치 이름으로 표시한다. */
+export function currentLocationLabel(pkg: Pick<MapPackage, 'buildings' | 'floors'>, fix: Fix): string {
+  const floor = fix.match?.floorKey ? pkg.floors.find((x) => x.key === fix.match?.floorKey) : null;
+  if (floor) {
+    const building = pkg.buildings.find((x) => x.key === floor.buildingKey)?.name ?? '건물 안';
+    return `${building} ${floor.code} (추정)`;
+  }
+
+  const building = fix.match?.buildingKey ? pkg.buildings.find((x) => x.key === fix.match?.buildingKey)?.name : null;
+  if (building) return `${building} (추정)`;
+  if (fix.match?.onNetwork) return '캠퍼스 바깥 길';
+  return '현재 위치';
+}
+
 export function toFix(lon: number, lat: number, accuracyM: number | null, timestamp: number, indoor: boolean): Fix {
   const { x, y } = wgs84To5186(lon, lat);
   let reason: string | null = null;

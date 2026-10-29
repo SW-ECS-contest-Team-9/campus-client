@@ -252,10 +252,27 @@ export function ResultRow({
         <Text style={b.rowT}>{title}</Text>
         {sub ? <Text style={b.rowS}>{sub}</Text> : null}
       </View>
-      {trailing}
     </>
   );
   const st = (p: boolean): StyleProp<ViewStyle> => [b.row, (selected || p) && { backgroundColor: color.primarySoft }];
+  if (trailing) {
+    return (
+      <View style={st(false)}>
+        {onPress ? (
+          <PressScale
+            onPress={onPress}
+            accessibilityLabel={sub ? `${title}, ${sub}` : title}
+            style={(pressed) => [b.rowMain, pressed && { backgroundColor: color.primarySoft }]}
+          >
+            {body}
+          </PressScale>
+        ) : (
+          <View style={b.rowMain}>{body()}</View>
+        )}
+        {trailing}
+      </View>
+    );
+  }
   return onPress ? (
     <PressScale onPress={onPress} accessibilityLabel={sub ? `${title}, ${sub}` : title} style={st}>
       {body}
@@ -432,6 +449,14 @@ const b = StyleSheet.create({
     borderColor: glass.outline,
     paddingHorizontal: space[16],
     paddingVertical: space[12],
+  },
+  rowMain: {
+    flex: 1,
+    minHeight: space[48],
+    borderRadius: radius[16],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[12],
   },
   rowT: { fontSize: type.body - 1, fontWeight: '700', color: color.text },
   rowS: { ...type.captionText, color: color.secondary, marginTop: 2 },

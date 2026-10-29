@@ -54,10 +54,24 @@ export default function SettingsScreen() {
           ? '웹: 3D 지도 페이지를 서버에서 받아 그려요(인터넷·서버 필요, 첫 화면이 느려요).'
           : '기본: 앱에 들어 있는 3D 지도를 바로 그려요(서버 없이, 빠름).'}
       </P>
-      <Section>AI 문장 해석(실험)</Section>
+      <Section>자연어 검색</Section>
       <Card style={s.row}>
         <View style={{ flex: 1 }}>
-          <P>규칙으로 못 알아들은 문장을 기기 안 AI(Gemma 270M)로 한 번 더</P>
+          <P>자연어 검색을 기본으로 사용</P>
+          <P tone="muted">검색 화면을 열면 문장으로 목적지와 이동 조건을 찾는 모드로 시작해요.</P>
+        </View>
+        <Switch
+          value={app.settings.naturalSearchDefault}
+          onValueChange={(v) => app.updateSettings({ naturalSearchDefault: v })}
+          trackColor={{ false: T.line, true: T.primary }}
+          ios_backgroundColor={T.line}
+          accessibilityLabel="자연어 검색을 기본으로 사용"
+        />
+      </Card>
+      <Card style={s.row}>
+        <View style={{ flex: 1 }}>
+          <P>기기 안 AI 보조(실험)</P>
+          <P tone="muted">규칙으로 못 알아들은 문장을 Gemma 270M으로 한 번 더 해석해요.</P>
           <P tone="muted">
             {app.aiModel
               ? `모델 있음 · ${aiOn ? '켜짐' : '꺼짐'}${app.settings.aiParse == null ? '(기본 꺼짐)' : ''} · 필수 조건은 규칙 결과를 줄이지 않아요`
@@ -67,8 +81,9 @@ export default function SettingsScreen() {
         <Switch
           value={aiOn}
           onValueChange={(v) => app.updateSettings({ aiParse: v })}
-          trackColor={{ true: T.primary }}
-          accessibilityLabel="AI 문장 해석(실험)"
+          trackColor={{ false: T.line, true: T.primary }}
+          ios_backgroundColor={T.line}
+          accessibilityLabel="기기 안 AI 보조(실험)"
         />
       </Card>
       <Section>화면 표시</Section>

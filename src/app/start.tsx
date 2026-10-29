@@ -2,6 +2,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { currentLocationLabel } from '../location/fix';
 import { startFromFix, useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
 import { Badge, Btn, Card, H, P, Screen } from '../ui/kit';
@@ -20,16 +21,15 @@ export default function StartScreen() {
     const fix = await app.waitFix(15000);
     if (!fix) return setMsg('현재 위치를 확인하지 못했어요');
     if (fix.uncertain) return setMsg(`현재 위치가 정확하지 않아요 (${fix.reason})`);
-    const f = fix.match?.floorKey ? pkg.floors.find((x) => x.key === fix.match?.floorKey) : null;
-    const b = f ? pkg.buildings.find((x) => x.key === f.buildingKey)?.name : null;
     // 걷는 면·광장 위면 그 자리에서, 아니면 가까운 길 끝에서
-    const st = startFromFix(pkg, app.graph, fix, `현재 위치${f ? ` · ${b ?? ''} ${f.code}(추정)` : ''}`);
+    const st = startFromFix(pkg, app.graph, fix, currentLocationLabel(pkg, fix));
     if (!st) return setMsg('가까운 길이 50 m 안에 없어요');
     app.setStart(st);
     setMsg(null);
   };
   const st = app.start;
   const startTitle = st ? (st.type === 'place' ? placeName(st.placeKey) : st.label) : null;
+  const displayedStartTitle = st && st.type !== 'place' && app.fix ? currentLocationLabel(pkg, app.fix) : startTitle;
   const tone = msg ? 'caution' : st && st.type !== 'place' ? 'confirmed' : 'primary';
   return (
     <Screen
@@ -57,7 +57,7 @@ export default function StartScreen() {
       </View>
       <Card>
         <P tone="muted">{st && st.type !== 'place' ? '현재 위치에서 출발' : st ? '사용자가 지정한 출발점' : '출발점을 골라 주세요'}</P>
-        <P>{startTitle ?? '아직 고르지 않음'}</P>
+        <P>{displayedStartTitle ?? '아직 고르지 않음'}</P>
         {st?.type === 'place' ? <P tone="muted">직접 고른 위치라 실제 현재 위치와 다를 수 있어요.</P> : null}
         {tone === 'confirmed' ? <Badge tone="confirmed" text="현재 위치 확인됨" /> : null}
       </Card>

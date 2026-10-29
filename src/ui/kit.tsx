@@ -5,9 +5,9 @@ import { ChevronLeft, type LucideIcon } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { elevation, glass, shape } from './theme';
 import { Gradient, WaveHeader } from './v3';
-import { Button, color, FloorItem, IconButton, PressScale, ResultRow, StatusChip, TabBarView, type TabKey } from './components';
+import { color, elevation, glass, shape } from './theme';
+import { Button, FloorItem, IconButton, ResultRow, StatusChip, TabBarView, type TabKey } from './components';
 
 /** Foundations 토큰(옛 이름 유지). 색은 components 의 color 와 같음. */
 export const T = {
@@ -25,9 +25,6 @@ export const T = {
   card: color.surface,
   margin: 20,
   touch: 48,
-  cta: 52,
-  radius: 16,
-  panel: 24,
   display: 28,
   title: 22,
   body: 17,
@@ -42,14 +39,12 @@ export function Screen({
   children,
   scroll = true,
   footer,
-  right,
 }: {
   title?: string;
   back?: boolean;
   children: ReactNode;
   scroll?: boolean;
   footer?: ReactNode;
-  right?: ReactNode;
 }) {
   const inset = useSafeAreaInsets();
   const body = scroll ? (
@@ -77,7 +72,6 @@ export function Screen({
             <Text style={s.title} numberOfLines={2} accessibilityRole="header">
               {title}
             </Text>
-            {right}
           </View>
         </WaveHeader>
       ) : (
@@ -95,52 +89,29 @@ export function Btn({
   onPress,
   kind = 'primary',
   disabled,
-  loading,
-  icon,
   style,
 }: {
   label: string;
   onPress?: () => void;
   kind?: 'primary' | 'soft' | 'ghost';
   disabled?: boolean;
-  loading?: boolean;
-  icon?: LucideIcon;
   style?: StyleProp<ViewStyle>;
 }) {
-  return (
-    <Button
-      label={label}
-      onPress={onPress}
-      variant={KIND[kind]}
-      size={kind === 'ghost' ? 'regular' : 'large'}
-      disabled={disabled}
-      loading={loading}
-      icon={icon}
-      style={style}
-    />
-  );
+  return <Button label={label} onPress={onPress} variant={KIND[kind]} disabled={disabled} style={style} />;
 }
 
 export function Card({
   children,
   style,
-  onPress,
   tone,
 }: {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
-  onPress?: () => void;
   tone?: 'primary' | 'caution' | 'confirmed';
 }) {
   const bg =
     tone === 'primary' ? T.primarySoft : tone === 'caution' ? T.cautionSoft : tone === 'confirmed' ? T.confirmedSoft : glass.fillStrong;
-  return onPress ? (
-    <PressScale onPress={onPress} style={[s.card, { backgroundColor: bg }, style]}>
-      {children}
-    </PressScale>
-  ) : (
-    <View style={[s.card, { backgroundColor: bg }, style]}>{children}</View>
-  );
+  return <View style={[s.card, { backgroundColor: bg }, style]}>{children}</View>;
 }
 
 /** Feedback/StatusChip 로 그림. primary = 안내(아이콘 없음), offline = 와이파이 꺼짐 아이콘. */
@@ -188,7 +159,7 @@ export function TabBar({ at }: { at: TabKey }) {
   return <TabBarView at={at} focused={useIsFocused()} bottomInset={inset.bottom} onSelect={(k) => router.navigate(to[k])} />;
 }
 
-export const s = StyleSheet.create({
+const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: T.canvas },
   head: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
   back: { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: 'rgba(255,255,255,0.35)', shadowOpacity: 0, elevation: 0 },

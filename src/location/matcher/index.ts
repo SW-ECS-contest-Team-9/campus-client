@@ -5,7 +5,6 @@ import type { Graph, MapPackage } from './graph';
 export { createMatcher, type MatchResult, type MatcherOptions, type SensorEvent } from './matcher';
 export { loadTrustModel, type TrustModel, type TrustModelJson } from './trust';
 export { buildGraph, type Graph, type MapPackage } from './graph';
-export { benchmarkMatcher } from './bench';
 
 /** 건물 키 → GPS sigma 배수(createDefaultMatcher 기본). */
 export const DEFAULT_GPS_DISTRUST: Record<string, number> = { 'b:북악관': 1.5 };

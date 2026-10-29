@@ -42,8 +42,8 @@ export interface Settings {
   map3dEngine: Map3dEngine;
   /** 검색 화면을 열 때 자연어 검색으로 시작할지 */
   naturalSearchDefault: boolean;
-  /** AI 문장 해석(실험, 기기 안 Gemma). null = 기본(꺼짐: S21 실측 한 번 6~8 s, 불러오면 메모리 +0.56 GB) */
-  aiParse?: boolean | null;
+  /** AI 문장 해석(실험, 기기 안 Gemma). 기본 꺼짐: S21 실측 한 번 6~8 s, 불러오면 메모리 +0.56 GB */
+  aiParse: boolean;
 }
 /** 개발 기본값. 운영 주소는 나중에 정함. */
 export const DEFAULT_SERVER_URL = `http://${DEV_HOST}:8010`;
@@ -56,7 +56,7 @@ const DEFAULT_SETTINGS: Settings = {
   autoTier3dChecked: false,
   map3dEngine: 'native',
   naturalSearchDefault: false,
-  aiParse: null,
+  aiParse: false,
 };
 /** 갱신 실패 문구: 개발용 오류 글(TypeError 등)을 그대로 보이지 않음(카카오 디자인: 진단 정보 분리). */
 const failText = (e: string) =>
@@ -111,7 +111,6 @@ interface AppState {
   pkg: MapPackage | null;
   graph: Graph | null;
   settings: Settings;
-  setServerUrl: (url: string) => Promise<void>;
   updateSettings: (patch: Partial<Settings>) => Promise<void>;
   /** 지금 쓰는 표현 등급(사용자 지정 > 자동) */
   tier: DeviceTier;
@@ -142,10 +141,8 @@ interface AppState {
   route: RouteResult | null;
   /** 서버 경로 요청 결과. null = 요청 중이거나 출발·도착이 없음 */
   serverRoute: ServerRoute | null;
-  startNodeKey: string | null;
   /** 현재 위치(위치 보정 v2 로 통로 위에 끌린 점). 센서가 켜져 있으면 계속 바뀜. */
   fix: Fix | null;
-  setFix: (f: Fix | null) => void;
   /** 위치 권한을 받고 위치·걸음·기압 읽기를 켬. 권한이 없으면 false. */
   enableLocation: () => Promise<boolean>;
   /** 지금 위치(있으면 바로, 없으면 다음 위치)를 기다림. 시간 넘으면 null. */
@@ -191,11 +188,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       fixRef.current
         ? Promise.resolve(fixRef.current)
         : new Promise<Fix | null>((done) => {
-            const t = setTimeout(() => done(null), ms);
-            fixWaiters.current.push((f) => {
+            const waiter = (f: Fix) => {
               clearTimeout(t);
               done(f);
-            });
+            };
+            const t = setTimeout(() => {
+              fixWaiters.current = fixWaiters.current.filter((w) => w !== waiter);
+              done(null);
+            }, ms);
+            fixWaiters.current.push(waiter);
           }),
     [],
   );
@@ -230,23 +231,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  const setServerUrl = useCallback(
-    async (serverUrl: string) => {
-      const next = { ...settings, serverUrl: serverUrl.trim() };
-      setSettings(next);
-      await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
-    },
-    [settings],
-  );
-
-  const updateSettings = useCallback(
-    async (patch: Partial<Settings>) => {
-      const next = { ...settings, ...patch };
-      setSettings(next);
-      await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
-    },
-    [settings],
-  );
+  // 저장되는 상태(설정·즐겨찾기·최근)는 함수형 갱신: 연달아 불러도 앞 변경이 사라지지 않음
+  const updateSettings = useCallback(async (patch: Partial<Settings>) => {
+    setSettings((cur) => {
+      const next = { ...cur, ...patch };
+      void AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
   /** 3D 첫 화면까지 걸린 시간(앱 켠 뒤 한 번). 자동 등급이면 느릴 때 한 단계 낮춤. */
   const noteFirst3dReady = useCallback((ms: number, engine: Map3dEngine) => {
     setSettings((cur) => {
@@ -260,16 +252,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
-  const saveRecent = (next: typeof recent) => {
-    setRecent(next);
-    void AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next));
-  };
-  const addRecentSearch = (q: string) => saveRecent({ ...recent, searches: [q, ...recent.searches.filter((x) => x !== q)].slice(0, 5) });
-  const addRecentRoute = (r: RecentRoute) =>
-    saveRecent({
-      ...recent,
-      routes: [r, ...recent.routes.filter((x) => x.destKey !== r.destKey || x.startLabel !== r.startLabel)].slice(0, 5),
+  const saveRecent = useCallback((f: (cur: typeof recent) => typeof recent) => {
+    setRecent((cur) => {
+      const next = f(cur);
+      void AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next));
+      return next;
     });
+  }, []);
+  const addRecentSearch = useCallback(
+    (q: string) => saveRecent((cur) => ({ ...cur, searches: [q, ...cur.searches.filter((x) => x !== q)].slice(0, 5) })),
+    [saveRecent],
+  );
+  const addRecentRoute = useCallback(
+    (r: RecentRoute) =>
+      saveRecent((cur) => ({
+        ...cur,
+        routes: [r, ...cur.routes.filter((x) => x.destKey !== r.destKey || x.startLabel !== r.startLabel)].slice(0, 5),
+      })),
+    [saveRecent],
+  );
 
   const checkUpdate = useCallback(async () => {
     if (!loaded) return;
@@ -279,14 +280,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUpdateStatus(r.updated ? `새 지도 v${r.pkg.release.version} 받음` : r.error ? failText(r.error) : '최신 지도임');
   }, [loaded, settings.serverUrl]);
 
-  const toggleFavorite = useCallback(
-    async (key: string) => {
-      const next = favorites.includes(key) ? favorites.filter((k) => k !== key) : [...favorites, key];
-      setFavorites(next);
-      await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
-    },
-    [favorites],
-  );
+  const toggleFavorite = useCallback(async (key: string) => {
+    setFavorites((cur) => {
+      const next = cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key];
+      void AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
 
   const pkg = loaded?.pkg ?? null;
   const graph = useMemo(() => (pkg ? buildGraph(pkg) : null), [pkg]);
@@ -380,7 +380,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     pkg,
     graph,
     settings,
-    setServerUrl,
     updateSettings,
     tier: settings.deviceTier ?? settings.autoTier ?? 2,
     noteFirst3dReady,
@@ -406,9 +405,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setNlp,
     route,
     serverRoute,
-    startNodeKey,
     fix,
-    setFix,
     enableLocation,
     waitFix,
     aiModel,

@@ -12,8 +12,7 @@ import { BlurTargetCtx } from './look';
 import { Character } from './v3';
 import { parseEvent, type Map3dCommand, type Map3dEvent } from '../map3d/embed';
 import { CHARACTER_OK, CHARACTER_UNCERTAIN } from './characterImages';
-import { color } from './components';
-import { tabSlideSpec } from './theme';
+import { color, tabSlideSpec } from './theme';
 import { Campus3DView, type Campus3DHandle } from '../map3d/native/Campus3DView';
 import { note3dStat } from '../map3d/diag';
 

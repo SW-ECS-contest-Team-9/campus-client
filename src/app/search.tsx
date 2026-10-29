@@ -54,7 +54,7 @@ export default function SearchScreen() {
   const parsed = useMemo(() => (pkg && lex && q.trim().length >= 2 ? parseRouteRequest(q, pkg, lex) : null), [pkg, lex, q]);
   const req = naturalSearch ? (picked && picked.text === q ? picked.req : parsed) : null;
   // AI 문장 해석(실험): 규칙이 목적지를 못 찾았거나 후보 없이 되물을 때만, 누르거나 검색 키로
-  const aiOn = (app.settings.aiParse ?? false) && app.aiModel;
+  const aiOn = app.settings.aiParse && app.aiModel;
   const canAskAi = naturalSearch && aiOn && !!parsed && shouldAskGemma(parsed) && !(picked && picked.text === q);
   const stopAi = () => {
     aiRun.current += 1;

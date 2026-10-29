@@ -1,20 +1,8 @@
 // Figma "01 · Components" 대응 부품(파일 4FWwpxPN4m0ixK1awFLsoA). 변형 이름은 Figma 와 같게 둔다.
 // 토큰은 Foundations 변수(color/*, space/*, radius/*, Campus/Action label·Caption). 터치 48 dp(space/48), CTA 52.
 // 누름: Figma 에 프로토타입 동작이 없어(reactions 0) 짧은 눌림(크기 0.97 + Pressed 색, 100 ms)을 넣음 — 동작 줄이기 설정이면 크기 변화 없음.
-import {
-  ArrowRight,
-  Bookmark,
-  Check,
-  CircleAlert,
-  Clock,
-  Download,
-  Map as MapIcon,
-  Navigation,
-  Search,
-  WifiOff,
-  type LucideIcon,
-} from 'lucide-react-native';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Bookmark, Check, CircleAlert, Download, Map as MapIcon, Search, WifiOff, type LucideIcon } from 'lucide-react-native';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
   PanResponder,
@@ -33,8 +21,6 @@ import { color, elevation, glass, gradient, ICON, motion, radius, shape, space, 
 import { useLook } from './look';
 import { Gradient } from './v3';
 
-export { color, ICON, radius, space, type } from './theme';
-
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type PressProps = {
@@ -43,9 +29,8 @@ type PressProps = {
   style?: StyleProp<ViewStyle> | ((pressed: boolean) => StyleProp<ViewStyle>);
   children: ReactNode | ((pressed: boolean) => ReactNode);
   accessibilityLabel?: string;
-  accessibilityRole?: 'button' | 'tab' | 'search' | 'link';
-  accessibilityState?: { selected?: boolean; disabled?: boolean; busy?: boolean };
-  hitSlop?: number;
+  accessibilityRole?: 'button' | 'tab' | 'search';
+  accessibilityState?: { selected?: boolean; disabled?: boolean };
 };
 
 /** 눌림 공통: 100 ms 동안 0.97 로 줄고 Pressed 색(각 부품이 pressed 로 고름). */
@@ -57,7 +42,6 @@ export function PressScale({
   accessibilityLabel,
   accessibilityRole = 'button',
   accessibilityState,
-  hitSlop,
 }: PressProps) {
   const reduce = !useLook().moving; // 동작 줄이기 또는 기기 등급 3
   const [scale] = useState(() => new Animated.Value(1));
@@ -70,7 +54,6 @@ export function PressScale({
     <AnimatedPressable
       onPress={onPress}
       disabled={disabled}
-      hitSlop={hitSlop}
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled: !!disabled, ...accessibilityState }}
@@ -90,60 +73,39 @@ export function PressScale({
 }
 
 // ---------- Action/Button (4:334) ----------
-export type ButtonStyle = 'primary' | 'secondary' | 'quiet';
+type ButtonStyle = 'primary' | 'secondary' | 'quiet';
+/** 주 단추(primary, 52 dp)·보조(secondary)·글자 단추(quiet, 48 dp). */
 export function Button({
   label,
   onPress,
   variant = 'primary',
-  size = 'large',
   disabled,
-  loading,
-  icon: Icon,
   style,
 }: {
   label: string;
   onPress?: () => void;
   variant?: ButtonStyle;
-  size?: 'regular' | 'large';
   disabled?: boolean;
-  loading?: boolean;
-  icon?: LucideIcon;
   style?: StyleProp<ViewStyle>;
 }) {
-  const off = disabled && !loading;
-  const fg = off ? color.secondary : variant === 'primary' ? color.onPrimary : color.primary;
-  const bg = (p: boolean) =>
-    off
-      ? color.border
-      : variant === 'primary'
-        ? p
-          ? color.primaryPressed
-          : color.primary
-        : variant === 'secondary'
-          ? p
-            ? color.primarySoftPressed
-            : color.primarySoft
-          : p
-            ? color.primarySoft
-            : 'transparent';
-  const Lead = loading ? Clock : Icon;
+  const primary = variant === 'primary' && !disabled;
+  const fg = disabled ? color.secondary : variant === 'primary' ? color.onPrimary : color.primary;
+  const bg = (p: boolean) => {
+    if (disabled) return color.border;
+    if (primary) return color.primary;
+    if (variant === 'secondary') return p ? color.primarySoftPressed : color.primarySoft;
+    return p ? color.primarySoft : 'transparent';
+  };
   return (
     <PressScale
       onPress={onPress}
-      disabled={disabled || loading}
+      disabled={disabled}
       accessibilityLabel={label}
-      accessibilityState={{ busy: !!loading }}
-      style={(p) => [
-        b.btn,
-        { minHeight: size === 'large' ? 52 : space[48], backgroundColor: variant === 'primary' && !off ? color.primary : bg(p) },
-        variant === 'primary' && !off && elevation.low,
-        style,
-      ]}
+      style={(p) => [b.btn, { minHeight: variant === 'quiet' ? space[48] : 52, backgroundColor: bg(p) }, primary && elevation.low, style]}
     >
       {(p: boolean) => (
         <>
-          {variant === 'primary' && !off ? <Gradient colors={p ? gradient.brandPressed : gradient.brand} angle="right" /> : null}
-          {Lead ? <Lead size={ICON} color={fg} strokeWidth={2} /> : null}
+          {primary ? <Gradient colors={p ? gradient.brandPressed : gradient.brand} angle="right" /> : null}
           <Text style={[b.btnT, { color: fg }]}>{label}</Text>
         </>
       )}
@@ -157,7 +119,6 @@ export function IconButton({
   label,
   onPress,
   tone = 'surface',
-  size = space[48],
   iconColor,
   style,
 }: {
@@ -166,7 +127,6 @@ export function IconButton({
   label: string;
   onPress?: () => void;
   tone?: 'surface' | 'primary';
-  size?: number;
   iconColor?: string;
   style?: StyleProp<ViewStyle>;
 }) {
@@ -177,7 +137,6 @@ export function IconButton({
       accessibilityLabel={label}
       style={(p) => [
         b.iconBtn,
-        { width: size, height: size },
         primary
           ? { backgroundColor: p ? color.primaryPressed : color.primary, borderColor: 'transparent' }
           : { backgroundColor: p ? glass.fillStrong : glass.fill, borderColor: glass.edge },
@@ -246,7 +205,7 @@ export function ResultRow({
   selected?: boolean;
   trailing?: ReactNode;
 }) {
-  const body = () => (
+  const body = (
     <>
       {Icon ? <Icon size={ICON + 2} color={color.primary} strokeWidth={1.8} /> : null}
       <View style={{ flex: 1 }}>
@@ -255,36 +214,28 @@ export function ResultRow({
       </View>
     </>
   );
-  const st = (p: boolean): StyleProp<ViewStyle> => [b.row, (selected || p) && { backgroundColor: color.primarySoft }];
-  if (trailing) {
-    return (
-      <View style={st(false)}>
-        {onPress ? (
-          <PressScale
-            onPress={onPress}
-            accessibilityLabel={sub ? `${title}, ${sub}` : title}
-            style={(pressed) => [b.rowMain, pressed && { backgroundColor: color.primarySoft }]}
-          >
-            {body}
-          </PressScale>
-        ) : (
-          <View style={b.rowMain}>{body()}</View>
-        )}
-        {trailing}
-      </View>
-    );
-  }
-  return onPress ? (
-    <PressScale onPress={onPress} accessibilityLabel={sub ? `${title}, ${sub}` : title} style={st}>
+  // 누르는 부분은 trailing 을 뺀 본문: trailing(ⓘ 같은 단추)과 눌림이 겹치지 않게
+  const main = onPress ? (
+    <PressScale
+      onPress={onPress}
+      accessibilityLabel={sub ? `${title}, ${sub}` : title}
+      style={(p) => [b.rowMain, p && { backgroundColor: color.primarySoft }]}
+    >
       {body}
     </PressScale>
   ) : (
-    <View style={st(false)}>{body()}</View>
+    <View style={b.rowMain}>{body}</View>
+  );
+  return (
+    <View style={[b.row, selected && { backgroundColor: color.primarySoft }]}>
+      {main}
+      {trailing}
+    </View>
   );
 }
 
 // ---------- Floor/Item (4:419) ----------
-export type FloorState = 'idle' | 'selected' | 'current' | 'unknown';
+export type FloorState = 'idle' | 'selected' | 'current';
 export function FloorItem({
   label,
   state = 'idle',
@@ -297,7 +248,6 @@ export function FloorItem({
   a11yLabel?: string;
 }) {
   const sel = state === 'selected';
-  const unk = state === 'unknown';
   return (
     <PressScale
       onPress={onPress}
@@ -306,14 +256,13 @@ export function FloorItem({
       style={(p) => [
         b.floor,
         sel && { backgroundColor: color.primary, borderColor: 'transparent', overflow: 'hidden' },
-        unk && { backgroundColor: color.warningSoft, borderColor: color.warningSoft },
-        !sel && !unk && p && { backgroundColor: color.canvas },
+        !sel && p && { backgroundColor: color.canvas },
       ]}
     >
       {(p: boolean) => (
         <>
           {sel ? <Gradient colors={p ? gradient.brandPressed : gradient.brand} angle="right" /> : null}
-          <Text style={[b.floorT, sel && { color: color.onPrimary }, unk && { color: color.warning }]}>{label}</Text>
+          <Text style={[b.floorT, sel && { color: color.onPrimary }]}>{label}</Text>
           {state === 'current' ? <View style={b.dot} /> : null}
         </>
       )}
@@ -322,7 +271,7 @@ export function FloorItem({
 }
 
 // ---------- Feedback/StatusChip (4:446) ----------
-export type ChipTone = 'offline' | 'confirmed' | 'warning' | 'info';
+type ChipTone = 'offline' | 'confirmed' | 'warning' | 'info';
 const CHIP: Record<ChipTone, { bg: string; fg: string; icon: LucideIcon | null }> = {
   offline: { bg: 'transparent', fg: color.secondary, icon: WifiOff },
   confirmed: { bg: color.successSoft, fg: color.success, icon: Check },
@@ -340,27 +289,11 @@ export function StatusChip({ tone, label, style }: { tone: ChipTone; label: stri
   );
 }
 
-// ---------- Map/Pin (4:522) ----------
-export type PinType = 'start' | 'destination' | 'entrance';
-const PIN: Record<PinType, { bg: string; icon: LucideIcon }> = {
-  start: { bg: color.route, icon: Navigation },
-  destination: { bg: color.primary, icon: Check },
-  entrance: { bg: color.primary, icon: ArrowRight },
-};
-export function MapPin({ type, size = 40, label }: { type: PinType; size?: number; label?: string }) {
-  const p = PIN[type];
-  const Icon = p.icon;
-  return (
-    <View style={[b.pin, { width: size, height: size, backgroundColor: p.bg }]} accessibilityLabel={label} accessible={!!label}>
-      <Icon size={Math.round(size * 0.5)} color={color.onPrimary} strokeWidth={2.2} />
-    </View>
-  );
-}
-
 // ---------- Navigation/TabBar (4:586) ----------
 export type TabKey = 'map' | 'saved' | 'offline';
-const TAB_GAP = 4; // b.tabs.gap 과 같아야 함
-const TAB_PAD = 6; // b.tabs.padding(테두리 1 포함 안 함)
+const TAB_GAP = 4; // b.tabs.gap
+const TAB_PAD = 6; // b.tabs.padding
+const TAB_BORDER = 1; // b.tabs.borderWidth
 const TABS: { k: TabKey; label: string; icon: LucideIcon }[] = [
   { k: 'map', label: '지도', icon: MapIcon },
   { k: 'saved', label: '저장', icon: Bookmark },
@@ -387,13 +320,12 @@ export function TabBarView({
     TABS.findIndex((t) => t.k === at),
   );
   const [w, setW] = useState(0); // 탭 하나 너비
-  const x = pillX;
-  const [drag] = useState(() => ({ from: lastTabIndex })); // 끌기 시작 때 알약 자리
+  const dragFrom = useRef(lastTabIndex); // 끌기 시작 때 알약 자리(손가락 사건 때만 읽음)
   const last = TABS.length - 1;
   const clamp = (v: number) => Math.min(last, Math.max(0, v));
   const settle = (to: number) => {
-    if (reduce) x.setValue(to);
-    else Animated.spring(x, { toValue: to, ...motion.sheetSpring, useNativeDriver: true }).start();
+    if (reduce) pillX.setValue(to);
+    else Animated.spring(pillX, { toValue: to, ...motion.sheetSpring, useNativeDriver: true }).start();
   };
   useEffect(() => {
     if (!focused) return;
@@ -403,17 +335,18 @@ export function TabBarView({
   // 알약 끌기: 옆으로 6 px 넘게 움직이면 끌기(그 전에는 탭 누르기), 놓으면 가까운 탭으로
   const pan = useMemo(
     () =>
+      // eslint-disable-next-line react-hooks/refs -- dragFrom 은 손가락 사건 때만 읽음(그리기 중 아님)
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 6 && Math.abs(g.dx) > Math.abs(g.dy),
         onPanResponderGrant: () =>
-          x.stopAnimation((v) => {
-            drag.from = v;
+          pillX.stopAnimation((v) => {
+            dragFrom.current = v;
           }),
         onPanResponderMove: (_, g) => {
-          if (w) x.setValue(clamp(drag.from + g.dx / (w + TAB_GAP)));
+          if (w) pillX.setValue(clamp(dragFrom.current + g.dx / (w + TAB_GAP)));
         },
         onPanResponderRelease: (_, g) => {
-          const to = w ? clamp(Math.round(drag.from + g.dx / (w + TAB_GAP))) : idx;
+          const to = w ? clamp(Math.round(dragFrom.current + g.dx / (w + TAB_GAP))) : idx;
           if (TABS[to].k !== at) onSelect(TABS[to].k);
           else settle(idx);
         },
@@ -426,12 +359,12 @@ export function TabBarView({
       <View
         style={[b.tabs, elevation.float]}
         accessibilityRole="tablist"
-        onLayout={(e) => setW((e.nativeEvent.layout.width - 2 * TAB_PAD - 2 * TAB_GAP - last * TAB_GAP) / TABS.length)}
+        onLayout={(e) => setW((e.nativeEvent.layout.width - 2 * TAB_BORDER - 2 * TAB_PAD - last * TAB_GAP) / TABS.length)}
         {...pan.panHandlers}
       >
         {w ? (
           <Animated.View
-            style={[b.tabPill, { width: w, transform: [{ translateX: Animated.multiply(x, w + TAB_GAP) }] }]}
+            style={[b.tabPill, { width: w, transform: [{ translateX: Animated.multiply(pillX, w + TAB_GAP) }] }]}
             pointerEvents="none"
           >
             <Gradient angle="right" />
@@ -469,7 +402,7 @@ export function MapPackCard({
   title: string;
   detail: string;
   action: string;
-  state: 'stored' | 'download' | 'queued';
+  state: 'stored' | 'queued';
 }) {
   return (
     <View style={b.pack}>
@@ -491,7 +424,15 @@ const b = StyleSheet.create({
     overflow: 'hidden',
   },
   btnT: { ...type.actionLabel, textAlign: 'center', flexShrink: 1 },
-  iconBtn: { borderRadius: shape.pill, borderWidth: 1, borderColor: color.border, alignItems: 'center', justifyContent: 'center' },
+  iconBtn: {
+    width: space[48],
+    height: space[48],
+    borderRadius: shape.pill,
+    borderWidth: 1,
+    borderColor: color.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   search: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -554,13 +495,12 @@ const b = StyleSheet.create({
     paddingVertical: 6,
   },
   chipT: { ...type.captionText, fontWeight: '600', flexShrink: 1 },
-  pin: { borderRadius: radius[16], alignItems: 'center', justifyContent: 'center' },
   tabsWrap: { paddingHorizontal: 28, paddingTop: 6 },
   tabs: {
     flexDirection: 'row',
     backgroundColor: glass.dark,
     borderRadius: shape.pill,
-    borderWidth: 1,
+    borderWidth: TAB_BORDER,
     borderColor: glass.edgeDark,
     padding: TAB_PAD,
     gap: TAB_GAP,

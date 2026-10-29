@@ -4,7 +4,7 @@ import { PanResponder, Pressable, StyleSheet, Text, View, type LayoutChangeEvent
 import Svg, { Circle, G, Polygon, Polyline, Text as SvgText } from 'react-native-svg';
 import type { EdgeKind, MapNode, MapPackage, XYZ } from '../map/package';
 
-export const KIND_COLOR: Record<EdgeKind, string> = {
+const KIND_COLOR: Record<EdgeKind, string> = {
   walkway: '#6b7280',
   sidewalk: '#0ea5e9',
   crossing: '#f59e0b',
@@ -161,29 +161,6 @@ export function MapView({ pkg, floorSel, routePoints, highlightPlaceKeys = [], m
   );
 }
 
-export function Legend() {
-  const items: EdgeKind[] = ['walkway', 'sidewalk', 'crossing', 'corridor', 'stairs', 'ramp', 'elevator'];
-  const ko: Record<string, string> = {
-    walkway: '길',
-    sidewalk: '인도',
-    crossing: '횡단',
-    corridor: '복도',
-    stairs: '계단',
-    ramp: '경사로',
-    elevator: '승강기',
-  };
-  return (
-    <View style={styles.legend}>
-      {items.map((k) => (
-        <View key={k} style={styles.li}>
-          <View style={[styles.sw, { backgroundColor: KIND_COLOR[k] }]} />
-          <Text style={styles.lt}>{ko[k]}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: '#f8fafc', overflow: 'hidden' },
   zoom: { position: 'absolute', right: 12, bottom: 12, gap: 8 },
@@ -198,8 +175,4 @@ const styles = StyleSheet.create({
     borderColor: '#d1d5db',
   },
   ztxt: { fontSize: 22, color: '#111827' },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, paddingVertical: 4 },
-  li: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  sw: { width: 14, height: 4, borderRadius: 2 },
-  lt: { fontSize: 11, color: '#374151' },
 });

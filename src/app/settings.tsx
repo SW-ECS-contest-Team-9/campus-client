@@ -12,7 +12,7 @@ export default function SettingsScreen() {
   const [server, setServer] = useState(app.settings.serverUrl);
   const [map3d, setMap3d] = useState(app.settings.map3dUrl);
   const [stats] = useState(get3dStats);
-  const aiOn = app.settings.aiParse ?? false;
+  const aiOn = app.settings.aiParse;
   return (
     <Screen title="설정">
       <H>내 이동에 맞게</H>
@@ -74,7 +74,7 @@ export default function SettingsScreen() {
           <P tone="muted">규칙으로 못 알아들은 문장을 Gemma 270M으로 한 번 더 해석해요.</P>
           <P tone="muted">
             {app.aiModel
-              ? `모델 있음 · ${aiOn ? '켜짐' : '꺼짐'}${app.settings.aiParse == null ? '(기본 꺼짐)' : ''} · 필수 조건은 규칙 결과를 줄이지 않아요`
+              ? `모델 있음 · ${aiOn ? '켜짐' : '꺼짐'} · 필수 조건은 규칙 결과를 줄이지 않아요`
               : '모델 파일이 없어요(시험판: PC 에서 넣음). 규칙 해석만 써요.'}
           </P>
         </View>

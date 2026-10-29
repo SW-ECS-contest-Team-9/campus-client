@@ -98,7 +98,6 @@ export async function createCampusScene(o: SceneOptions) {
   const box = new THREE.Box3();
   for (const b of buildings.values()) box.expandByObject(b.node);
   const center = box.getCenter(new THREE.Vector3());
-  const span = box.getSize(new THREE.Vector3());
   const bounds = { minX: box.min.x - 150, maxX: box.max.x + 150, minZ: box.min.z - 150, maxZ: box.max.z + 150 };
   const cam = { target: center.clone(), dist: 0, heading: CAMERA.headingDeg * DEG, pitch: CAMERA.pitchDeg * DEG };
   const radius = box.getBoundingSphere(new THREE.Sphere()).radius;

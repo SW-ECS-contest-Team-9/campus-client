@@ -220,18 +220,22 @@ export function Pulse({ trigger, children, style }: { trigger: unknown; children
 
 /**
  * 끄는 시트(V3-6): 지도 위에 떠 있고, snaps(위에서 잰 보이는 높이, 작은 것부터) 사이를 스프링으로 붙음.
- * 손잡이는 단추(누르면 다음 멈춤). 시트 밖 지도는 계속 조작됨(비모달).
+ * 손잡이와 제목은 누르거나 끌어서 조작. 제목 옆 단추는 별도 터치 영역으로 유지.
  */
 export function Sheet({
   snaps,
   initial = 0,
   children,
+  header,
+  headerActions,
   bottomOffset = 0,
   onSnap,
 }: {
   snaps: number[];
   initial?: number;
   children: ReactNode;
+  header?: ReactNode;
+  headerActions?: ReactNode;
   bottomOffset?: number;
   onSnap?: (i: number) => void;
 }) {
@@ -250,34 +254,37 @@ export function Sheet({
     setAt(i);
     onSnap?.(i);
   };
-  const pan = Gesture.Pan()
-    .activeOffsetY([-8, 8])
-    .onStart(() => {
-      start.value = y.value;
-    })
-    .onUpdate((e) => {
-      y.value = Math.max(-12, Math.min(max - snaps[0] + 24, start.value + e.translationY));
-    })
-    .onEnd((e) => {
-      const proj = y.value + e.velocityY * 0.12;
-      let best = 0;
-      for (let i = 1; i < snaps.length; i++) if (Math.abs(max - snaps[i] - proj) < Math.abs(max - snaps[best] - proj)) best = i;
-      go(best);
-      scheduleOnRN(report, best);
-    });
+  const pan = () =>
+    Gesture.Pan()
+      .activeOffsetY([-8, 8])
+      .onStart(() => {
+        start.value = y.value;
+      })
+      .onUpdate((e) => {
+        y.value = Math.max(-12, Math.min(max - snaps[0] + 24, start.value + e.translationY));
+      })
+      .onEnd((e) => {
+        const proj = y.value + e.velocityY * 0.12;
+        let best = 0;
+        for (let i = 1; i < snaps.length; i++) if (Math.abs(max - snaps[i] - proj) < Math.abs(max - snaps[best] - proj)) best = i;
+        go(best);
+        scheduleOnRN(report, best);
+      });
   const st = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
   const next = () => {
     const i = (at + 1) % snaps.length;
     go(i);
     report(i);
   };
-  const tap = Gesture.Tap().onEnd(() => {
-    scheduleOnRN(next);
-  });
+  const tap = () =>
+    Gesture.Tap().onEnd((_event, success) => {
+      if (success) scheduleOnRN(next);
+    });
   return (
-    <Animated.View style={[s.sheet, { height: max + 24, bottom: bottomOffset - 24 }, st]}>
-      <Glass strong radius={shape.sheetTop} style={s.sheetIn}>
-        <GestureDetector gesture={Gesture.Exclusive(pan, tap)}>
+    // 탭 자리만큼 아래로 면을 연장해 펼쳐도 화면 하단에 틈이 생기지 않게 한다.
+    <Animated.View style={[s.sheet, { height: max + bottomOffset + 24, bottom: -24 }, st]}>
+      <Glass strong radius={shape.sheetTop} style={[s.sheetIn, { paddingBottom: bottomOffset + 24 }]}>
+        <GestureDetector gesture={Gesture.Exclusive(pan(), tap())}>
           <View
             style={s.grab}
             accessible
@@ -289,6 +296,24 @@ export function Sheet({
             <View style={s.grabBar} />
           </View>
         </GestureDetector>
+        {header ? (
+          <View style={s.sheetHeader}>
+            <GestureDetector gesture={Gesture.Exclusive(pan(), tap())}>
+              <View
+                style={s.sheetTitleHandle}
+                accessible
+                accessibilityRole="button"
+                accessibilityState={{ expanded: at === snaps.length - 1 }}
+                accessibilityHint={at === snaps.length - 1 ? '시트 접기' : '시트 펼치기'}
+                accessibilityActions={[{ name: 'activate' }]}
+                onAccessibilityAction={next}
+              >
+                {header}
+              </View>
+            </GestureDetector>
+            {headerActions}
+          </View>
+        ) : null}
         <Animated.View entering={reduce ? undefined : FadeIn.duration(motion.base)} style={{ flex: 1 }}>
           {children}
         </Animated.View>
@@ -301,7 +326,9 @@ const s = StyleSheet.create({
   edge: { position: 'absolute', left: 0, right: 0 },
   track: { backgroundColor: 'rgba(79,70,229,0.12)', overflow: 'hidden' },
   sheet: { position: 'absolute', left: 0, right: 0 },
-  sheetIn: { flex: 1, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, paddingBottom: 24 },
+  sheetIn: { flex: 1, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, gap: 8 },
+  sheetTitleHandle: { flex: 1, minHeight: 48, justifyContent: 'center' },
   grab: { height: 28, alignItems: 'center', justifyContent: 'center' },
   grabBar: { width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(20,34,53,0.22)' },
 });

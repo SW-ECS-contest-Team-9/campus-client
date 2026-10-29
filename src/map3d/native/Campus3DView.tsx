@@ -1,4 +1,4 @@
-// 네이티브 3D 캠퍼스 지도(expo-gl + three.js). client3d 페이지(WebView)를 대신하는 끼워 넣기 부품.
+// 네이티브 3D 캠퍼스 지도(expo-gl + three.js). client3d 페이지(WebView)를 대신하는 끼워 넣기 부품. 이 저장소가 관리(복사본 아님).
 // 같은 메시지 형식 v1: ref.post(명령) 으로 보내고 onEvent(사건) 으로 받음 — 앱 화면 코드는 바꾸지 않아도 됨.
 // 자료는 앱에 묶인 assets/campus.glb(웹 모델링을 구운 것, export/build-glb.mjs). 서버·인터넷 없이 뜸.
 import { Asset } from 'expo-asset';

@@ -2,7 +2,7 @@
 // 실내에서는 지금 층의 실내 빈 곳(i| 노드: 바닥·벽·천장)만 보이고, 서 있는 건물 껍데기(지붕·위층)는 숨김.
 // 실내 자료가 없는데 머리 위가 막힌 구간(지하 통로 등)은 경로를 따라 단순한 통로(바닥·벽·천장)를 만들어 보임.
 // 바닥에 경로 띠(지금 층 구간만, 묻힌 곳은 옅게 비쳐 보임)와 다음 꺾임 화살표, 글 안내(onHud)를 냄. 장면 자료는 바꾸지 않음(보이기만 바꿈).
-// campus-3d-lab native/src/firstPerson.ts 와 campus-client src/map3d/native/firstPerson.ts 는 같은 파일(한쪽을 고치면 복사).
+// 처음은 campus-3d-lab native/src/firstPerson.ts 에서 가져왔고 지금은 이 저장소가 관리한다(다시 복사하지 않음).
 import * as THREE from 'three';
 
 export const FP = {

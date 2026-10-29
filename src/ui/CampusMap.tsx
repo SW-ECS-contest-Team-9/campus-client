@@ -2,7 +2,7 @@
 import { router } from 'expo-router';
 import { useMemo, type ReactNode } from 'react';
 import type { XYZ } from '../map/package';
-import { floorCommand, locationCommand, packagePlaceKey, type Map3dCommand } from '../map3d/embed';
+import { floorCommand, locationCommand, packagePlaceKey, type Map3dCommand } from '../map3d/commands';
 import { useApp } from '../state/AppState';
 import { MapSlot } from './Map3D';
 import { MapView } from './MapView';

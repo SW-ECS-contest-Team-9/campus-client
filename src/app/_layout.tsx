@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { pageUrl } from '../map3d/embed';
+import { pageUrl } from '../map3d/commands';
 import { AppProvider, useApp } from '../state/AppState';
 import { TierCtx } from '../ui/look';
 import { Map3DHost, type Map3dPlace } from '../ui/Map3D';

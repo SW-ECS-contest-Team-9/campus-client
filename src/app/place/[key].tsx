@@ -1,7 +1,7 @@
 // CT03 장소 상세(층 확인): 3D 지도에서 그 건물의 그 층을 보여 줌, 보는 층 고르기, 장소 저장 / 여기로 길찾기.
 import { router, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { sceneBuildingId, type Map3dCommand } from '../../map3d/embed';
+import { sceneBuildingId, type Map3dCommand } from '../../map3d/commands';
 import { buildingName, floorCode, floorsOf, placeSubtitle } from '../../map/labels';
 import { useApp } from '../../state/AppState';
 import { CampusMap } from '../../ui/CampusMap';

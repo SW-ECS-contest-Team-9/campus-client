@@ -1,4 +1,4 @@
-// 캠퍼스 3D 장면(three.js) — 플랫폼 공용: 앱(expo-gl)과 PC 미리보기(브라우저 canvas)가 같은 코드를 씀.
+// 캠퍼스 3D 장면(three.js, expo-gl). 이 저장소가 관리한다(campus-3d-lab 에서 가져온 뒤 앱에 맞게 고쳤고, 다시 복사하지 않음).
 // 자료: export/build-glb.mjs 가 만든 campus.glb(웹 모델링을 그대로 구운 것). 명령·사건은 client3d 메시지 형식 v1 과 같음.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';

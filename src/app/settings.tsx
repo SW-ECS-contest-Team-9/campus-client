@@ -1,7 +1,7 @@
 // CT13 설정: 기본 이동 방식, 위치 권한 안내, 3D 표시(가벼운 모드), 서버·3D 페이지 주소(개발), 개인정보.
 import { useState } from 'react';
 import { StyleSheet, Switch, TextInput, View } from 'react-native';
-import { DEFAULT_MAP3D_URL } from '../map3d/embed';
+import { DEFAULT_MAP3D_URL } from '../map3d/commands';
 import { get3dStats } from '../map3d/diag';
 import { MODES } from '../route/modes';
 import { DEFAULT_SERVER_URL, useApp } from '../state/AppState';

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fixture from '../map/fixture/campus-fixture.json';
 import type { MapPackage } from '../map/package';
 import { buildGraph, findRoute } from '../route/route';
-import { floorCommand, locationCommand, packagePlaceKey, pageUrl, parseEvent, routeCommand, sceneBuildingId } from './embed';
+import { floorCommand, locationCommand, packagePlaceKey, pageUrl, parseEvent, routeCommand, sceneBuildingId } from './commands';
 import { toFix } from '../location/fix';
 
 const pkg = fixture as unknown as MapPackage;

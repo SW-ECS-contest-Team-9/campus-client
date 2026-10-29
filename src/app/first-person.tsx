@@ -8,7 +8,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Flag, MoveUp, Pause, Play, X
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Map3dCommand, Map3dEvent } from '../map3d/embed';
+import type { Map3dCommand, Map3dEvent } from '../map3d/commands';
 import { DEFAULT_GPS_DISTRUST } from '../location/matcher';
 import { createRouteFollower, distrustZones, followNotice, type FollowState } from '../route/follow';
 import { useApp } from '../state/AppState';
@@ -39,7 +39,7 @@ export default function FirstPersonScreen() {
   const fpCmd = useMemo<Map3dCommand>(
     () =>
       follow
-        ? { v: 1, type: 'firstPerson', on: true, follow: true }
+        ? { v: 1, type: 'firstPerson', on: true, follow: true, speed: null, paused: null }
         : { v: 1, type: 'firstPerson', on: true, follow: false, speed, paused },
     [follow, speed, paused],
   );

@@ -1,62 +1,17 @@
-// 3D 지도 페이지(campus-tracker frontend/client3d.html)와 주고받는 메시지 v1. 화면·RN 에 의존하지 않음(시험 가능).
-// 페이지 쪽 정의: campus-tracker frontend/src/client3d-protocol.ts. 바꾸면 둘 다 바꾼다.
+// 앱 → 3D 지도 명령 만들기(경로·현재 위치·층·페이지 주소). 네이티브(Campus3DView)와 웹(client3d.html) 두 엔진이 같은 형식 v1 을 씀.
+// 메시지 형식의 정의와 검사는 native/protocol.ts 한 곳. 화면·RN 에 의존하지 않음(시험 가능).
 import type { MapPackage, XYZ } from '../map/package';
 import type { Graph, RouteOk } from '../route/route';
 import type { Fix } from '../location/fix';
 import { epsg5186ToWgs84 } from '../location/projection';
 import { DEV_HOST } from '../config/devHost';
+import type { Command, PageEvent } from './native/protocol';
 
 export const V = 1;
-
-export type Map3dCommand =
-  | {
-      v: 1;
-      type: 'setLocation';
-      lon: number;
-      lat: number;
-      z: number | null;
-      accuracyM: number;
-      floor: string | null;
-      building: string | null;
-      state: 'ok' | 'uncertain';
-    }
-  | { v: 1; type: 'clearLocation' }
-  | {
-      v: 1;
-      type: 'setRoute';
-      points: XYZ[];
-      floorChanges: { at: XYZ; label: string | null }[];
-      /** 경로 단계(1인칭이 계단·승강기 종류와 층 이름을 씀. 웹 페이지는 무시) */
-      steps?: { kind: string; floorChange: boolean; toFloor: string | null }[];
-    }
-  | { v: 1; type: 'clearRoute' }
-  // 1인칭(네이티브 3D 만): 마지막 setRoute 경로를 눈높이로. follow 면 걸으며 따라가기(목표는 firstPersonFollow), 아니면 미리 보기(speed 1~3배, paused)
-  | { v: 1; type: 'firstPerson'; on: boolean; speed?: number; paused?: boolean; follow?: boolean }
-  | { v: 1; type: 'firstPersonSeek'; m: number }
-  | { v: 1; type: 'firstPersonFollow'; m: number | null }
-  | { v: 1; type: 'focus'; x: number; y: number; z: number | null; building: string | null; floor: string | null }
-  | { v: 1; type: 'setFloor'; building: string; floor: string | null; explode?: boolean }
-  | { v: 1; type: 'setMarkerImages'; ok: string; uncertain: string };
-
-export type Map3dEvent =
-  | { v: 1; type: 'ready'; buildings: { id: string; name: string }[]; light: boolean }
-  | { v: 1; type: 'pick'; kind: 'building' | 'place' | 'point'; id?: string; name?: string; x: number; y: number; z: number }
-  | { v: 1; type: 'error'; error: string; command?: string }
-  | {
-      v: 1;
-      type: 'firstPerson';
-      state: 'playing' | 'paused' | 'done' | 'off';
-      /** 경로 처음부터 지금 자리·전체 길이(m) */
-      s: number;
-      total: number;
-      speed: number;
-      follow: boolean;
-      /** 안내 글("12 m 앞 왼쪽")·보조 글("도착까지 n m")·지금 층(실내일 때) */
-      text: string | null;
-      sub: string | null;
-      floor: string | null;
-      turn: 'left' | 'right' | 'up' | 'down' | 'arrive' | null;
-    };
+/** 보내는 명령(v 붙임) */
+export type Map3dCommand = { v: 1 } & Command;
+/** 받는 사건 */
+export type Map3dEvent = PageEvent;
 
 /** 꾸러미 건물 key("b:북악관") ↔ 3D 장면 건물 id("북악관"). 장소 key("p:<id>") ↔ 장면 장소 id. */
 export const sceneBuildingId = (buildingKey: string) => buildingKey.replace(/^b:/, '');

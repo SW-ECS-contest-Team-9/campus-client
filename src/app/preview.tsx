@@ -2,7 +2,7 @@
 // 경로는 서버가 닿으면 고른 방식의 서버 계산, 아니면 기기 계산(AppState.route).
 import { Redirect, router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
-import { startLabel as startLabelOf } from '../map/labels';
+import { displayName, startLabel as startLabelOf } from '../map/labels';
 import { modeInfo } from '../route/modes';
 import { hasRouteIndicators } from '../route/route';
 import { minutesOf } from '../route/time';
@@ -36,7 +36,7 @@ export default function PreviewScreen() {
   const stairs = r.steps.filter((s) => s.kind === 'stairs').length;
   const changes = r.steps.filter((s) => s.floorChange);
   const startLabel = startLabelOf(pkg, st);
-  const path = [startLabel, ...changes.map((c) => c.toFloor), dest?.name].filter(Boolean).join(' → ');
+  const path = [startLabel, ...changes.map((c) => c.toFloor), dest && displayName(dest.name)].filter(Boolean).join(' → ');
   const offline = app.loaded?.source !== 'server';
   const fromServer = r.source === 'server';
   // 기기 계산인데 꾸러미에 지붕·조명 지표가 없으면 이 방식은 일부만 반영됨

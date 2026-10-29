@@ -19,7 +19,7 @@ export default function OfflineScreen() {
     l.source === 'server' ? '방금 서버에서 받음' : l.source === 'stored' ? '기기에 저장됨' : '저장된 지도 없음 · 앱에 들어 있는 개발 지도';
   return (
     <View style={{ flex: 1 }}>
-      <Screen title="오프라인 지도" back={false}>
+      <Screen title="지도 저장" back={false}>
         <H>인터넷 없이도{'\n'}저장한 범위에서 길찾기</H>
         <View style={s.hero}>
           <View style={{ flex: 1 }}>

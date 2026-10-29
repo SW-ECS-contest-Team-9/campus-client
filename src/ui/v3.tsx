@@ -230,6 +230,7 @@ export function Sheet({
   headerActions,
   bottomOffset = 0,
   onSnap,
+  collapseSignal = 0,
 }: {
   snaps: number[];
   initial?: number;
@@ -238,6 +239,8 @@ export function Sheet({
   headerActions?: ReactNode;
   bottomOffset?: number;
   onSnap?: (i: number) => void;
+  /** 값이 바뀌면 가장 작은 자리로 접음(지도를 만질 때) */
+  collapseSignal?: number;
 }) {
   const reduce = !useLook().moving;
   const max = snaps[snaps.length - 1];
@@ -271,6 +274,12 @@ export function Sheet({
         scheduleOnRN(report, best);
       });
   const st = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
+  useEffect(() => {
+    if (!collapseSignal) return;
+    go(0);
+    setAt(0); // eslint-disable-line react-hooks/set-state-in-effect -- 바깥 신호(지도 만짐)에 맞춰 접음
+    onSnap?.(0);
+  }, [collapseSignal]); // eslint-disable-line react-hooks/exhaustive-deps
   const next = () => {
     const i = (at + 1) % snaps.length;
     go(i);
@@ -314,7 +323,12 @@ export function Sheet({
             {headerActions}
           </View>
         ) : null}
-        <Animated.View entering={reduce ? undefined : FadeIn.duration(motion.base)} style={{ flex: 1 }}>
+        {/* 접힌 자리(0)에서는 내용을 숨김: 아래 탭 바 뒤로 비쳐 보이지 않게 */}
+        <Animated.View
+          entering={reduce ? undefined : FadeIn.duration(motion.base)}
+          style={{ flex: 1, opacity: at === 0 && snaps.length > 1 ? 0 : 1 }}
+          pointerEvents={at === 0 && snaps.length > 1 ? 'none' : 'auto'}
+        >
           {children}
         </Animated.View>
       </Glass>

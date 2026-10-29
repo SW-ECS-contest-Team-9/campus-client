@@ -5,6 +5,7 @@ import { ArrowUpDown, CircleAlert, MapPinOff } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 import { modeInfo } from '../route/modes';
 import { noRouteCopy, type NoRouteAction } from '../route/noRouteCopy';
+import { displayName } from '../map/labels';
 import { useApp } from '../state/AppState';
 import { Button } from '../ui/components';
 import { Card, H, P, Screen } from '../ui/kit';
@@ -18,7 +19,7 @@ export default function NoRouteScreen() {
   const copy = noRouteCopy({
     reason: r && !r.ok ? r.reason : 'no_route',
     condition: app.condition,
-    destName: dest?.name ?? null,
+    destName: dest ? displayName(dest.name) : null,
     destAttached: !!dest?.nodeKey,
   });
   const building = dest?.buildingKey ? app.pkg?.buildings.find((b) => b.key === dest.buildingKey)?.name : undefined;

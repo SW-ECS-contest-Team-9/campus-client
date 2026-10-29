@@ -41,6 +41,8 @@ export interface Settings {
   autoTierRule?: number;
   /** 3D 엔진: 네이티브(기본, 앱에 묶은 3D·서버 없이) / 웹(3D 페이지, 서버 필요) */
   map3dEngine: Map3dEngine;
+  /** 지도를 평면(2D)으로 보기(3D 대신). 지도 화면 단추로도 바꿈 */
+  map2d: boolean;
   /** 검색 화면을 열 때 자연어 검색으로 시작할지 */
   naturalSearchDefault: boolean;
   /** AI 문장 해석(실험, 기기 안 Gemma). 기본 꺼짐: S21 실측 한 번 6~8 s, 불러오면 메모리 +0.56 GB */
@@ -56,6 +58,7 @@ const DEFAULT_SETTINGS: Settings = {
   autoTier: null,
   autoTier3dChecked: false,
   map3dEngine: 'native',
+  map2d: false,
   naturalSearchDefault: false,
   aiParse: false,
 };
@@ -106,6 +109,8 @@ interface AppCtx {
   noteFirst3dReady: (ms: number, engine: Map3dEngine) => void;
   recentSearches: string[];
   addRecentSearch: (q: string) => void;
+  removeRecentSearch: (q: string) => void;
+  clearRecentSearches: () => void;
   recentRoutes: RecentRoute[];
   addRecentRoute: (r: RecentRoute) => void;
   confirmedFloor: ConfirmedFloor | null;
@@ -246,9 +251,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
   const addRecentSearch = useCallback(
-    (q: string) => saveRecent((cur) => ({ ...cur, searches: [q, ...cur.searches.filter((x) => x !== q)].slice(0, 5) })),
+    (q: string) => saveRecent((cur) => ({ ...cur, searches: [q, ...cur.searches.filter((x) => x !== q)].slice(0, 10) })),
     [saveRecent],
   );
+  const removeRecentSearch = useCallback(
+    (q: string) => saveRecent((cur) => ({ ...cur, searches: cur.searches.filter((x) => x !== q) })),
+    [saveRecent],
+  );
+  const clearRecentSearches = useCallback(() => saveRecent((cur) => ({ ...cur, searches: [] })), [saveRecent]);
   const addRecentRoute = useCallback(
     (r: RecentRoute) =>
       saveRecent((cur) => ({
@@ -372,6 +382,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateStatus,
     recentSearches: recent.searches,
     addRecentSearch,
+    removeRecentSearch,
+    clearRecentSearches,
     recentRoutes: recent.routes,
     addRecentRoute,
     confirmedFloor,

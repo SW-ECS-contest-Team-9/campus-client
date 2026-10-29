@@ -5,7 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { effectiveCondition } from '../nlp/apply';
 import { MODES, modeInfo } from '../route/modes';
 import { hasRouteIndicators } from '../route/route';
-import { floorCode, startLabel as startLabelOf } from '../map/labels';
+import { displayName, floorCode, startLabel as startLabelOf } from '../map/labels';
 import { useApp } from '../state/AppState';
 import { Button, FloorItem } from '../ui/components';
 import { color, type } from '../ui/theme';
@@ -40,7 +40,7 @@ export default function OptionsScreen() {
             서버에 연결되면 서버에서, 아니면 저장된 지도(v{pkg.release.version})로 기기에서 계산해요. 지금의 통행 제한은 반영되지 않을 수
             있어요.
           </P>
-          <Button label="경로 확인" disabled={!st || !dest} onPress={go} />
+          <Button label="경로 보기" disabled={!st || !dest} onPress={go} />
         </>
       }
     >
@@ -51,7 +51,9 @@ export default function OptionsScreen() {
         </View>
         <View style={s.line}>
           <Text style={[s.k, { color: color.primary }]}>도착</Text>
-          <Text style={[s.v, { color: color.primary }]}>{dest ? `${dest.name}${destFloor ? ` · ${destFloor}` : ''}` : '고르지 않음'}</Text>
+          <Text style={[s.v, { color: color.primary }]}>
+            {dest ? `${displayName(dest.name)}${destFloor ? ` · ${destFloor}` : ''}` : '고르지 않음'}
+          </Text>
         </View>
         {st ? (
           <Button

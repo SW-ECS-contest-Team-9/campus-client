@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { pageUrl } from '../map3d/commands';
 import { AppProvider, useApp } from '../state/AppState';
+import { ToastProvider } from '../ui/feedback';
 import { TierCtx, useLook } from '../ui/look';
 import { Map3DHost, type Map3dPlace } from '../ui/Map3D';
 import { color, motion } from '../ui/theme';
@@ -19,9 +20,11 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <AppProvider>
           <StatusBar style="dark" />
-          <Shared3D>
-            <Screens />
-          </Shared3D>
+          <ToastProvider>
+            <Shared3D>
+              <Screens />
+            </Shared3D>
+          </ToastProvider>
         </AppProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

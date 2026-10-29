@@ -37,7 +37,6 @@ export default function PreviewScreen() {
   const changes = r.steps.filter((s) => s.floorChange);
   const startLabel = startLabelOf(pkg, st);
   const path = [startLabel, ...changes.map((c) => c.toFloor), dest && displayName(dest.name)].filter(Boolean).join(' → ');
-  const offline = app.loaded?.source !== 'server';
   const fromServer = r.source === 'server';
   // 기기 계산인데 꾸러미에 지붕·조명 지표가 없으면 이 방식은 일부만 반영됨
   const partial = !fromServer && !hasRouteIndicators(pkg) ? modeInfo(app.condition).device : null;
@@ -92,14 +91,7 @@ export default function PreviewScreen() {
         />
       </View>
       <View style={s.below}>
-        {fromServer ? (
-          <StatusChip tone="confirmed" label="서버에서 이 방식으로 계산" />
-        ) : (
-          <StatusChip
-            tone={offline ? 'offline' : 'confirmed'}
-            label={offline ? '저장된 지도로 기기에서 계산' : '방금 받은 지도로 기기에서 계산'}
-          />
-        )}
+        {fromServer ? <StatusChip tone="confirmed" label="서버에서 이 방식으로 계산" /> : null}
         {partial ? <P tone="muted">{partial}</P> : null}
         {/* 1인칭 미리 보기: 경로를 눈높이로 2~3배속 걸어 봄(앱 내장 3D 일 때만) */}
         {ctl.available ? (
@@ -109,11 +101,7 @@ export default function PreviewScreen() {
             onPress={() => router.push({ pathname: '/first-person', params: { mode: 'preview' } })}
           />
         ) : null}
-        {server && !server.ok ? (
-          <P tone="muted">
-            {server.code === 'no_route' ? '서버는 같은 조건의 경로가 없다고 해요' : '서버에 연결하지 못해 기기에서 계산했어요'}
-          </P>
-        ) : null}
+        {server && !server.ok && server.code === 'no_route' ? <P tone="muted">서버는 같은 조건의 경로가 없다고 해요</P> : null}
       </View>
     </Screen>
   );

@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { sceneBuildingId, type Map3dCommand } from '../../map3d/commands';
 import { buildingName, displayName, floorCode, floorsOf, placeSubtitle } from '../../map/labels';
 import { useApp } from '../../state/AppState';
+import { useToast } from '../../ui/feedback';
 import { CampusMap } from '../../ui/CampusMap';
 import { color, space, type } from '../../ui/theme';
 import { Button, FloorItem, StatusChip } from '../../ui/components';
@@ -23,6 +24,7 @@ const CATEGORY: Record<string, string> = {
 export default function PlaceScreen() {
   const { key } = useLocalSearchParams<{ key: string }>();
   const app = useApp();
+  const toast = useToast();
   const pkg = app.pkg;
   const p = pkg?.places.find((x) => x.key === key);
   if (!pkg || !p)
@@ -52,7 +54,15 @@ export default function PlaceScreen() {
       scroll={false}
       footer={
         <View style={s.actions}>
-          <Button variant="secondary" label={fav ? '저장됨' : '장소 저장'} onPress={() => app.toggleFavorite(p.key)} style={{ flex: 1 }} />
+          <Button
+            variant="secondary"
+            label={fav ? '저장됨' : '장소 저장'}
+            onPress={() => {
+              void app.toggleFavorite(p.key);
+              toast(fav ? '저장을 해제했어요' : '저장했어요', { label: '되돌리기', onPress: () => void app.toggleFavorite(p.key) });
+            }}
+            style={{ flex: 1 }}
+          />
           <Button
             label="여기로 길찾기"
             disabled={!p.nodeKey}

@@ -77,15 +77,15 @@ export default function SettingsScreen() {
       </Card>
       <Card style={s.row}>
         <View style={{ flex: 1 }}>
-          <P>가벼운 3D 지도</P>
-          <P tone="muted">구조물·이름표를 빼서 오래된 휴대폰에서도 부드럽게</P>
+          <P>저사양 모드</P>
+          <P tone="muted">3D 를 낮은 해상도·단순 조명으로 그리고 나무·선을 빼요. 오래된 휴대폰에서 부드럽게</P>
         </View>
         <Switch
           value={app.settings.light}
           onValueChange={(v) => app.updateSettings({ light: v })}
           trackColor={{ false: color.border, true: color.primary }}
           ios_backgroundColor={color.border}
-          accessibilityLabel="가벼운 3D 지도"
+          accessibilityLabel="저사양 모드"
         />
       </Card>
       <Section>위치 권한</Section>

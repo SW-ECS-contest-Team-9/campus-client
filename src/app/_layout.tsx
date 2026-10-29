@@ -6,8 +6,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { pageUrl } from '../map3d/commands';
 import { AppProvider, useApp } from '../state/AppState';
-import { TierCtx } from '../ui/look';
+import { TierCtx, useLook } from '../ui/look';
 import { Map3DHost, type Map3dPlace } from '../ui/Map3D';
+import { color, motion } from '../ui/theme';
 
 // 머리는 각 화면이 직접 그림(ui/kit Screen). 흐름: 지도 → 검색 → 장소 → 출발점 → 옵션 → 미리보기 → 안내 → 도착.
 if (__DEV__) (globalThis as { __router?: typeof router }).__router = router; // 개발 중 화면 시험용
@@ -19,21 +20,29 @@ export default function RootLayout() {
         <AppProvider>
           <StatusBar style="dark" />
           <Shared3D>
-            <Stack
-              initialRouteName="(tabs)"
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: '#F6F8FB' },
-                animation: 'fade_from_bottom',
-                animationDuration: 240,
-              }}
-            >
-              <Stack.Screen name="(tabs)" />
-            </Stack>
+            <Screens />
           </Shared3D>
         </AppProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+
+/** 화면 더미. 동작 줄이기면 화면 전환 효과 없음. */
+function Screens() {
+  const { moving } = useLook();
+  return (
+    <Stack
+      initialRouteName="(tabs)"
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: color.canvas },
+        animation: moving ? 'fade_from_bottom' : 'none',
+        animationDuration: motion.base,
+      }}
+    >
+      <Stack.Screen name="(tabs)" />
+    </Stack>
   );
 }
 

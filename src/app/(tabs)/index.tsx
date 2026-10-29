@@ -234,7 +234,7 @@ const s = StyleSheet.create({
   loadingT: { fontSize: type.small, color: color.secondary, fontWeight: '600' },
   // 오른쪽 위 88 dp 는 웹 3D 페이지 자체 단추(처음 시점·층 펼치기) 자리라 비움
   top: { position: 'absolute', left: 16, right: 92, top: 0, gap: 10 },
-  unsaved: { alignSelf: 'flex-start' },
+  unsaved: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
   ctl: { position: 'absolute', right: 16, gap: 8, alignItems: 'center' },
   ctlItem: { alignItems: 'center', gap: 2 },
   ctlT: { fontSize: 11, fontWeight: '700', color: color.text },

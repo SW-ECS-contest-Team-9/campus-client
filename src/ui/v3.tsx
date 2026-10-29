@@ -343,6 +343,6 @@ const s = StyleSheet.create({
   sheetIn: { flex: 1, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, gap: 8 },
   sheetTitleHandle: { flex: 1, minHeight: 48, justifyContent: 'center' },
-  grab: { height: 28, alignItems: 'center', justifyContent: 'center' },
+  grab: { height: 44, marginBottom: -12, alignItems: 'center', justifyContent: 'center' }, // 터치 44, 보이는 막대는 위쪽
   grabBar: { width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(20,34,53,0.22)' },
 });

@@ -31,10 +31,11 @@ export const type = {
 export const ICON = 20;
 
 // ---------- V3 시각 체계(백엔드/디자인 "V3 디자인 방향" 원칙 V3-1~11) ----------
-/** 브랜드 그라데이션: primary → route → 유도 하늘색. 주 행동·머리 물결·경로 진행에만(V3-4). */
+/** 브랜드 그라데이션: primary → 남보라 → route. 주 행동·머리 물결·경로 진행에만(V3-4).
+ *  끝색은 흰 글자 대비 4.5:1 이상인 #2563EB 까지만(하늘색 #38BDF8 은 2.1:1 라 글자 아래에 못 씀, 2026-10-29). */
 export const gradient = {
-  brand: ['#4F46E5', '#2563EB', '#38BDF8'] as const,
-  brandPressed: ['#3730A3', '#1D4ED8', '#0EA5E9'] as const,
+  brand: ['#4F46E5', '#3B5BDB', '#2563EB'] as const,
+  brandPressed: ['#3730A3', '#2A44B8', '#1D4ED8'] as const,
   deep: ['#1E1B4B', '#312E81', '#1E3A8A'] as const,
   /** 화면 바탕의 옅은 빛(장식, 글자 아래 아님) */
   mist: ['#EEF0FF', '#F4F7FF', '#E8F6FE'] as const,

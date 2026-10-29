@@ -1,22 +1,25 @@
 // CT10 도착 확인.
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
-import { placeSubtitle, useApp } from '../state/AppState';
-import { Btn, Card, H, P, Screen, T } from '../ui/kit';
+import { placeSubtitle } from '../map/labels';
+import { useApp } from '../state/AppState';
+import { Button } from '../ui/components';
+import { Card, H, P, Screen } from '../ui/kit';
 import { Character, Gradient } from '../ui/v3';
-import { gradient } from '../ui/theme';
+import { color, gradient, type } from '../ui/theme';
 
 export default function ArriveScreen() {
   const app = useApp();
-  const pkg = app.pkg!;
-  const dest = pkg.places.find((p) => p.key === app.destKey);
+  const pkg = app.pkg;
+  const dest = pkg?.places.find((p) => p.key === app.destKey);
   const fav = dest ? app.favorites.includes(dest.key) : false;
+  if (!pkg) return null;
   return (
     <Screen
       title="도착 확인"
       footer={
         <>
-          <Btn
+          <Button
             label="도착했어요 · 안내 종료"
             onPress={() => {
               app.setStart(null);
@@ -24,9 +27,9 @@ export default function ArriveScreen() {
               router.dismissTo('/');
             }}
           />
-          <Btn kind="soft" label="아직이에요 · 위치 확인" onPress={() => router.push('/recheck')} />
+          <Button variant="secondary" label="아직이에요 · 위치 확인" onPress={() => router.push('/recheck')} />
           {dest ? (
-            <Btn kind="ghost" label={fav ? '저장한 장소예요' : '이 장소 저장'} onPress={() => !fav && app.toggleFavorite(dest.key)} />
+            <Button variant="quiet" label={fav ? '저장한 장소예요' : '이 장소 저장'} onPress={() => !fav && app.toggleFavorite(dest.key)} />
           ) : null}
         </>
       }
@@ -67,6 +70,6 @@ const s = StyleSheet.create({
     marginTop: 8,
   },
   halo: { position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(56,189,248,0.18)' },
-  k: { fontSize: T.small, fontWeight: '700', color: T.primary },
-  v: { fontSize: T.title, fontWeight: '800', color: T.text },
+  k: { fontSize: type.small, fontWeight: '700', color: color.primary },
+  v: { fontSize: type.title, fontWeight: '800', color: color.text },
 });

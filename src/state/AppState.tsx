@@ -6,8 +6,9 @@ import { checkForUpdate, loadLocal, type Deps, type LoadedPackage } from '../api
 import { serverRoute as fetchServerRoute, type ServerRoute } from '../api/serverRoute';
 import type { MapPackage } from '../map/package';
 import fixtureJson from '../map/fixture/campus-fixture.json';
-import { buildGraph, findRoute, pointStart, routeBetween, type Graph, type RouteCondition, type RouteResult } from '../route/route';
-import { startNodeForFix, type Fix } from '../location/fix';
+import { buildGraph, findRoute, routeBetween, type Graph, type RouteCondition, type RouteResult } from '../route/route';
+import type { Fix } from '../location/fix';
+import type { StartPoint } from '../location/start';
 import { createTracker, type Tracker } from '../location/tracker';
 import { startTracking, type SensorStatus } from '../location/sensors';
 import { expoSensors, hasLocationPermission, requestLocationPermission } from '../location/expoSensors';
@@ -81,19 +82,7 @@ export interface NlpState {
   notes: string[];
   mandatory: Mandatory[];
 }
-export type StartPoint =
-  | { type: 'place'; placeKey: string }
-  | { type: 'node'; nodeKey: string; label: string }
-  /** 걷는 면·열린 면 위 현재 위치(면 높이): 노드가 아니라 그 점에서 면을 가로질러 출발 */
-  | { type: 'point'; x: number; y: number; z: number; label: string };
-
-/** 현재 위치에서 출발: 걷는 면·열린 면 위면 그 점(면을 가로질러 출발), 아니면 맞춘 길의 가까운 끝 노드(50 m 안 바깥 노드). */
-export function startFromFix(pkg: MapPackage, graph: Graph | null, fix: Fix, label: string): StartPoint | null {
-  const p = graph ? pointStart(graph, fix.x, fix.y, fix.match?.z ?? null) : null;
-  if (p) return { type: 'point', x: p[0], y: p[1], z: p[2], label };
-  const n = startNodeForFix(pkg, fix);
-  return n ? { type: 'node', nodeKey: n.key, label } : null;
-}
+export type { StartPoint };
 
 const SETTINGS_KEY = 'settings.v1';
 const FAVORITES_KEY = 'favorites.v1';
@@ -106,7 +95,7 @@ const deps: Deps = {
   fixture,
 };
 
-interface AppState {
+interface AppCtx {
   loaded: LoadedPackage | null;
   pkg: MapPackage | null;
   graph: Graph | null;
@@ -121,8 +110,6 @@ interface AppState {
   addRecentRoute: (r: RecentRoute) => void;
   confirmedFloor: ConfirmedFloor | null;
   setConfirmedFloor: (f: ConfirmedFloor | null) => void;
-  guideStep: number;
-  setGuideStep: (n: number) => void;
   updateStatus: string | null;
   checkUpdate: () => Promise<void>;
   favorites: string[];
@@ -155,14 +142,13 @@ interface AppState {
   setFloor: (buildingKey: string, floorKey: string) => void;
 }
 
-const Ctx = createContext<AppState | null>(null);
+const Ctx = createContext<AppCtx | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState<LoadedPackage | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [recent, setRecent] = useState<{ searches: string[]; routes: RecentRoute[] }>({ searches: [], routes: [] });
   const [confirmedFloor, setConfirmedFloor] = useState<ConfirmedFloor | null>(null);
-  const [guideStep, setGuideStep] = useState(0);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [updateStatus, setUpdateStatus] = useState<string | null>(null);
   const [start, setStart] = useState<StartPoint | null>(null);
@@ -375,7 +361,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setFloor = useCallback((b: string, f: string) => setFloorSel((s) => ({ ...s, [b]: f })), []);
 
-  const value: AppState = {
+  const value: AppCtx = {
     loaded,
     pkg,
     graph,
@@ -390,8 +376,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addRecentRoute,
     confirmedFloor,
     setConfirmedFloor,
-    guideStep,
-    setGuideStep,
     checkUpdate,
     favorites,
     toggleFavorite,
@@ -414,22 +398,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setFloor,
   };
   // eslint-disable-next-line react-hooks/immutability -- 개발 빌드 시험 손잡이(전역)
-  if (__DEV__) (globalThis as { __app?: AppState }).__app = value; // 개발 중 화면 시험용(갈무리 스크립트)
+  if (__DEV__) (globalThis as { __app?: AppCtx }).__app = value; // 개발 중 화면 시험용(갈무리 스크립트)
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-export function useApp(): AppState {
+export function useApp(): AppCtx {
   const v = useContext(Ctx);
   if (!v) throw new Error('AppProvider 밖');
   return v;
-}
-
-/** 장소 표시 이름: "이름 · 건물 층" */
-export function placeSubtitle(pkg: MapPackage, placeKey: string): string {
-  const p = pkg.places.find((x) => x.key === placeKey);
-  if (!p) return '';
-  const b = p.buildingKey ? pkg.buildings.find((x) => x.key === p.buildingKey)?.name : null;
-  const f = p.floorKey ? pkg.floors.find((x) => x.key === p.floorKey)?.code : null;
-  if (p.location === 'outdoor') return '바깥';
-  return [b, f ?? '층 모름'].filter(Boolean).join(' ');
 }

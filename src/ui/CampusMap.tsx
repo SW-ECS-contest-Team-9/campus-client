@@ -38,9 +38,9 @@ export function CampusMap({
   tabSlide,
 }: Props) {
   const app = useApp();
-  const pkg = app.pkg!;
+  const pkg = app.pkg;
   const loc = useMemo<Map3dCommand | null>(() => {
-    if (!app.fix) return null;
+    if (!app.fix || !pkg) return null;
     // 층: 사용자가 확인한 층 > 위치 보정이 고른 층. 높이는 확인한 층 바닥 또는 맞춘 통로 높이.
     const cf = app.confirmedFloor;
     const m = app.fix.match;
@@ -55,12 +55,14 @@ export function CampusMap({
     });
   }, [app.fix, app.confirmedFloor, pkg]);
   // 층 고르기(보는 층)
-  const floors = useMemo(() => Object.entries(app.floorSel).map(([b, f]) => floorCommand(pkg, b, f)), [app.floorSel, pkg]);
+  const floors = useMemo(() => (pkg ? Object.entries(app.floorSel).map(([b, f]) => floorCommand(pkg, b, f)) : []), [app.floorSel, pkg]);
   const routeFocus = useMemo(() => {
     if (focus || !routePoints?.length) return focus;
     return routePoints.map((p) => ({ x: p[0], y: p[1] }));
   }, [focus, routePoints]);
   const all = useMemo(() => [loc, ...floors, ...commands], [loc, floors, commands]);
+  if (!pkg) return null;
+  const openPlace = (key: string) => router.push({ pathname: '/place/[key]', params: { key } });
   return (
     <MapSlot
       commands={all}
@@ -71,7 +73,7 @@ export function CampusMap({
       onEvent={(e) => {
         if (pickPlaces && e.type === 'pick' && e.kind === 'place' && e.id) {
           const key = packagePlaceKey(e.id);
-          if (pkg.places.some((p) => p.key === key)) router.push({ pathname: '/place/[key]', params: { key } });
+          if (pkg.places.some((p) => p.key === key)) openPlace(key);
         }
       }}
       fallback={
@@ -82,7 +84,7 @@ export function CampusMap({
           highlightPlaceKeys={highlightPlaceKeys}
           me={app.fix}
           focus={routeFocus}
-          onPlacePress={pickPlaces ? (key) => router.push({ pathname: '/place/[key]', params: { key } }) : undefined}
+          onPlacePress={pickPlaces ? openPlace : undefined}
         />
       }
     />

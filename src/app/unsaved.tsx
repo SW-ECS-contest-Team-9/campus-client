@@ -2,7 +2,9 @@
 import { router } from 'expo-router';
 import { Text } from 'react-native';
 import { useApp } from '../state/AppState';
-import { Btn, Card, H, P, Screen, T } from '../ui/kit';
+import { Button } from '../ui/components';
+import { Card, H, P, Screen } from '../ui/kit';
+import { color, type } from '../ui/theme';
 import { Character } from '../ui/v3';
 
 export default function UnsavedScreen() {
@@ -12,8 +14,8 @@ export default function UnsavedScreen() {
       title="지도 저장이 필요해요"
       footer={
         <>
-          <Btn label="오프라인 지도 관리" onPress={() => router.dismissTo('/offline')} />
-          <Btn kind="soft" label="지금 지도로 계속 보기" onPress={() => router.back()} />
+          <Button label="오프라인 지도 관리" onPress={() => router.dismissTo('/offline')} />
+          <Button variant="secondary" label="지금 지도로 계속 보기" onPress={() => router.back()} />
         </>
       }
     >
@@ -23,7 +25,7 @@ export default function UnsavedScreen() {
       <Card>
         <P>캠퍼스 지도</P>
         <P tone="muted">{app.updateStatus ?? '받지 않음'}</P>
-        <Text style={{ color: T.caution, fontWeight: '700', fontSize: T.small }}>최신 지도와 장소·길이 다를 수 있어요</Text>
+        <Text style={{ color: color.warning, fontWeight: '700', fontSize: type.small }}>최신 지도와 장소·길이 다를 수 있어요</Text>
       </Card>
       <Card tone="primary">
         <P>지금 가능한 것</P>

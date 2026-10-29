@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Building } from 'lucide-react-native';
 import { View } from 'react-native';
 import { displayName, placeSubtitle } from '../../map/labels';
+import { beginRoute } from '../../location/goRoute';
 import { useApp } from '../../state/AppState';
 import { Button, ResultRow } from '../../ui/components';
 import { H, P, Screen, Section, TabBar } from '../../ui/kit';
@@ -45,7 +46,7 @@ export default function SavedScreen() {
                   ? () => {
                       app.setDestKey(d.key);
                       app.setCondition(r.condition);
-                      router.push('/start');
+                      beginRoute(pkg, app.graph, app.fix, { start: app.setStart });
                     }
                   : undefined
               }

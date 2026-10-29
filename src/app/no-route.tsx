@@ -2,13 +2,13 @@
 // 계단 피하기는 스스로 풀지 않고, 사용자가 고르게 한다(제품 규칙 04).
 import { router } from 'expo-router';
 import { ArrowUpDown, CircleAlert, MapPinOff } from 'lucide-react-native';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { modeInfo } from '../route/modes';
 import { noRouteCopy, type NoRouteAction } from '../route/noRouteCopy';
 import { displayName } from '../map/labels';
 import { useApp } from '../state/AppState';
 import { Button } from '../ui/components';
-import { Card, H, P, Screen } from '../ui/kit';
+import { H, P, Screen } from '../ui/kit';
 import { color, type } from '../ui/theme';
 import { Character } from '../ui/v3';
 
@@ -32,7 +32,7 @@ export default function NoRouteScreen() {
       // 사용자가 직접 "계단 허용"을 고름 → 말로 정한 필수 조건(계단 없이)도 함께 풂
       if (app.nlp?.mandatory.length) app.setNlp({ ...app.nlp, mandatory: [] });
       app.setCondition('shortest');
-      router.replace('/options');
+      router.replace('/preview');
     }
   };
   const Icon =
@@ -55,10 +55,7 @@ export default function NoRouteScreen() {
       </View>
       <H>{copy.title}</H>
       <P>{copy.body}</P>
-      <Card tone="caution">
-        <Text style={s.k}>선택한 조건: {modeInfo(app.condition).label}</Text>
-        <P>조건을 그대로 두고 있어요. 바꾸려면 아래에서 직접 골라 주세요.</P>
-      </Card>
+      <P tone="muted">지금 조건: {modeInfo(app.condition).label}</P>
       {app.condition === 'avoidStairs' ? (
         <P tone="muted">계단 없는 경로가 있어도 휠체어 통행을 보장하지는 않아요. 폭·경사·시설 운영 확인이 필요해요.</P>
       ) : null}
@@ -79,5 +76,4 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  k: { fontSize: type.body, fontWeight: '800', color: color.warning },
 });

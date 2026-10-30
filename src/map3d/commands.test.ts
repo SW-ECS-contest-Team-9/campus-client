@@ -65,4 +65,13 @@ describe('3D 페이지 메시지', () => {
     expect(parseEvent('not json')).toBeNull();
     expect(parseEvent({ v: 1, type: 'ready', buildings: [] })).toMatchObject({ type: 'ready' });
   });
+
+  it('첫 프레임 사건을 장면 ready 와 구분하고 JSON 메시지로도 받음', () => {
+    const firstFrame = { v: 1, type: 'firstFrame' };
+    expect(parseEvent(firstFrame)).toEqual(firstFrame);
+    expect(parseEvent(JSON.stringify(firstFrame))).toEqual(firstFrame);
+    expect(parseEvent({ v: 2, type: 'firstFrame' })).toBeNull();
+    expect(parseEvent({ type: 'firstFrame' })).toBeNull();
+    expect(parseEvent({ v: 1, type: 'ready', buildings: [] })?.type).toBe('ready');
+  });
 });

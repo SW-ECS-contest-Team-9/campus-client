@@ -16,7 +16,7 @@ import { DEV_HOST } from '../config/devHost';
 import * as Device from 'expo-device';
 import { Alert, AppState as RNAppState, InteractionManager, Platform } from 'react-native';
 import { adjustForFirst3d, chooseTier, type DeviceTier } from '../ui/tier';
-import type { Map3dEngine } from '../ui/Map3D';
+import type { Map3dEngine, Map3dPreparation } from '../ui/Map3D';
 import { effectiveCondition } from '../nlp/apply';
 import { checkModel } from '../nlp/gemmaRuntime';
 import type { Mandatory } from '../nlp/types';
@@ -101,10 +101,19 @@ const deps: Deps = {
   fixture,
 };
 
+/** 단계는 병렬로 준비될 수 있음. 서버 최신 지도 확인은 필수 준비에 포함하지 않음. */
+export interface AppPreparation extends Map3dPreparation {
+  settingsReady: boolean;
+  mapDataReady: boolean;
+}
+
 interface AppCtx {
   loaded: LoadedPackage | null;
   /** 기기에 저장된 설정을 읽었음(그 전엔 기본값) */
   settingsLoaded: boolean;
+  /** 설정 → 지도 데이터 → 3D 장면 → 첫 프레임의 네 가지 준비 상태. */
+  preparation: AppPreparation;
+  note3dPreparation: (preparation: Map3dPreparation) => void;
   pkg: MapPackage | null;
   graph: Graph | null;
   settings: Settings;
@@ -158,6 +167,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState<LoadedPackage | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [mapPreparation, note3dPreparation] = useState<Map3dPreparation>({
+    sceneReady: false,
+    firstFrameReady: false,
+    failed: false,
+  });
   const [recent, setRecent] = useState<{ searches: string[]; routes: RecentRoute[] }>({ searches: [], routes: [] });
   const [confirmedFloor, setConfirmedFloor] = useState<ConfirmedFloor | null>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -400,6 +414,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value: AppCtx = {
     loaded,
     settingsLoaded,
+    preparation: {
+      settingsReady: settingsLoaded,
+      mapDataReady: pkg !== null && graph !== null,
+      ...mapPreparation,
+    },
+    note3dPreparation,
     pkg,
     graph,
     settings,

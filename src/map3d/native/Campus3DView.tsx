@@ -191,7 +191,12 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
         const drew = scene.frameTick();
         if (drew) {
           gl.endFrameEXP();
-          if (first) { first = false; stat(`FIRST_FRAME ${Date.now() - t0} ms ${JSON.stringify(scene.info())}`); }
+          if (first) {
+            first = false;
+            stat(`FIRST_FRAME ${Date.now() - t0} ms ${JSON.stringify(scene.info())}`);
+            // ready 는 장면 생성 완료. 첫 그리기와 버퍼 제출까지 끝난 시점은 별도로 알림.
+            handler.current?.({ v: 1, type: 'firstFrame' });
+          }
           if (logFrames) frames.push(Date.now());
         }
         if (drew || labelsDirty.current) { labelsDirty.current = false; layoutLabels(scene); }

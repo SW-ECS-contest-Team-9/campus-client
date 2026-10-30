@@ -9,12 +9,13 @@ import { beginRoute } from '../../location/goRoute';
 import { buildingName, displayName, floorLabel } from '../../map/labels';
 import { useApp } from '../../state/AppState';
 import { CampusMap } from '../../ui/CampusMap';
+import { preparationMessage } from '../../ui/AppLoading';
 import { CoachMarks } from '../../ui/CoachMarks';
 import { useMap3dControls } from '../../ui/Map3D';
 import { IconButton, PressScale, SearchInput, StatusChip } from '../../ui/components';
 import { TabBar } from '../../ui/kit';
 import { color, gradient, shape, type } from '../../ui/theme';
-import { Character, Gradient, Sheet } from '../../ui/v3';
+import { Gradient, Sheet } from '../../ui/v3';
 
 const TAB_H = 88;
 /** 시트 접힘(손잡이 + 제목 줄)·펼침 높이 */
@@ -64,13 +65,8 @@ export default function Home() {
       return () => subscription.remove();
     }, []),
   );
-  if (!app.pkg)
-    return (
-      <View style={s.loading}>
-        <Character name="loading" size={88} />
-        <Text style={s.loadingT}>캠퍼스 지도를 펼치는 중…</Text>
-      </View>
-    );
+  // 로딩 화면은 앱 뿌리에서 덮어 표시. 지도는 뒤에서 계속 준비해야 첫 프레임 신호를 받을 수 있음.
+  if (!app.pkg) return null;
   const pkg = app.pkg;
 
   const locate = async () => {
@@ -212,15 +208,16 @@ export default function Home() {
           </>
         }
       />
-      <CoachMarks visible={app.settingsLoaded && !app.settings.coachDone} onDone={() => void app.updateSettings({ coachDone: true })} />
+      <CoachMarks
+        visible={app.settingsLoaded && preparationMessage(app.preparation) === null && !app.settings.coachDone}
+        onDone={() => void app.updateSettings({ coachDone: true })}
+      />
     </View>
   );
 }
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.canvas },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: color.canvas },
-  loadingT: { fontSize: type.small, color: color.secondary, fontWeight: '600' },
   // 오른쪽 위 88 dp 는 웹 3D 페이지 자체 단추(처음 시점·층 펼치기) 자리라 비움
   top: { position: 'absolute', left: 16, right: 92, top: 0, gap: 10 },
   unsaved: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },

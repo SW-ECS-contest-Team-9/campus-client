@@ -297,7 +297,7 @@ const TAB_BORDER = 1; // b.tabs.borderWidth
 const TABS: { k: TabKey; label: string; icon: LucideIcon }[] = [
   { k: 'map', label: '지도', icon: MapIcon },
   { k: 'saved', label: '저장', icon: Bookmark },
-  { k: 'offline', label: '오프라인', icon: Download },
+  { k: 'offline', label: '지도 저장', icon: Download },
 ];
 // 알약 자리(탭 단위 0~2)는 탭 화면 셋이 함께 씀: 화면이 겹쳐 바뀌는 동안 세 탭 바가 같은 알약을 그려 하나로 보이게
 const pillX = new Animated.Value(0);

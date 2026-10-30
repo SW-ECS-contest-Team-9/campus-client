@@ -385,10 +385,12 @@ export function stepText(
   toFloor: string | null,
   floorChange: boolean,
 ): string {
+  // 길 이름(자료 메모가 섞임)은 쓰지 않고 종류·층·길이만(사용자 지시 2026-10-29)
+  void name;
   const k = KIND_KO[kind];
   if (floorChange) return `${k}${ro(k)} ${fromFloor} → ${toFloor}`;
-  if (kind === 'elevator' || kind === 'stairs') return `${k} 이용${name ? ` (${name})` : ''}`;
-  return `${name ?? k} ${Math.round(lengthM)} m`;
+  if (kind === 'elevator' || kind === 'stairs') return `${k} 이용`;
+  return `${k} ${Math.round(lengthM)} m`;
 }
 
 /** 이어진 같은 단계는 하나로: 계단·승강기는 이름과 무관하게 층을 이어 붙이고, 나머지는 같은 종류·이름·층일 때. */

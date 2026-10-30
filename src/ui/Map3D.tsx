@@ -46,6 +46,8 @@ interface Slot {
   padding?: { top: number; bottom: number };
   /** 탭 전환 때 3D 를 화면과 함께 옆으로 미는 값(dp) */
   offset?: Animated.Value;
+  /** 사용자가 지도를 만지기 시작할 때(시트 접기 등) */
+  onTouch?: () => void;
 }
 interface Api {
   put: (s: Slot) => void;
@@ -276,7 +278,7 @@ export function Map3DHost({
                   style={{ border: 0, width: '100%', height: '100%', display: 'block', pointerEvents: shown ? 'auto' : 'none' }}
                 />
               ) : (
-                <BlurTargetView ref={blurTarget} style={s.fill}>
+                <BlurTargetView ref={blurTarget} style={s.fill} onTouchStart={() => slot?.onTouch?.()}>
                   {useNative ? (
                     root ? (
                       <View
@@ -364,9 +366,12 @@ export function MapSlot({
   style,
   padding,
   tabSlide,
+  onTouch,
 }: {
   /** 지도 위·아래를 가리는 카드 높이(dp): 네이티브 3D 가 보이는 부분 가운데에 맞춤 */
   padding?: { top: number; bottom: number };
+  /** 사용자가 지도를 만지기 시작할 때 */
+  onTouch?: () => void;
   commands: (Map3dCommand | null)[];
   onEvent?: (e: Map3dEvent) => void;
   minimal?: boolean;
@@ -400,7 +405,7 @@ export function MapSlot({
 
   const [offset] = useState(() => new Animated.Value(0));
   useEffect(() => {
-    api?.put({ id, rect, commands: list, minimal, onEvent, overlay, padding, offset });
+    api?.put({ id, rect, commands: list, minimal, onEvent, overlay, padding, offset, onTouch });
   });
   // 화면이 스택에서 제거될 때 보관한 UI도 함께 정리.
   useEffect(() => () => api?.remove(id), [api, id]);

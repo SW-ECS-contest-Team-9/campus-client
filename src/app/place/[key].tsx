@@ -2,7 +2,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { sceneBuildingId, type Map3dCommand } from '../../map3d/commands';
-import { buildingName, floorCode, floorsOf, placeSubtitle } from '../../map/labels';
+import { buildingName, displayName, floorCode, floorsOf, placeSubtitle } from '../../map/labels';
 import { useApp } from '../../state/AppState';
 import { CampusMap } from '../../ui/CampusMap';
 import { color, space, type } from '../../ui/theme';
@@ -48,7 +48,7 @@ export default function PlaceScreen() {
   const floorName = floorCode(pkg, p.floorKey);
   return (
     <Screen
-      title={buildingName(pkg, p.buildingKey) || p.name}
+      title={displayName(p.name)}
       scroll={false}
       footer={
         <View style={s.actions}>
@@ -82,12 +82,10 @@ export default function PlaceScreen() {
         />
       </View>
       <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 4 }}>
-        <Text style={s.name}>
-          {floorName ? `${floorName} ` : ''}
-          {p.name}
-        </Text>
+        <Text style={s.name}>{displayName(p.name)}</Text>
         <P tone="muted">
-          {CATEGORY[p.category] ?? p.category} · {placeSubtitle(pkg, p.key)}
+          {CATEGORY[p.category] ?? p.category} ·{' '}
+          {buildingName(pkg, p.buildingKey) ? `${buildingName(pkg, p.buildingKey)} ${floorName ?? '층 모름'}` : placeSubtitle(pkg, p.key)}
         </P>
         {p.nodeKey ? (
           <StatusChip

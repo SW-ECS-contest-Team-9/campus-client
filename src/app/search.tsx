@@ -2,10 +2,10 @@
 // mode=start 면 자연어 모드 없이 고른 장소를 출발점으로 지정하고 CT04 로 돌아간다.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Building, Info, MapPin, MessageCircleQuestion, Navigation, Search } from 'lucide-react-native';
+import { Building, Info, MapPin, MessageCircleQuestion, Navigation, Search, X } from 'lucide-react-native';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import { startFromCurrentFix } from '../location/start';
-import { placeSubtitle } from '../map/labels';
+import { displayName, placeSubtitle } from '../map/labels';
 import { describe as describeRequest, planFromRequest } from '../nlp/apply';
 import { mergeWithGemma, shouldAskGemma } from '../nlp/gemma';
 import { cancelInterpret, interpretWithGemma } from '../nlp/gemmaRuntime';
@@ -266,7 +266,7 @@ export default function SearchScreen() {
             {visibleBuildingPlaces.map((p) => (
               <View key={p.place.key} style={s.childResult}>
                 <ResultRow
-                  title={p.place.name}
+                  title={displayName(p.place.name)}
                   sub={sub(p.place.key, p.place.nodeKey)}
                   {...placeAction(p.place.key, p.place.name, p.place.nodeKey)}
                 />
@@ -287,7 +287,7 @@ export default function SearchScreen() {
       {visiblePlaces.map((h) => (
         <ResultRow
           key={h.place.key}
-          title={h.place.name}
+          title={displayName(h.place.name)}
           sub={sub(h.place.key, h.place.nodeKey)}
           {...placeAction(h.place.key, h.place.name, h.place.nodeKey)}
         />
@@ -299,8 +299,23 @@ export default function SearchScreen() {
           onPress={() => setShowAllResults((v) => !v)}
         />
       ) : null}
-      {!q && app.recentSearches.length ? <Section>최근 검색</Section> : null}
-      {!q ? app.recentSearches.map((r) => <ResultRow key={r} icon={Search} title={r} onPress={() => changeQuery(r)} />) : null}
+      {!q && app.recentSearches.length ? (
+        <View style={s.recentHead}>
+          <Section>최근 검색</Section>
+          <Button variant="quiet" label="전체 지우기" onPress={app.clearRecentSearches} />
+        </View>
+      ) : null}
+      {!q
+        ? app.recentSearches.map((r) => (
+            <ResultRow
+              key={r}
+              icon={Search}
+              title={r}
+              onPress={() => changeQuery(r)}
+              trailing={<IconButton icon={X} label={`${r} 기록 지우기`} onPress={() => app.removeRecentSearch(r)} />}
+            />
+          ))
+        : null}
       {!naturalSearch && q && !resultCount ? (
         <Card tone="primary" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Character name="emptySearch" size={84} />
@@ -316,6 +331,7 @@ export default function SearchScreen() {
 
 const s = StyleSheet.create({
   modeCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  recentHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   modeCopy: { flex: 1, gap: 2 },
   modeTitle: { fontSize: type.small, fontWeight: '800', color: color.text },
   buildingGroup: { gap: 6 },

@@ -16,8 +16,17 @@ export function floorLabel(pkg: Pick<MapPackage, 'buildings' | 'floors'>, floorK
   return f ? `${buildingName(pkg, f.buildingKey)} ${f.code}`.trim() : '';
 }
 
-export const placeName = (pkg: Pick<MapPackage, 'places'>, key: string): string =>
-  pkg.places.find((p) => p.key === key)?.name ?? '없어진 장소';
+/** 자료에 섞인 작업 메모를 뺀 표시 이름: "= 설명" 꼬리와 괄호 안 메모(추정·고도 m·현장 확인·사용자·세션)를 지움. 건물·층만 든 괄호는 남김. */
+export function displayName(name: string): string {
+  let s = name.split(' = ')[0].split('=')[0].trim();
+  s = s.replace(/\s*\([^()]*(추정|확인 전|\d+(\.\d+)?\s*m\b|사용자|세션|C0\d|표지|연결 층|자리|±|쪽 문)[^()]*\)/g, '');
+  return s.replace(/\s{2,}/g, ' ').trim() || name;
+}
+
+export const placeName = (pkg: Pick<MapPackage, 'places'>, key: string): string => {
+  const p = pkg.places.find((x) => x.key === key);
+  return p ? displayName(p.name) : '없어진 장소';
+};
 
 /** 장소 보조 글: "건물 층" / "층 모름" / "바깥" */
 export function placeSubtitle(pkg: Pkg, placeKey: string): string {

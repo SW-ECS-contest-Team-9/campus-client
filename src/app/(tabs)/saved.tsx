@@ -2,7 +2,7 @@
 import { router } from 'expo-router';
 import { Building } from 'lucide-react-native';
 import { View } from 'react-native';
-import { placeSubtitle } from '../../map/labels';
+import { displayName, placeSubtitle } from '../../map/labels';
 import { useApp } from '../../state/AppState';
 import { Button, ResultRow } from '../../ui/components';
 import { H, P, Screen, Section, TabBar } from '../../ui/kit';
@@ -23,7 +23,7 @@ export default function SavedScreen() {
               <ResultRow
                 key={k}
                 icon={Building}
-                title={p ? p.name : '없어진 장소'}
+                title={p ? displayName(p.name) : '없어진 장소'}
                 sub={p ? placeSubtitle(pkg, k) : '지금 지도에 없음'}
                 onPress={p ? () => router.push({ pathname: '/place/[key]', params: { key: k } }) : () => app.toggleFavorite(k)}
               />
@@ -38,7 +38,7 @@ export default function SavedScreen() {
           return (
             <ResultRow
               key={r.at}
-              title={`${r.startLabel} → ${d?.name ?? '없어진 장소'}`}
+              title={`${r.startLabel} → ${d ? displayName(d.name) : '없어진 장소'}`}
               sub={`${modeInfo(r.condition).label} · ${r.at.slice(5, 10).replace('-', '월 ')}일`}
               onPress={
                 d

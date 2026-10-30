@@ -134,6 +134,13 @@ export default function FirstPersonScreen() {
           accessibilityRole="adjustable"
           accessibilityLabel="진행"
           accessibilityValue={{ min: 0, max: Math.round(total), now: Math.round(s), text: `${Math.round(s)} / ${Math.round(total)} m` }}
+          accessibilityActions={follow ? [] : [{ name: 'increment' }, { name: 'decrement' }]}
+          onAccessibilityAction={(e) => {
+            // 화면 읽기: 10 % 씩 앞뒤로
+            if (follow || total <= 0) return;
+            const d = e.nativeEvent.actionName === 'increment' ? 0.1 : -0.1;
+            ctl.send({ v: 1, type: 'firstPersonSeek', m: Math.max(0, Math.min(total, s + d * total)) });
+          }}
           onStartShouldSetResponder={() => !follow}
           onMoveShouldSetResponder={() => !follow}
           onResponderGrant={(e) => seekTo(e.nativeEvent.locationX, barW.current)}
@@ -207,7 +214,7 @@ const st = StyleSheet.create({
   panel: { flex: 1, backgroundColor: '#F6F8FB', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, gap: 10 },
   notice: { backgroundColor: color.warningSoft, borderRadius: 12, padding: 10 },
   noticeT: { color: color.warning, fontWeight: '700', fontSize: type.small },
-  bar: { height: 32, justifyContent: 'center' },
+  bar: { height: 44, justifyContent: 'center' },
   track: { height: 6, borderRadius: 3, backgroundColor: '#D7DDF0', overflow: 'hidden' },
   fill: { height: 6, backgroundColor: color.primary },
   knob: {

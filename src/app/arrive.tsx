@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { displayName, placeSubtitle } from '../map/labels';
 import { useApp } from '../state/AppState';
+import { useToast } from '../ui/feedback';
 import { Button } from '../ui/components';
 import { Card, H, P, Screen } from '../ui/kit';
 import { Character, Gradient } from '../ui/v3';
@@ -10,6 +11,7 @@ import { color, gradient, type } from '../ui/theme';
 
 export default function ArriveScreen() {
   const app = useApp();
+  const toast = useToast();
   const pkg = app.pkg;
   const dest = pkg?.places.find((p) => p.key === app.destKey);
   const fav = dest ? app.favorites.includes(dest.key) : false;
@@ -29,7 +31,15 @@ export default function ArriveScreen() {
           />
           <Button variant="secondary" label="아직이에요 · 위치 확인" onPress={() => router.push('/recheck')} />
           {dest ? (
-            <Button variant="quiet" label={fav ? '저장한 장소예요' : '이 장소 저장'} onPress={() => !fav && app.toggleFavorite(dest.key)} />
+            <Button
+              variant="quiet"
+              label={fav ? '저장한 장소예요' : '이 장소 저장'}
+              onPress={() => {
+                if (fav) return;
+                void app.toggleFavorite(dest.key);
+                toast('저장했어요');
+              }}
+            />
           ) : null}
         </>
       }

@@ -3,14 +3,17 @@
 import { Redirect, router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { displayName, startLabel as startLabelOf } from '../map/labels';
-import { modeInfo } from '../route/modes';
+import { MODES, modeInfo } from '../route/modes';
+import { effectiveCondition } from '../nlp/apply';
+import { useState } from 'react';
 import { hasRouteIndicators } from '../route/route';
 import { minutesOf } from '../route/time';
 import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
 import { color, space, type } from '../ui/theme';
 import { FloorCapsule } from '../ui/FloorCapsule';
-import { Button, StatusChip } from '../ui/components';
+import { Button, FloorItem, StatusChip } from '../ui/components';
+import { useToast } from '../ui/feedback';
 import { P, Screen } from '../ui/kit';
 import { useMap3dControls } from '../ui/Map3D';
 import { useRouteCommand } from '../ui/useRouteCommand';
@@ -19,7 +22,9 @@ import { Footprints } from 'lucide-react-native';
 
 export default function PreviewScreen() {
   const app = useApp();
+  const toast = useToast();
   const ctl = useMap3dControls();
+  const [moreModes, setMoreModes] = useState(false);
   const r = app.route;
   const server = app.serverRoute;
   const cmd = useRouteCommand();
@@ -37,17 +42,25 @@ export default function PreviewScreen() {
   const changes = r.steps.filter((s) => s.floorChange);
   const startLabel = startLabelOf(pkg, st);
   const path = [startLabel, ...changes.map((c) => c.toFloor), dest && displayName(dest.name)].filter(Boolean).join(' → ');
-  const offline = app.loaded?.source !== 'server';
   const fromServer = r.source === 'server';
   // 기기 계산인데 꾸러미에 지붕·조명 지표가 없으면 이 방식은 일부만 반영됨
   const partial = !fromServer && !hasRouteIndicators(pkg) ? modeInfo(app.condition).device : null;
+  // 방식 칩: 기본 3개(최단·계단 피하기·승강기 우선) + 더 보기(나머지). 말로 정한 필수 조건이면 느슨한 방식은 막음(제품 규칙 04)
+  const mandatory = app.nlp?.mandatory ?? [];
+  const base = ['shortest', 'avoidStairs', 'preferElevator'];
+  const shown = MODES.filter((m) => moreModes || base.includes(m.key) || m.key === app.condition);
+  const pickMode = (k: (typeof MODES)[number]['key']) => {
+    if (effectiveCondition(k, mandatory) !== k)
+      return toast('말씀하신 필수 조건이라 바꾸지 않았어요', { label: '조건 풀기', onPress: () => app.setNlp(null) });
+    app.setCondition(k);
+  };
   return (
     <Screen
       title="경로 미리보기"
       scroll={false}
       footer={
         <View style={s.two}>
-          <Button variant="secondary" label="경로 옵션" onPress={() => router.back()} style={{ flex: 1 }} />
+          <Button variant="secondary" label="출발지" onPress={() => router.push('/start')} style={{ flex: 1 }} />
           <Button
             label="안내 시작"
             onPress={() => {
@@ -92,14 +105,14 @@ export default function PreviewScreen() {
         />
       </View>
       <View style={s.below}>
-        {fromServer ? (
-          <StatusChip tone="confirmed" label="서버에서 이 방식으로 계산" />
-        ) : (
-          <StatusChip
-            tone={offline ? 'offline' : 'confirmed'}
-            label={offline ? '저장된 지도로 기기에서 계산' : '방금 받은 지도로 기기에서 계산'}
-          />
-        )}
+        <View style={s.modes}>
+          {shown.map((m) => (
+            <FloorItem key={m.key} label={m.label} state={app.condition === m.key ? 'selected' : 'idle'} onPress={() => pickMode(m.key)} />
+          ))}
+          {!moreModes ? <Button variant="quiet" label="더 보기" onPress={() => setMoreModes(true)} /> : null}
+        </View>
+        <P tone="muted">{modeInfo(app.condition).note}</P>
+        {fromServer ? <StatusChip tone="confirmed" label="서버에서 이 방식으로 계산" /> : null}
         {partial ? <P tone="muted">{partial}</P> : null}
         {/* 1인칭 미리 보기: 경로를 눈높이로 2~3배속 걸어 봄(앱 내장 3D 일 때만) */}
         {ctl.available ? (
@@ -109,11 +122,7 @@ export default function PreviewScreen() {
             onPress={() => router.push({ pathname: '/first-person', params: { mode: 'preview' } })}
           />
         ) : null}
-        {server && !server.ok ? (
-          <P tone="muted">
-            {server.code === 'no_route' ? '서버는 같은 조건의 경로가 없다고 해요' : '서버에 연결하지 못해 기기에서 계산했어요'}
-          </P>
-        ) : null}
+        {server && !server.ok && server.code === 'no_route' ? <P tone="muted">서버는 같은 조건의 경로가 없다고 해요</P> : null}
       </View>
     </Screen>
   );
@@ -129,5 +138,6 @@ const s = StyleSheet.create({
   len: { fontSize: type.body, fontWeight: '700', color: color.secondary },
   path: { fontSize: type.small, color: color.primary, fontWeight: '600' },
   below: { gap: 6, paddingTop: 10 },
+  modes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   two: { flexDirection: 'row', gap: 8 },
 });

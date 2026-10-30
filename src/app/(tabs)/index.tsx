@@ -17,6 +17,7 @@ import {
 import { useCallback, useState } from 'react';
 import { BackHandler, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { beginRoute } from '../../location/goRoute';
 import { buildingName, displayName, floorLabel } from '../../map/labels';
 import { useApp } from '../../state/AppState';
 import { CampusMap } from '../../ui/CampusMap';
@@ -199,9 +200,14 @@ export default function Home() {
                     {shortcuts.map(({ p, fav }) => (
                       <PressScale
                         key={p.key}
-                        accessibilityLabel={`${displayName(p.name)}${fav ? ', 저장한 장소' : ', 최근 도착지'}`}
+                        accessibilityLabel={`${displayName(p.name)}${fav ? ', 저장한 장소' : ', 최근 도착지'}, 바로 길찾기`}
                         style={(on) => [s.quickB, on && { backgroundColor: color.primarySoftPressed }]}
-                        onPress={() => router.navigate({ pathname: '/place/[key]', params: { key: p.key } })}
+                        onPress={() => {
+                          if (!p.nodeKey) return router.navigate({ pathname: '/place/[key]', params: { key: p.key } });
+                          app.setNlp(null);
+                          app.setDestKey(p.key);
+                          beginRoute(pkg, app.graph, app.fix, { start: app.setStart });
+                        }}
                       >
                         {fav ? <Bookmark size={16} color={color.primary} /> : <Clock size={16} color={color.primary} />}
                         <Text style={s.quickT} numberOfLines={1}>
@@ -234,7 +240,7 @@ const s = StyleSheet.create({
   loadingT: { fontSize: type.small, color: color.secondary, fontWeight: '600' },
   // 오른쪽 위 88 dp 는 웹 3D 페이지 자체 단추(처음 시점·층 펼치기) 자리라 비움
   top: { position: 'absolute', left: 16, right: 92, top: 0, gap: 10 },
-  unsaved: { alignSelf: 'flex-start' },
+  unsaved: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
   ctl: { position: 'absolute', right: 16, gap: 8, alignItems: 'center' },
   ctlItem: { alignItems: 'center', gap: 2 },
   ctlT: { fontSize: 11, fontWeight: '700', color: color.text },

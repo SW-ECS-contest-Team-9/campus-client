@@ -28,6 +28,7 @@ export default function StartScreen() {
     if (!st) return setMsg('가까운 길이 50 m 안에 없어요');
     app.setStart(st);
     setMsg(null);
+    router.replace('/preview');
   };
   const st = app.start;
   const startTitle = startLabel(pkg, st) || null;
@@ -39,7 +40,7 @@ export default function StartScreen() {
       scroll={false}
       footer={
         <>
-          <Button label="이 위치에서 경로 보기" disabled={!st} onPress={() => router.navigate('/options')} />
+          <Button label="경로 보기" disabled={!st} onPress={() => router.navigate('/preview')} />
           <View style={s.two}>
             <Button variant="secondary" label="위치 다시 읽기" onPress={useHere} style={{ flex: 1 }} />
             <Button
@@ -53,6 +54,7 @@ export default function StartScreen() {
       }
     >
       <H>어디에서 출발하나요?</H>
+      <P tone="muted">내 위치를 아직 정확히 모르면 출발할 곳을 골라 주세요.</P>
       {msg ? <StatusChip tone="warning" label={msg} /> : null}
       <View style={s.map}>
         <CampusMap pickPlaces={false} minimal />

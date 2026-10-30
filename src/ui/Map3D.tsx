@@ -8,7 +8,7 @@ import { Animated, Platform, StyleSheet, Text, View, type StyleProp, type ViewSt
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurTargetView } from 'expo-blur';
-import { BlurTargetCtx } from './look';
+import { BlurTargetCtx, useLook } from './look';
 import { Character } from './v3';
 import { parseEvent, type Map3dCommand, type Map3dEvent } from '../map3d/commands';
 import { CHARACTER_OK, CHARACTER_UNCERTAIN } from './characterImages';
@@ -404,6 +404,7 @@ export function MapSlot({
   );
 
   const [offset] = useState(() => new Animated.Value(0));
+  const { moving } = useLook(); // 동작 줄이기면 3D 도 밀지 않고 바로
   useEffect(() => {
     api?.put({ id, rect, commands: list, minimal, onEvent, overlay, padding, offset, onTouch });
   });
@@ -417,7 +418,8 @@ export function MapSlot({
     addListener: (type: string, cb: () => void) => () => void;
     getState: () => { type?: string; index: number; routes: { name: string }[] } | undefined;
   };
-  const slideTo = (to: number) => Animated.timing(offset, { toValue: to, ...tabSlideSpec, useNativeDriver: true }).start();
+  const slideTo = (to: number) =>
+    Animated.timing(offset, { toValue: to, ...tabSlideSpec, duration: moving ? tabSlideSpec.duration : 0, useNativeDriver: true }).start();
   useEffect(() => {
     if (exitX == null) return;
     const a = nav.addListener('transitionStart', () => {

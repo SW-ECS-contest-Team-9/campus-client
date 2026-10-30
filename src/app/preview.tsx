@@ -1,4 +1,4 @@
-// CT06 경로 미리보기: 3D 지도에 경로(층 바뀌는 곳 표시), 요약(시간·길이·계단·층 이동), 자연어로 조건 변경 / 안내 시작.
+// CT06 경로 미리보기: 3D 지도에 경로(층 바뀌는 곳 표시), 요약(시간·길이·계단·층 이동), 안내 시작.
 // 경로는 서버가 닿으면 고른 방식의 서버 계산, 아니면 기기 계산(AppState.route).
 import { Redirect, router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
@@ -88,16 +88,6 @@ export default function PreviewScreen() {
         />
       </View>
       <View style={s.below}>
-        <Button
-          variant="secondary"
-          label="자연어로 조건 변경"
-          onPress={() =>
-            router.push({
-              pathname: '/search',
-              params: { mode: 'natural', q: app.nlp?.text ?? (dest ? displayName(dest.name) : '') },
-            })
-          }
-        />
         <P tone="muted">{modeInfo(app.condition).note}</P>
         {fromServer ? <StatusChip tone="confirmed" label="서버에서 이 방식으로 계산" /> : null}
         {partial ? <P tone="muted">{partial}</P> : null}

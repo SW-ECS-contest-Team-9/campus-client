@@ -14,7 +14,7 @@ import { startTracking, type SensorStatus } from '../location/sensors';
 import { expoSensors, hasLocationPermission, requestLocationPermission } from '../location/expoSensors';
 import { DEV_HOST } from '../config/devHost';
 import * as Device from 'expo-device';
-import { AppState as RNAppState, InteractionManager, Platform } from 'react-native';
+import { Alert, AppState as RNAppState, InteractionManager, Platform } from 'react-native';
 import { adjustForFirst3d, chooseTier, type DeviceTier } from '../ui/tier';
 import type { Map3dEngine } from '../ui/Map3D';
 import { effectiveCondition } from '../nlp/apply';
@@ -43,6 +43,10 @@ export interface Settings {
   map3dEngine: Map3dEngine;
   /** 지도를 평면(2D)으로 보기(3D 대신). 지도 화면 단추로도 바꿈 */
   map2d: boolean;
+  /** 첫 실행 설명(코치마크)을 봤음 */
+  coachDone: boolean;
+  /** 위치 권한 이유 설명을 봤음(OS 대화상자 전에 한 번) */
+  locationExplained: boolean;
   /** 검색 화면을 열 때 자연어 검색으로 시작할지 */
   naturalSearchDefault: boolean;
   /** AI 문장 해석(실험, 기기 안 Gemma). 기본 꺼짐: S21 실측 한 번 6~8 s, 불러오면 메모리 +0.56 GB */
@@ -59,6 +63,8 @@ const DEFAULT_SETTINGS: Settings = {
   autoTier3dChecked: false,
   map3dEngine: 'native',
   map2d: false,
+  coachDone: false,
+  locationExplained: false,
   naturalSearchDefault: false,
   aiParse: false,
 };
@@ -100,6 +106,8 @@ const deps: Deps = {
 
 interface AppCtx {
   loaded: LoadedPackage | null;
+  /** 기기에 저장된 설정을 읽었음(그 전엔 기본값) */
+  settingsLoaded: boolean;
   pkg: MapPackage | null;
   graph: Graph | null;
   settings: Settings;
@@ -152,6 +160,7 @@ const Ctx = createContext<AppCtx | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState<LoadedPackage | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [recent, setRecent] = useState<{ searches: string[]; routes: RecentRoute[] }>({ searches: [], routes: [] });
   const [confirmedFloor, setConfirmedFloor] = useState<ConfirmedFloor | null>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -208,6 +217,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         void AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(st));
       }
       setSettings(st);
+      setSettingsLoaded(true);
       if (f) setFavorites(JSON.parse(f) as string[]);
       if (r) setRecent(JSON.parse(r) as typeof recent);
       const local = await loadLocal(deps);
@@ -223,6 +233,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // 저장되는 상태(설정·즐겨찾기·최근)는 함수형 갱신: 연달아 불러도 앞 변경이 사라지지 않음
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  });
   const updateSettings = useCallback(async (patch: Partial<Settings>) => {
     setSettings((cur) => {
       const next = { ...cur, ...patch };
@@ -321,10 +335,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // 사용자가 확인한 층 → 맞춤기(기압계 없는 기기의 층 판정. 기압이 있으면 맞춤기가 무시)
   useEffect(() => tracker?.setFloor(confirmedFloor?.floorKey ?? null), [tracker, confirmedFloor]);
   const enableLocation = useCallback(async () => {
+    if (!(await hasLocationPermission()) && !settingsRef.current.locationExplained) {
+      // OS 대화상자 전에 왜 필요한지 한 번(한 문장 + 다음 행동). 거절하면 OS 대화상자도 띄우지 않음
+      const go = await new Promise<boolean>((done) =>
+        Alert.alert(
+          '내 위치를 지도에 표시할까요?',
+          '앱을 보는 동안만 위치를 읽어 길 위에 맞춰 보여 줘요. 위치는 기기 밖으로 보내지 않아요.',
+          [
+            { text: '나중에', style: 'cancel', onPress: () => done(false) },
+            { text: '허용하러 가기', onPress: () => done(true) },
+          ],
+        ),
+      );
+      void updateSettings({ locationExplained: true });
+      if (!go) return false;
+    }
     const ok = await requestLocationPermission();
     if (ok) setWantLoc(true);
     return ok;
-  }, []);
+  }, [updateSettings]);
 
   const startNodeKey = useMemo(() => {
     if (!pkg || !start) return null;
@@ -373,6 +402,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value: AppCtx = {
     loaded,
+    settingsLoaded,
     pkg,
     graph,
     settings,

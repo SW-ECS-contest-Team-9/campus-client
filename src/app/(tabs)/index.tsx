@@ -21,6 +21,7 @@ import { beginRoute } from '../../location/goRoute';
 import { buildingName, displayName, floorLabel } from '../../map/labels';
 import { useApp } from '../../state/AppState';
 import { CampusMap } from '../../ui/CampusMap';
+import { CoachMarks } from '../../ui/CoachMarks';
 import { useMap3dControls } from '../../ui/Map3D';
 import { IconButton, PressScale, SearchInput, StatusChip } from '../../ui/components';
 import { TabBar } from '../../ui/kit';
@@ -230,6 +231,7 @@ export default function Home() {
           </>
         }
       />
+      <CoachMarks visible={app.settingsLoaded && !app.settings.coachDone} onDone={() => void app.updateSettings({ coachDone: true })} />
     </View>
   );
 }

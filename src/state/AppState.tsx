@@ -27,7 +27,7 @@ export interface Settings {
   serverUrl: string;
   /** 3D 지도 페이지 주소(campus-tracker client3d.html). 빈 값 = 개발 기본값 */
   map3dUrl: string;
-  /** 가벼운 3D(구조물·이름표 없음) */
+  /** 저사양 모드(R22): 3D 를 낮은 해상도·Lambert 재질·구조물 없이. 등급 3 이면 자동 */
   light: boolean;
   /** 화면 표현 등급(사용자 지정). null = 자동(autoTier) */
   deviceTier: DeviceTier | null;

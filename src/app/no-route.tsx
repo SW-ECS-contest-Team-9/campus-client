@@ -9,7 +9,7 @@ import { displayName } from '../map/labels';
 import { useApp } from '../state/AppState';
 import { Button } from '../ui/components';
 import { H, P, Screen } from '../ui/kit';
-import { color, type } from '../ui/theme';
+import { color } from '../ui/theme';
 import { Character } from '../ui/v3';
 
 export default function NoRouteScreen() {

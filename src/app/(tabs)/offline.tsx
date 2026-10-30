@@ -44,7 +44,7 @@ export default function OfflineScreen() {
           <Text style={s.t}>3D 지도</Text>
           <P tone="muted">
             {app.settings.map3dEngine === 'web'
-              ? '웹 3D 화면은 인터넷이 있어야 보여요. 없으면 같은 지도를 평면으로 보여 드려요.'
+              ? '웹 3D 화면은 인터넷과 지도 서버 연결이 필요해요. 연결할 수 없으면 지도가 표시되지 않아요.'
               : '3D 지도는 앱에 들어 있어 인터넷 없이도 보여요(건물 모양은 앱을 받을 때 기준).'}
           </P>
         </Card>

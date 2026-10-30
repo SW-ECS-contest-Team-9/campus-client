@@ -80,8 +80,6 @@ export default function PlaceScreen() {
       <View style={s.map}>
         <CampusMap
           commands={cmds}
-          highlightPlaceKeys={[p.key]}
-          focus={[{ x: p.x, y: p.y }]}
           pickPlaces={false}
           minimal
           overlay={

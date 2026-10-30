@@ -8,24 +8,6 @@ import { toFix } from '../location/fix';
 const pkg = fixture as unknown as MapPackage;
 
 describe('3D 페이지 메시지', () => {
-  it('사건 firstPerson: 진행·안내 글', () => {
-    const e = parseEvent({
-      v: 1,
-      type: 'firstPerson',
-      state: 'playing',
-      s: 12,
-      total: 300,
-      speed: 2,
-      follow: false,
-      text: '12 m 앞 왼쪽',
-      sub: '도착까지 288 m',
-      floor: null,
-      turn: 'left',
-    });
-    expect(e).toMatchObject({ type: 'firstPerson', s: 12 });
-    expect(parseEvent({ v: 1, type: 'firstPerson', state: 'playing' })).toBeNull();
-  });
-
   it('경로: 길 모양 그대로 EPSG:5186 + z, 층 바뀜은 한 자리에 하나(도착 층)', () => {
     const g = buildGraph(pkg);
     const gate = pkg.places.find((p) => p.name === '정문')!.nodeKey!;
@@ -47,9 +29,6 @@ describe('3D 페이지 메시지', () => {
       pkg.nodes.find((n) => n.key === gate)!.z,
     ]);
     expect(c.floorChanges.map((f) => f.label)).toEqual(['→ B1', '→ 7F']); // v4: 정문에서 지하 1층으로 들어가 승강기로 7층
-    // 1인칭용 단계: 경로 단계와 같은 수, 층 바뀜 단계는 도착 층
-    expect(c.steps?.length).toBe((r as Extract<typeof r, { ok: true }>).steps.length);
-    expect(c.steps?.filter((x) => x.floorChange).length).toBeGreaterThan(0);
   });
 
   it('위치: 확실하면 층·건물을 보내고, 불확실하면 보내지 않음', () => {

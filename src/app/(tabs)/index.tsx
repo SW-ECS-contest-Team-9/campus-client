@@ -1,19 +1,7 @@
 // CT01 캠퍼스 지도(V3): 지도가 화면 전체(V3-1), 위에 검색 알약, 아래 끄는 시트("어디로 갈까요?", 지도를 만지면 접힘), 떠 있는 탭 캡슐.
 // 지도 위 부품은 모두 overlay 로 공용 3D 지도와 함께 그림(3D 가 화면 위에 겹쳐 있어서).
 import { router, useFocusEffect } from 'expo-router';
-import {
-  Bookmark,
-  Box,
-  Clock,
-  House,
-  Layers,
-  Map as MapIcon,
-  MapPin,
-  Navigation,
-  Search,
-  Settings,
-  type LucideIcon,
-} from 'lucide-react-native';
+import { Bookmark, Clock, House, Layers, MapPin, Navigation, Search, Settings, type LucideIcon } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { BackHandler, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -65,7 +53,6 @@ export default function Home() {
   const [exploded, setExploded] = useState(false);
   const [collapse, setCollapse] = useState(0);
   const map = useMap3dControls();
-  const map2d = app.settings.map2d;
   // 지도에서는 탭 방문 기록 대신 앱 종료. 화면을 떠나면 다른 화면의 뒤로가기에 맡긴다.
   useFocusEffect(
     useCallback(() => {
@@ -110,7 +97,7 @@ export default function Home() {
     .filter((x, i, a) => a.findIndex((q) => q.p.key === x.p.key) === i)
     .slice(0, 4);
   const bottom = inset.bottom + TAB_H;
-  // 지도 단추 세로 묶음(오른쪽, 시트 위): 2D/3D, 층 펼치기·처음 시점(3D 일 때), 내 위치
+  // 지도 단추 세로 묶음(오른쪽, 시트 위): 층 펼치기·처음 시점, 내 위치
   const ctlBottom = bottom + SHEET_MIN + 12;
 
   return (
@@ -122,7 +109,7 @@ export default function Home() {
         overlay={
           <>
             {/* 위: 검색 알약과 위치 상태(앱 이름 알약은 뺌: 지도를 더 크게, 제목은 시트 "어디로 갈까요?") */}
-            <View style={[s.top, { paddingTop: inset.top + 8, right: map.available || map2d ? 16 : 92 }]} pointerEvents="box-none">
+            <View style={[s.top, { paddingTop: inset.top + 8, right: map.available ? 16 : 92 }]} pointerEvents="box-none">
               <SearchInput onPress={() => router.navigate('/search')} />
               {fixText ? (
                 <View pointerEvents="none" accessibilityLiveRegion="polite">
@@ -151,13 +138,7 @@ export default function Home() {
               ) : null}
             </View>
             <View style={[s.ctl, { bottom: ctlBottom }]} pointerEvents="box-none">
-              <CtlButton
-                icon={map2d ? Box : MapIcon}
-                label={map2d ? '3D 지도로 보기' : '평면 지도로 보기'}
-                text={map2d ? '3D' : '2D'}
-                onPress={() => void app.updateSettings({ map2d: !map2d })}
-              />
-              {map.available && !map2d ? (
+              {map.available ? (
                 <>
                   <CtlButton
                     icon={Layers}

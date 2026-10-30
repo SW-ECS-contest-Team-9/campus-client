@@ -40,8 +40,6 @@ export function parseEvent(raw: unknown): Map3dEvent | null {
         : null;
     case 'error':
       return e as unknown as Map3dEvent;
-    case 'firstPerson':
-      return typeof e.state === 'string' && n('s') && n('total') ? (e as unknown as Map3dEvent) : null;
     default:
       return null;
   }
@@ -65,8 +63,7 @@ export function routeCommand(g: Graph, r: RouteOk): Map3dCommand {
     }
     if (label) lastFloor = label;
   }
-  const steps = r.steps.map((s) => ({ kind: s.kind, floorChange: s.floorChange, toFloor: s.toFloor }));
-  return { v: 1, type: 'setRoute', points: r.points, floorChanges, steps };
+  return { v: 1, type: 'setRoute', points: r.points, floorChanges };
 }
 
 /** 현재 위치 → setLocation. 불확실하면 state 'uncertain'(층·높이를 보내지 않음: 건물·층을 다시 확인하게). */

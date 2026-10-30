@@ -64,19 +64,6 @@ export default function SettingsScreen() {
       <Section>화면 표시</Section>
       <Card style={s.row}>
         <View style={{ flex: 1 }}>
-          <P>평면(2D) 지도로 보기</P>
-          <P tone="muted">3D 대신 평면 지도를 써요. 지도 화면의 2D/3D 단추로도 바꿀 수 있어요.</P>
-        </View>
-        <Switch
-          value={app.settings.map2d}
-          onValueChange={(v) => app.updateSettings({ map2d: v })}
-          trackColor={{ false: color.border, true: color.primary }}
-          ios_backgroundColor={color.border}
-          accessibilityLabel="평면 지도로 보기"
-        />
-      </Card>
-      <Card style={s.row}>
-        <View style={{ flex: 1 }}>
           <P>저사양 모드</P>
           <P tone="muted">3D 를 낮은 해상도·단순 조명으로 그리고 나무·선을 빼요. 오래된 휴대폰에서 부드럽게</P>
         </View>

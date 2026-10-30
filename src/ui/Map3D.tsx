@@ -1,7 +1,7 @@
 // 3D 캠퍼스 지도를 앱 전체에서 하나만 띄워 둔다. Android 기본은 네이티브 3D(expo-gl + three.js, 앱에 묶은 campus.glb, 서버 없이 뜸),
 // 설정 "3D 엔진: 웹" 이거나 웹 빌드면 campus-tracker 의 client3d.html(웹 <iframe>, 네이티브 react-native-webview). 두 엔진 모두 메시지 형식 v1(map3d/native/protocol.ts).
 // 화면은 <MapSlot> 으로 자리만 잡고, 초점을 받은 화면의 자리로 그 하나를 옮겨 보여 준다(화면 바꿀 때 다시 불러오지 않음).
-// 명령은 페이지가 ready 를 보낸 뒤 보내고, 자리·명령이 바뀔 때마다 다시 보낸다. 못 불러오면 각 자리에 평면 지도 + 알림.
+// 명령은 페이지가 ready 를 보낸 뒤 보내고, 자리·명령이 바뀔 때마다 다시 보낸다. 못 불러오면 각 자리에 오류 안내와 재시도 단추.
 import { useFocusEffect, useNavigation } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurTargetView } from 'expo-blur';
 import { BlurTargetCtx, useLook } from './look';
 import { Character } from './v3';
+import { Button } from './components';
 import { parseEvent, type Map3dCommand, type Map3dEvent } from '../map3d/commands';
 import { CHARACTER_OK, CHARACTER_UNCERTAIN } from './characterImages';
 import { color, tabSlideSpec } from './theme';
@@ -53,6 +54,7 @@ interface Api {
   put: (s: Slot) => void;
   focus: (id: string, on: boolean) => void;
   remove: (id: string) => void;
+  retry: () => void;
 }
 
 const ApiCtx = createContext<Api | null>(null);
@@ -65,15 +67,12 @@ export interface Map3dControls {
   home: () => void;
   toggleExplode: () => boolean;
   focusMe: () => void;
-  /** 한 번 보내는 명령(1인칭 넘기기·따라가기 목표처럼 상태가 아닌 것). 네이티브 3D 일 때만 */
-  send: (c: Map3dCommand) => void;
 }
 const ControlsCtx = createContext<Map3dControls>({
   available: false,
   home: () => {},
   toggleExplode: () => false,
   focusMe: () => {},
-  send: () => {},
 });
 export const useMap3dControls = () => useContext(ControlsCtx);
 
@@ -100,6 +99,7 @@ export function Map3DHost({
   const firstReady = useRef(false);
   const blurTarget = useRef<View | null>(null);
   const [status, setStatus] = useState<Status>('loading');
+  const [attempt, setAttempt] = useState(0);
   const [slots, setSlots] = useState<Record<string, Slot>>({});
   const [active, setActive] = useState<string | null>(null);
   const [origin, setOrigin] = useState({ x: 0, y: 0 });
@@ -115,9 +115,15 @@ export function Map3DHost({
   const markersSent = useRef(false);
   const sent = useRef(new Map<string, string>());
   const sentSlot = useRef<string | null>(null);
+  const retry = useCallback(() => {
+    ready.current = false;
+    setStatus('loading');
+    setAttempt((n) => n + 1);
+  }, []);
 
   const api = useMemo<Api>(
     () => ({
+      retry,
       put: (s) => setSlots((all) => ({ ...all, [s.id]: s })),
       // 초점 잃어도 자리 정보는 남김(뒤로 와서 다시 초점 받을 때 바로 씀)
       focus: (id, on) => setActive((cur) => (on ? id : cur === id ? null : cur)),
@@ -131,7 +137,7 @@ export function Map3DHost({
         });
       },
     }),
-    [],
+    [retry],
   );
   const slot = active ? slots[active] : undefined;
   const controls = useMemo<Map3dControls>(
@@ -140,7 +146,6 @@ export function Map3DHost({
       home: () => native.current?.home(),
       toggleExplode: () => native.current?.toggleExplode() ?? false,
       focusMe: () => native.current?.focusMe(),
-      send: (c) => native.current?.post(c),
     }),
     [useNative, status],
   );
@@ -177,9 +182,6 @@ export function Map3DHost({
     };
     if (!slot.commands.some((c) => c.type === 'setRoute')) send({ v: 1, type: 'clearRoute' });
     if (!slot.commands.some((c) => c.type === 'setLocation')) send({ v: 1, type: 'clearLocation' });
-    // 1인칭은 그 명령을 가진 화면에서만(다른 화면으로 가면 끔). 웹 페이지는 모르는 명령이라 네이티브만
-    if (useNative && !slot.commands.some((c) => c.type === 'firstPerson'))
-      send({ v: 1, type: 'firstPerson', on: false, speed: null, paused: null, follow: false });
     for (const c of slot.commands) send(c);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- cmdKey 가 slot 의 내용
   }, [status, cmdKey, post]);
@@ -207,7 +209,7 @@ export function Map3DHost({
         sentSlot.current = null;
         setStatus('ready');
       }
-      // 네이티브 3D 가 처음에 실패하면(문맥·자료) 평면 지도로
+      // 네이티브 3D 가 처음에 실패하면(문맥·자료) 오류 안내로
       if (e.type === 'error' && /^native3d:/.test(e.error) && !ready.current) setStatus('failed');
       handler.current?.(e);
     },
@@ -224,9 +226,16 @@ export function Map3DHost({
   useEffect(() => {
     ready.current = false;
     const t = setTimeout(() => !ready.current && setStatus('failed'), READY_TIMEOUT_MS);
-    if (Platform.OS === 'web') fetch(source, { mode: 'no-cors' }).catch(() => setStatus('failed'));
-    return () => clearTimeout(t);
-  }, [source]);
+    let cancelled = false;
+    if (Platform.OS === 'web')
+      fetch(source, { mode: 'no-cors' }).catch(() => {
+        if (!cancelled) setStatus('failed');
+      });
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [source, attempt]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -272,6 +281,7 @@ export function Map3DHost({
             >
               {Platform.OS === 'web' ? (
                 <iframe
+                  key={`${source}:${attempt}`}
                   ref={frame}
                   src={url}
                   title="3D 캠퍼스 지도"
@@ -285,7 +295,7 @@ export function Map3DHost({
                         style={{ position: 'absolute', left: -(r.x - origin.x), top: -(r.y - origin.y), width: root.w, height: root.h }}
                       >
                         <Campus3DView
-                          key={source}
+                          key={`${source}:${attempt}`}
                           ref={native}
                           light={light}
                           places={places}
@@ -304,6 +314,7 @@ export function Map3DHost({
                     ) : null
                   ) : (
                     <WebView
+                      key={`${source}:${attempt}`}
                       ref={web}
                       source={{ uri: url }}
                       style={s.fill}
@@ -312,7 +323,7 @@ export function Map3DHost({
                       onMessage={(e) => receive(e.nativeEvent.data)}
                       onError={() => setStatus('failed')}
                       onHttpError={() => setStatus('failed')}
-                      // GPU 렌더러가 죽으면(메모리·드라이버) 앱 전체가 죽지 않게 평면 지도로
+                      // GPU 렌더러가 죽으면(메모리·드라이버) 오류 안내와 재시도 표시
                       onRenderProcessGone={() => setStatus('failed')}
                       androidLayerType="hardware"
                       webviewDebuggingEnabled={__DEV__}
@@ -356,13 +367,12 @@ export function Map3DHost({
   );
 }
 
-/** 화면 안 3D 지도 자리. 초점 받은 화면의 자리에 공용 3D 지도가 놓임. 3D 를 못 쓰면 fallback(평면 지도) + 알림. */
+/** 화면 안 3D 지도 자리. 초점 받은 화면의 자리에 공용 3D 지도가 놓임. 3D 를 못 쓰면 오류 안내와 재시도 단추. */
 export function MapSlot({
   commands,
   onEvent,
   minimal = false,
   overlay,
-  fallback,
   style,
   padding,
   tabSlide,
@@ -377,7 +387,6 @@ export function MapSlot({
   minimal?: boolean;
   /** 지도 위에 얹는 단추·배지(3D 위에도 보이게 공용 지도와 함께 그림) */
   overlay?: ReactNode;
-  fallback: ReactNode;
   style?: StyleProp<ViewStyle>;
   /** 아래 탭 화면이면: 이 탭의 route 이름과, 탭 전환으로 밀려났을 때 화면이 가 있는 x(dp). 지도 탭은 맨 왼쪽이라 -너비 */
   tabSlide?: { route: string; exitX: number };
@@ -450,15 +459,21 @@ export function MapSlot({
     <View ref={ref} style={[s.fill, style]} onLayout={measure} collapsable={false}>
       {status === 'failed' ? (
         <>
-          {/* 알림은 지도 위에 겹치지 않고 위쪽 줄로(짧은 경로가 가려지던 문제) */}
-          {/* 지도가 화면 맨 위까지 깔린 화면(홈)에서는 상태 표시줄 아래로 */}
-          <View style={[s.notice, rect && rect.y < inset.top ? { paddingTop: inset.top + 8 } : null]}>
-            <Text style={s.noticeT}>3D 지도를 불러오지 못해 평면 지도로 보여요</Text>
+          <View
+            style={[
+              s.failure,
+              {
+                top: Math.max(padding?.top ?? 0, rect && rect.y < inset.top ? inset.top + 8 : 0),
+                bottom: padding?.bottom ?? 0,
+              },
+            ]}
+          >
+            <Text style={s.noticeT} accessibilityRole="alert">
+              3D 지도를 불러오지 못했어요
+            </Text>
+            <Button variant="secondary" label="지도 다시 시도" onPress={() => api?.retry()} />
           </View>
-          <View style={s.fill}>
-            {fallback}
-            {overlay}
-          </View>
+          {overlay}
         </>
       ) : null}
     </View>
@@ -470,7 +485,7 @@ const s = StyleSheet.create({
   host: { position: 'absolute', overflow: 'hidden', backgroundColor: color.canvas },
   hiddenOverlay: { display: 'none' },
   fill: { flex: 1, backgroundColor: color.canvas, overflow: 'hidden' },
-  notice: { backgroundColor: color.warningSoft, paddingHorizontal: 12, paddingVertical: 8 },
+  failure: { position: 'absolute', left: 16, right: 16, alignItems: 'center', justifyContent: 'center', gap: 12 },
   noticeT: { color: color.warning, fontSize: 13, fontWeight: '600' },
   loading: { position: 'absolute', left: 0, right: 0, top: '40%', alignItems: 'center' },
   loadingPill: {

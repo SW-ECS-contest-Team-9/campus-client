@@ -15,7 +15,6 @@ import { FloorCapsule } from '../ui/FloorCapsule';
 import { Button, FloorItem, StatusChip } from '../ui/components';
 import { useToast } from '../ui/feedback';
 import { P, Screen } from '../ui/kit';
-import { useMap3dControls } from '../ui/Map3D';
 import { useRouteCommand } from '../ui/useRouteCommand';
 import { Glass, RouteDrawBar, WaveEdge } from '../ui/v3';
 import { Footprints } from 'lucide-react-native';
@@ -23,7 +22,6 @@ import { Footprints } from 'lucide-react-native';
 export default function PreviewScreen() {
   const app = useApp();
   const toast = useToast();
-  const ctl = useMap3dControls();
   const [moreModes, setMoreModes] = useState(false);
   const r = app.route;
   const server = app.serverRoute;
@@ -76,7 +74,6 @@ export default function PreviewScreen() {
       <View style={s.map}>
         <CampusMap
           commands={[cmd]}
-          routePoints={r.points}
           pickPlaces={false}
           minimal
           padding={{ top: 72, bottom: 236 }}
@@ -114,14 +111,6 @@ export default function PreviewScreen() {
         <P tone="muted">{modeInfo(app.condition).note}</P>
         {fromServer ? <StatusChip tone="confirmed" label="서버에서 이 방식으로 계산" /> : null}
         {partial ? <P tone="muted">{partial}</P> : null}
-        {/* 1인칭 미리 보기: 경로를 눈높이로 2~3배속 걸어 봄(앱 내장 3D 일 때만) */}
-        {ctl.available ? (
-          <Button
-            variant="secondary"
-            label="1인칭 미리 보기"
-            onPress={() => router.push({ pathname: '/first-person', params: { mode: 'preview' } })}
-          />
-        ) : null}
         {server && !server.ok && server.code === 'no_route' ? <P tone="muted">서버는 같은 조건의 경로가 없다고 해요</P> : null}
       </View>
     </Screen>

@@ -41,8 +41,6 @@ export interface Settings {
   autoTierRule?: number;
   /** 3D 엔진: 네이티브(기본, 앱에 묶은 3D·서버 없이) / 웹(3D 페이지, 서버 필요) */
   map3dEngine: Map3dEngine;
-  /** 지도를 평면(2D)으로 보기(3D 대신). 지도 화면 단추로도 바꿈 */
-  map2d: boolean;
   /** 첫 실행 설명(코치마크)을 봤음 */
   coachDone: boolean;
   /** 위치 권한 이유 설명을 봤음(OS 대화상자 전에 한 번) */
@@ -62,7 +60,6 @@ const DEFAULT_SETTINGS: Settings = {
   autoTier: null,
   autoTier3dChecked: false,
   map3dEngine: 'native',
-  map2d: false,
   coachDone: false,
   locationExplained: false,
   naturalSearchDefault: false,

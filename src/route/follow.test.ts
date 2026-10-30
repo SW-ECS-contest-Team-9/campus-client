@@ -1,13 +1,11 @@
-// 1인칭 따라가기 시험: 위치 열(합성) → 위치 보정(tracker·맞춤기, 고치지 않음) → 경로 위 거리 → 1인칭 카메라.
-import * as THREE from 'three';
+// 경로 안내 자동 진행 시험: 위치 열(합성) → 위치 보정(tracker·맞춤기) → 경로 위 거리.
 import { describe, expect, it } from 'vitest';
 import fixtureJson from '../map/fixture/campus-fixture.json';
 import type { MapPackage, XYZ } from '../map/package';
 import { epsg5186ToWgs84 } from '../location/projection';
 import { createTracker } from '../location/tracker';
-import { createFirstPerson, FP } from '../map3d/native/firstPerson';
 import { DEFAULT_GPS_DISTRUST } from '../location/matcher';
-import { createRouteFollower, distrustZones, followNotice } from './follow';
+import { createRouteFollower, distrustZones } from './follow';
 
 const pkg = fixtureJson as unknown as MapPackage;
 
@@ -36,7 +34,6 @@ describe('따라가기: 위치 → 경로 위 거리', () => {
     expect(f.update({ x: 35, y: 30, z: null, uncertain: false })).toMatchObject({ m: 30, status: 'following' });
     const off = f.update({ x: 36, y: 31, z: null, uncertain: false });
     expect(off).toMatchObject({ m: null, status: 'offRoute' });
-    expect(followNotice(off, true)).toContain('경로에서 벗어났어요');
     expect(f.update({ x: 38, y: 2, z: null, uncertain: false })).toMatchObject({ m: 38, status: 'following' });
   });
   it('날 GPS 보조: (정확도 + 15 m) 넘게 10 s 이어지면 이탈, 불신 구역·실내 층에서는 안 씀', () => {
@@ -93,7 +90,7 @@ describe('따라가기: 위치 → 경로 위 거리', () => {
   });
 });
 
-describe('따라가기: 합성 위치 열 → 보정(tracker) → 카메라', () => {
+describe('따라가기: 합성 위치 열 → 보정(tracker) → 경로 위 거리', () => {
   // 바깥 길 하나(fixture, 조각을 이은 것)를 경로로 씀
   const OUTDOOR = 'e:a03d33c3-08b0-4bc6-ae9f-40b83c3296de';
   const parts = pkg.edges.filter((e) => e.key.startsWith(`${OUTDOOR}~`));
@@ -118,21 +115,7 @@ describe('따라가기: 합성 위치 열 → 보정(tracker) → 카메라', ()
   ) {
     const tracker = createTracker(pkg);
     const follower = createRouteFollower(route, { rawAid });
-    const X0 = route[0][0],
-      Y0 = route[0][1];
-    const camera = new THREE.PerspectiveCamera(45, 0.75, 1, 5000);
-    const fp = createFirstPerson({
-      scene: new THREE.Scene(),
-      camera,
-      fromTm: (x, y, z) => new THREE.Vector3(x - X0, z, -(y - Y0)),
-      toTm: (p) => ({ x: p.x + X0, y: -p.z + Y0, z: p.y }),
-      buildings: [],
-      interiors: [],
-      hide: [],
-      outdoor: [],
-    });
-    fp.start(route, [], { follow: true });
-    const log: { t: number; m: number | null; status: string; cam: number; truth: number }[] = [];
+    const log: { t: number; m: number | null; status: string; truth: number }[] = [];
     for (let t = 1; t <= seconds; t++) {
       const truth = Math.min(1.2 * t, cum[cum.length - 1]);
       const p = truthAt(t);
@@ -150,36 +133,29 @@ describe('따라가기: 합성 위치 열 → 보정(tracker) → 카메라', ()
           uncertain: fix.uncertain,
           raw: fix.raw ? { x: fix.raw.x, y: fix.raw.y, accuracyM: fix.accuracyM, t, indoor: !!fix.match?.floorKey } : null,
         });
-        fp.setTarget(st.status === 'following' ? st.m : null);
-        for (let k = 0; k < 60; k++) fp.tick(1 / 60);
-        log.push({ t, m: st.m, status: st.status, cam: fp.progress().s, truth });
+        log.push({ t, m: st.m, status: st.status, truth });
       }
     }
     return log;
   }
 
-  it('잡음 있는 GPS(±6 m)로 걸어도 카메라는 경로를 따라 앞으로만, 실제 위치와 가까이', () => {
+  it('잡음 있는 GPS(±6 m)로 걸어도 진행 거리는 실제 위치와 가까이', () => {
     const log = walk(100, (t, p) => ({ x: p.x + 6 * Math.sin(t * 1.3), y: p.y + 6 * Math.cos(t * 0.7) }));
     expect(log.length).toBeGreaterThan(80);
-    for (let i = 1; i < log.length; i++) expect(log[i].cam).toBeGreaterThanOrEqual(log[i - 1].cam - 1e-9);
     const late = log.filter((r) => r.t > 15 && r.status === 'following');
     expect(late.length).toBeGreaterThan(60);
     const med = (a: number[]) => [...a].sort((p, q) => p - q)[Math.floor(a.length / 2)];
-    // 카메라는 보정 위치(목표)를 바짝 따라감
-    expect(med(late.map((r) => Math.abs(r.cam - r.m!)))).toBeLessThan(2);
     // 보정 위치 자체는 실제보다 조금씩 앞섬(이 합성 입력에서 100 s 에 약 +19 m, 걸음 보폭 추정 차이로 추정 — 보정 로직은 이 작업에서 안 고침)
     expect(med(late.map((r) => Math.abs(r.m! - r.truth)))).toBeLessThan(20);
-    // 카메라 이동은 1 s 에 3 m 을 넘지 않음
-    for (let i = 1; i < log.length; i++) expect(log[i].cam - log[i - 1].cam).toBeLessThanOrEqual(FP.followMaxMps + 1e-6);
   });
 
-  it('GPS 가 한 번 크게 뒤로 튀어도 카메라는 뒤로 가지 않음', () => {
+  it('GPS 가 한 번 크게 뒤로 튀어도 진행 거리는 뒤로 가지 않음', () => {
     const log = walk(60, (t, p) => (t === 40 ? at(Math.max(0, 1.2 * t - 25)) : { x: p.x, y: p.y }));
     const i = log.findIndex((r) => r.t === 40);
-    expect(log[i].cam).toBeGreaterThanOrEqual(log[i - 1].cam);
+    expect(log[i].m).toBeGreaterThanOrEqual(log[i - 1].m!);
   });
 
-  it('실제로 경로를 벗어나 옆으로 걸어가면 이탈 → 카메라 멈춤(알림)', () => {
+  it('실제로 경로를 벗어나 옆으로 걸어가면 이탈 판정 후 진행 거리 없음', () => {
     // 40 s(48 m) 뒤 경로와 직각으로 1.2 m/s 로 걸어 나감(GPS·나침반·걸음 모두 그쪽)
     const base = at(48);
     const side = ((base.head + 90) * Math.PI) / 180;
@@ -196,9 +172,7 @@ describe('따라가기: 합성 위치 열 → 보정(tracker) → 카메라', ()
       lateNoAid = noAid.t - 40;
     expect(lateAid).toBeLessThan(lateNoAid);
     expect(lateAid).toBeLessThanOrEqual(Math.ceil((8 + 15) / 1.2) + 10 + 1);
-    // 이탈 동안 카메라는 그 자리
-    const cams = off.map((r) => r.cam);
-    expect(Math.max(...cams) - Math.min(...cams)).toBeLessThan(0.5);
+    for (const r of off) expect(r.m).toBeNull();
     expect(off[0].t).toBeGreaterThan(40);
   });
 });

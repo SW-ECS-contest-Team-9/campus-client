@@ -67,6 +67,11 @@ async function loadGlb(): Promise<ArrayBuffer> {
 
 export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function Campus3DView({ onEvent, places, padding, light = false, style, logFrames = false, onStats }, ref) {
   const sceneRef = useRef<CampusScene | null>(null);
+  const renderRun = useRef<{ stop: () => void } | null>(null);
+  useEffect(() => () => {
+    renderRun.current?.stop();
+    sceneRef.current = null;
+  }, []);
   const queue = useRef<unknown[]>([]);
   const handler = useRef(onEvent);
   const statsRef = useRef(onStats);
@@ -90,8 +95,6 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
   const shownPlaces = useRef<{ pl: Campus3DPlace; x: number; y: number }[]>([]);
   useEffect(() => { placeList.current = places; placeAnchors.current = null; labelsDirty.current = true; }, [places]);
   const layoutLabels = useCallback((sc: CampusScene) => {
-    // 1인칭 동안은 이름표·장소 점을 감춤(눈높이에서는 겹쳐 어지러움)
-    if (sc.firstPerson.active()) { shownPlaces.current = []; if (labelKeys.current) { labelKeys.current = ''; setLabels([]); } return; }
     const k = scale.current;
     if (!placeAnchors.current) placeAnchors.current = (placeList.current ?? []).map((pl) => ({ pl, p: sc.toScene(pl.x, pl.y, pl.z) }));
     if (!changeAnchors.current) changeAnchors.current = changes.current.filter((c) => c.label).map((c) => ({ label: c.label!, p: sc.toScene(c.at[0], c.at[1], Number.isFinite(c.at[2]) ? c.at[2] : null) }));
@@ -145,6 +148,15 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
 
   const onContextCreate = useCallback(async (gl: ExpoWebGLRenderingContext) => {
     const t0 = Date.now();
+    let stopped = false;
+    let frameId: number | null = null;
+    let dispose = () => {};
+    renderRun.current?.stop();
+    renderRun.current = { stop: () => {
+      stopped = true;
+      if (frameId != null) cancelAnimationFrame(frameId);
+      dispose();
+    } };
     try {
       // campus-client: 가벼운 모드도 해상도는 그대로(TextureView 표면은 보기 크기라 작은 viewport 는 왼쪽 아래에만 그려짐). 선만 끔
       const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
@@ -155,10 +167,14 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       G.WebGLRenderingContext = undefined;
       let renderer: THREE.WebGLRenderer;
       try { renderer = new THREE.WebGLRenderer({ canvas, context: gl as any, antialias: false, powerPreference: 'high-performance' }); } finally { G.WebGLRenderingContext = saved; }
+      dispose = () => renderer.dispose();
       renderer.setPixelRatio(1);
       const glb = await loadGlb();
+      if (stopped) return;
       const tAsset = Date.now();
-      const scene = await createCampusScene({ renderer, width: w, height: h, glb, light, emit: (e) => handler.current?.(e) });
+      const scene = await createCampusScene({ renderer, width: w, height: h, glb, light, emit: (e) => { if (!stopped) handler.current?.(e); } });
+      dispose = () => { scene.dispose(); renderer.dispose(); };
+      if (stopped) { dispose(); return; }
       sceneRef.current = scene;
       // campus-client: 앱은 3D 보기 하나를 화면마다 다른 크기 자리로 옮김 → 보기 크기에 맞춰 다시 맞춤
       if (layoutSize.current) scene.resize(Math.round(layoutSize.current.w * scale.current), Math.round(layoutSize.current.h * scale.current));
@@ -171,6 +187,7 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       const frames: number[] = [];
       let lastLog = Date.now();
       const loop = () => {
+        if (stopped) return;
         const drew = scene.frameTick();
         if (drew) {
           gl.endFrameEXP();
@@ -187,10 +204,12 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
           stat(`FRAMES n=${d.length} p50=${q(0.5)} p95=${q(0.95)} max=${d[d.length - 1]} ms`);
           frames.length = 0; lastLog = Date.now();
         }
-        requestAnimationFrame(loop);
+        frameId = requestAnimationFrame(loop);
       };
       loop();
     } catch (err) {
+      dispose();
+      if (stopped) return;
       console.error('3D 실패', err);
       handler.current?.({ v: 1, type: 'error', error: `native3d: ${String((err as Error)?.message ?? err)}` });
     }
@@ -204,7 +223,7 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
     onPanResponderGrant: (e) => { const t = e.nativeEvent.touches; g.n = t.length; g.x = t[0].pageX; g.y = t[0].pageY; g.moved = 0; g.t = Date.now(); if (t.length > 1) two(t); },
     onPanResponderMove: (e) => {
       const s = sceneRef.current; const t = e.nativeEvent.touches;
-      if (!s || !t.length || s.firstPerson.active()) return; // 1인칭: 손 조작 없음
+      if (!s || !t.length) return;
       const k = scale.current;
       if (t.length === 1) {
         if (g.n !== 1) { g.n = 1; g.x = t[0].pageX; g.y = t[0].pageY; return; }
@@ -223,7 +242,7 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       }
     },
     onPanResponderRelease: (e) => {
-      if (g.moved < 8 && Date.now() - g.t < 350 && sceneRef.current && !sceneRef.current.firstPerson.active()) {
+      if (g.moved < 8 && Date.now() - g.t < 350 && sceneRef.current) {
         // 장소 점 가까이(22 dp)를 누르면 그 장소
         const lx = e.nativeEvent.locationX, ly = e.nativeEvent.locationY;
         const hit = shownPlaces.current.find((q) => Math.hypot(q.x - lx, q.y - ly) < 22);

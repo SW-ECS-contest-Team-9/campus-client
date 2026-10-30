@@ -1,5 +1,5 @@
 // ST02 조건에 맞는 경로 없음. 원인별(계단 피하기 / 길 끊김 / 길에 안 붙음 / 같은 곳) 문구와 다음 행동.
-// 계단 피하기는 스스로 풀지 않고, 사용자가 고르게 한다(제품 규칙 04).
+// 이동 조건은 유지하고, 바꾸려면 자연어 검색에서 새 요청을 입력한다.
 import { router } from 'expo-router';
 import { ArrowUpDown, CircleAlert, MapPinOff } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
@@ -28,12 +28,11 @@ export default function NoRouteScreen() {
     else if (a === 'change_dest') router.replace('/search');
     else if (a === 'nearby_dest') router.replace({ pathname: '/search', params: building ? { q: building } : {} });
     else if (a === 'arrive') router.replace('/arrive');
-    else {
-      // 사용자가 직접 "계단 허용"을 고름 → 말로 정한 필수 조건(계단 없이)도 함께 풂
-      if (app.nlp?.mandatory.length) app.setNlp({ ...app.nlp, mandatory: [] });
-      app.setCondition('shortest');
-      router.replace('/preview');
-    }
+    else if (a === 'change_condition')
+      router.push({
+        pathname: '/search',
+        params: { mode: 'natural', q: app.nlp?.text ?? (dest ? displayName(dest.name) : '') },
+      });
   };
   const Icon =
     copy.cause === 'stairs' || copy.cause === 'disconnected' ? ArrowUpDown : copy.cause === 'same_place' ? CircleAlert : MapPinOff;

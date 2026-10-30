@@ -3,7 +3,7 @@
 import type { RouteCondition } from './route';
 
 export type NoRouteCause = 'stairs' | 'disconnected' | 'dest_unattached' | 'start_unattached' | 'same_place';
-export type NoRouteAction = 'change_start' | 'change_dest' | 'allow_stairs' | 'nearby_dest' | 'arrive';
+export type NoRouteAction = 'change_start' | 'change_dest' | 'change_condition' | 'nearby_dest' | 'arrive';
 export interface NoRouteCopy {
   cause: NoRouteCause;
   title: string;
@@ -52,7 +52,7 @@ export function noRouteCopy(input: {
           : '계단을 피하는 경로가\n연결되어 있지 않아요.',
       body: `${dest}까지 계단 없이 이어지는 길이 지금 지도에 없어요. 실제로는 길이 있어도 아직 지도에 그려지지 않았을 수 있어요.`,
       primary: { action: 'change_start', label: '출발점·목적지 변경' },
-      secondary: { action: 'allow_stairs', label: '계단 허용으로 조건 변경' },
+      secondary: { action: 'change_condition', label: '자연어로 조건 변경' },
     };
   return {
     cause: 'disconnected',

@@ -1,39 +1,13 @@
-// 화면 공통 틀과 짧은 이름 부품. 실제 모양은 ./components(Figma 컴포넌트 대응)에 있음.
+// 화면 공통 틀(Screen·Card·글·아래 탭). 단추·칩·줄은 ./components 를 직접 쓴다.
 // 기준 기기 Galaxy S21(360×800 dp): 누르는 곳 48 dp 이상, CTA 52.
 import { router, useIsFocused } from 'expo-router';
-import { ChevronLeft, type LucideIcon } from 'lucide-react-native';
+import { ChevronLeft } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { elevation, glass, shape } from './theme';
 import { Gradient, WaveHeader } from './v3';
-import { Button, color, FloorItem, IconButton, PressScale, ResultRow, StatusChip, TabBarView, type TabKey } from './components';
-
-/** Foundations 토큰(옛 이름 유지). 색은 components 의 color 와 같음. */
-export const T = {
-  primary: color.primary,
-  primarySoft: color.primarySoft,
-  route: color.route,
-  confirmed: color.success,
-  confirmedSoft: color.successSoft,
-  caution: color.warning,
-  cautionSoft: color.warningSoft,
-  text: color.text,
-  sub: color.secondary,
-  line: color.border,
-  canvas: color.canvas,
-  card: color.surface,
-  margin: 20,
-  touch: 48,
-  cta: 52,
-  radius: 16,
-  panel: 24,
-  display: 28,
-  title: 22,
-  body: 17,
-  small: 15,
-  caption: 13,
-};
+import { color, elevation, glass, shape, space, type } from './theme';
+import { IconButton, TabBarView, type TabKey } from './components';
 
 /** 화면 틀: 상태 표시줄·아래 막대 여백, 머리(뒤로 + 제목), 내용 스크롤. */
 export function Screen({
@@ -42,14 +16,12 @@ export function Screen({
   children,
   scroll = true,
   footer,
-  right,
 }: {
   title?: string;
   back?: boolean;
   children: ReactNode;
   scroll?: boolean;
   footer?: ReactNode;
-  right?: ReactNode;
 }) {
   const inset = useSafeAreaInsets();
   const body = scroll ? (
@@ -77,7 +49,6 @@ export function Screen({
             <Text style={s.title} numberOfLines={2} accessibilityRole="header">
               {title}
             </Text>
-            {right}
           </View>
         </WaveHeader>
       ) : (
@@ -89,84 +60,24 @@ export function Screen({
   );
 }
 
-const KIND = { primary: 'primary', soft: 'secondary', ghost: 'quiet' } as const;
-export function Btn({
-  label,
-  onPress,
-  kind = 'primary',
-  disabled,
-  loading,
-  icon,
-  style,
-}: {
-  label: string;
-  onPress?: () => void;
-  kind?: 'primary' | 'soft' | 'ghost';
-  disabled?: boolean;
-  loading?: boolean;
-  icon?: LucideIcon;
-  style?: StyleProp<ViewStyle>;
-}) {
-  return (
-    <Button
-      label={label}
-      onPress={onPress}
-      variant={KIND[kind]}
-      size={kind === 'ghost' ? 'regular' : 'large'}
-      disabled={disabled}
-      loading={loading}
-      icon={icon}
-      style={style}
-    />
-  );
-}
-
 export function Card({
   children,
   style,
-  onPress,
   tone,
 }: {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
-  onPress?: () => void;
   tone?: 'primary' | 'caution' | 'confirmed';
 }) {
   const bg =
-    tone === 'primary' ? T.primarySoft : tone === 'caution' ? T.cautionSoft : tone === 'confirmed' ? T.confirmedSoft : glass.fillStrong;
-  return onPress ? (
-    <PressScale onPress={onPress} style={[s.card, { backgroundColor: bg }, style]}>
-      {children}
-    </PressScale>
-  ) : (
-    <View style={[s.card, { backgroundColor: bg }, style]}>{children}</View>
-  );
-}
-
-/** Feedback/StatusChip 로 그림. primary = 안내(아이콘 없음), offline = 와이파이 꺼짐 아이콘. */
-export function Badge({ text, tone }: { text: string; tone: 'confirmed' | 'caution' | 'primary' | 'offline' }) {
-  return <StatusChip tone={tone === 'caution' ? 'warning' : tone === 'primary' ? 'info' : tone} label={text} />;
-}
-
-/** 고르기 칩(Floor/Item 모양: Idle/Selected). */
-export function Chip({ label, on, onPress }: { label: string; on?: boolean; onPress?: () => void }) {
-  return <FloorItem label={label} state={on ? 'selected' : 'idle'} onPress={onPress} />;
-}
-
-export function Row({
-  title,
-  sub,
-  onPress,
-  icon,
-  trailing,
-}: {
-  title: string;
-  sub?: string | null;
-  onPress?: () => void;
-  icon?: LucideIcon;
-  trailing?: ReactNode;
-}) {
-  return <ResultRow title={title} sub={sub} onPress={onPress} icon={icon} trailing={trailing} />;
+    tone === 'primary'
+      ? color.primarySoft
+      : tone === 'caution'
+        ? color.warningSoft
+        : tone === 'confirmed'
+          ? color.successSoft
+          : glass.fillStrong;
+  return <View style={[s.card, { backgroundColor: bg }, style]}>{children}</View>;
 }
 
 export const H = ({ children }: { children: ReactNode }) => (
@@ -176,7 +87,9 @@ export const H = ({ children }: { children: ReactNode }) => (
 );
 export const Section = ({ children }: { children: ReactNode }) => <Text style={s.section}>{children}</Text>;
 export const P = ({ children, tone }: { children: ReactNode; tone?: 'caution' | 'muted' }) => (
-  <Text style={[s.p, tone === 'caution' && { color: T.caution }, tone === 'muted' && { color: T.sub, fontSize: T.caption }]}>
+  <Text
+    style={[s.p, tone === 'caution' && { color: color.warning }, tone === 'muted' && { color: color.secondary, fontSize: type.caption }]}
+  >
     {children}
   </Text>
 );
@@ -188,14 +101,14 @@ export function TabBar({ at }: { at: TabKey }) {
   return <TabBarView at={at} focused={useIsFocused()} bottomInset={inset.bottom} onSelect={(k) => router.navigate(to[k])} />;
 }
 
-export const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: T.canvas },
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: color.canvas },
   head: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
   back: { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: 'rgba(255,255,255,0.35)', shadowOpacity: 0, elevation: 0 },
-  title: { flex: 1, fontSize: T.title, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
-  body: { paddingHorizontal: T.margin, gap: 12, paddingTop: 4 },
+  title: { flex: 1, fontSize: type.title, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
+  body: { paddingHorizontal: space[20], gap: 12, paddingTop: 4 },
   footer: {
-    paddingHorizontal: T.margin,
+    paddingHorizontal: space[20],
     paddingTop: 16,
     gap: 8,
     backgroundColor: glass.fillStrong,
@@ -214,7 +127,7 @@ export const s = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth * 2,
     borderColor: glass.outline,
   },
-  h: { fontSize: T.display - 2, lineHeight: 34, fontWeight: '800', color: T.text, marginTop: 4, letterSpacing: -0.5 },
-  section: { fontSize: T.small, fontWeight: '700', color: T.sub, marginTop: 8 },
-  p: { fontSize: T.small, lineHeight: 22, color: T.text },
+  h: { fontSize: type.display - 2, lineHeight: 34, fontWeight: '800', color: color.text, marginTop: 4, letterSpacing: -0.5 },
+  section: { fontSize: type.small, fontWeight: '700', color: color.secondary, marginTop: 8 },
+  p: { fontSize: type.small, lineHeight: 22, color: color.text },
 });

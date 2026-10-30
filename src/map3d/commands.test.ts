@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fixture from '../map/fixture/campus-fixture.json';
 import type { MapPackage } from '../map/package';
 import { buildGraph, findRoute } from '../route/route';
-import { floorCommand, locationCommand, packagePlaceKey, pageUrl, parseEvent, routeCommand, sceneBuildingId } from './embed';
+import { floorCommand, locationCommand, packagePlaceKey, pageUrl, parseEvent, routeCommand, sceneBuildingId } from './commands';
 import { toFix } from '../location/fix';
 
 const pkg = fixture as unknown as MapPackage;
@@ -77,7 +77,6 @@ describe('3D 페이지 메시지', () => {
     expect(packagePlaceKey('abc')).toBe('p:abc');
     expect(pageUrl('')).toBe('http://127.0.0.1:5273/client3d.html');
     expect(pageUrl('https://x/client3d.html', true)).toBe('https://x/client3d.html?light=1&msaa=1');
-    expect(pageUrl('https://x/client3d.html?a=1', true, true)).toBe('https://x/client3d.html?a=1&light=1&msaa=1&ui=min');
   });
 
   it('받은 사건: v 1 과 모양만 받음', () => {

@@ -6,7 +6,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import { modeInfo } from '../route/modes';
 import { noRouteCopy, type NoRouteAction } from '../route/noRouteCopy';
 import { useApp } from '../state/AppState';
-import { Btn, Card, H, P, Screen, T } from '../ui/kit';
+import { Button } from '../ui/components';
+import { Card, H, P, Screen } from '../ui/kit';
+import { color, type } from '../ui/theme';
 import { Character } from '../ui/v3';
 
 export default function NoRouteScreen() {
@@ -39,15 +41,15 @@ export default function NoRouteScreen() {
       title="경로를 찾지 못했어요"
       footer={
         <>
-          <Btn label={copy.primary.label} onPress={() => run(copy.primary.action)} />
-          {copy.secondary ? <Btn kind="soft" label={copy.secondary.label} onPress={() => run(copy.secondary!.action)} /> : null}
+          <Button label={copy.primary.label} onPress={() => run(copy.primary.action)} />
+          {copy.secondary ? <Button variant="secondary" label={copy.secondary.label} onPress={() => run(copy.secondary!.action)} /> : null}
         </>
       }
     >
       <View style={s.icon}>
         <Character name="noRoute" size={96} />
         <View style={s.badge}>
-          <Icon size={18} color={T.caution} strokeWidth={2.2} />
+          <Icon size={18} color={color.warning} strokeWidth={2.2} />
         </View>
       </View>
       <H>{copy.title}</H>
@@ -72,9 +74,9 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: T.cautionSoft,
+    backgroundColor: color.warningSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  k: { fontSize: T.body, fontWeight: '800', color: T.caution },
+  k: { fontSize: type.body, fontWeight: '800', color: color.warning },
 });

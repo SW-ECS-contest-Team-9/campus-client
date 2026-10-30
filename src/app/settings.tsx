@@ -1,37 +1,56 @@
 // CT13 설정: 기본 이동 방식, 위치 권한 안내, 3D 표시(가벼운 모드), 서버·3D 페이지 주소(개발), 개인정보.
 import { useState } from 'react';
 import { StyleSheet, Switch, TextInput, View } from 'react-native';
-import { DEFAULT_MAP3D_URL } from '../map3d/embed';
+import { DEFAULT_MAP3D_URL } from '../map3d/commands';
 import { get3dStats } from '../map3d/diag';
 import { MODES } from '../route/modes';
 import { DEFAULT_SERVER_URL, useApp } from '../state/AppState';
-import { Btn, Card, Chip, H, P, Screen, Section, T } from '../ui/kit';
+import { Button, FloorItem } from '../ui/components';
+import { color, type } from '../ui/theme';
+import { Card, H, P, Screen, Section } from '../ui/kit';
 
 export default function SettingsScreen() {
   const app = useApp();
   const [server, setServer] = useState(app.settings.serverUrl);
   const [map3d, setMap3d] = useState(app.settings.map3dUrl);
   const [stats] = useState(get3dStats);
-  const aiOn = app.settings.aiParse ?? false;
+  const aiOn = app.settings.aiParse;
   return (
     <Screen title="설정">
       <H>내 이동에 맞게</H>
       <Section>이동 경로(기본 조건)</Section>
       <View style={s.chips}>
         {MODES.map((m) => (
-          <Chip key={m.key} label={m.label} on={app.condition === m.key} onPress={() => app.setCondition(m.key)} />
+          <FloorItem
+            key={m.key}
+            label={m.label}
+            state={app.condition === m.key ? 'selected' : 'idle'}
+            onPress={() => app.setCondition(m.key)}
+          />
         ))}
       </View>
       <Section>화면 표현(기기 등급)</Section>
       <View style={s.chips}>
-        <Chip
+        <FloorItem
           label={`자동 · ${app.settings.autoTier ?? '-'}`}
-          on={app.settings.deviceTier == null}
+          state={app.settings.deviceTier == null ? 'selected' : 'idle'}
           onPress={() => app.updateSettings({ deviceTier: null })}
         />
-        <Chip label="1 유리·움직임" on={app.settings.deviceTier === 1} onPress={() => app.updateSettings({ deviceTier: 1 })} />
-        <Chip label="2 가볍게" on={app.settings.deviceTier === 2} onPress={() => app.updateSettings({ deviceTier: 2 })} />
-        <Chip label="3 정지" on={app.settings.deviceTier === 3} onPress={() => app.updateSettings({ deviceTier: 3 })} />
+        <FloorItem
+          label="1 유리·움직임"
+          state={app.settings.deviceTier === 1 ? 'selected' : 'idle'}
+          onPress={() => app.updateSettings({ deviceTier: 1 })}
+        />
+        <FloorItem
+          label="2 가볍게"
+          state={app.settings.deviceTier === 2 ? 'selected' : 'idle'}
+          onPress={() => app.updateSettings({ deviceTier: 2 })}
+        />
+        <FloorItem
+          label="3 정지"
+          state={app.settings.deviceTier === 3 ? 'selected' : 'idle'}
+          onPress={() => app.updateSettings({ deviceTier: 3 })}
+        />
       </View>
       <P tone="muted">
         {app.tier === 1
@@ -42,12 +61,16 @@ export default function SettingsScreen() {
       </P>
       <Section>3D 엔진</Section>
       <View style={s.chips}>
-        <Chip
+        <FloorItem
           label="기본(네이티브)"
-          on={app.settings.map3dEngine !== 'web'}
+          state={app.settings.map3dEngine !== 'web' ? 'selected' : 'idle'}
           onPress={() => app.updateSettings({ map3dEngine: 'native' })}
         />
-        <Chip label="웹" on={app.settings.map3dEngine === 'web'} onPress={() => app.updateSettings({ map3dEngine: 'web' })} />
+        <FloorItem
+          label="웹"
+          state={app.settings.map3dEngine === 'web' ? 'selected' : 'idle'}
+          onPress={() => app.updateSettings({ map3dEngine: 'web' })}
+        />
       </View>
       <P tone="muted">
         {app.settings.map3dEngine === 'web'
@@ -63,8 +86,8 @@ export default function SettingsScreen() {
         <Switch
           value={app.settings.naturalSearchDefault}
           onValueChange={(v) => app.updateSettings({ naturalSearchDefault: v })}
-          trackColor={{ false: T.line, true: T.primary }}
-          ios_backgroundColor={T.line}
+          trackColor={{ false: color.border, true: color.primary }}
+          ios_backgroundColor={color.border}
           accessibilityLabel="자연어 검색을 기본으로 사용"
         />
       </Card>
@@ -74,15 +97,15 @@ export default function SettingsScreen() {
           <P tone="muted">규칙으로 못 알아들은 문장을 Gemma 270M으로 한 번 더 해석해요.</P>
           <P tone="muted">
             {app.aiModel
-              ? `모델 있음 · ${aiOn ? '켜짐' : '꺼짐'}${app.settings.aiParse == null ? '(기본 꺼짐)' : ''} · 필수 조건은 규칙 결과를 줄이지 않아요`
+              ? `모델 있음 · ${aiOn ? '켜짐' : '꺼짐'} · 필수 조건은 규칙 결과를 줄이지 않아요`
               : '모델 파일이 없어요(시험판: PC 에서 넣음). 규칙 해석만 써요.'}
           </P>
         </View>
         <Switch
           value={aiOn}
           onValueChange={(v) => app.updateSettings({ aiParse: v })}
-          trackColor={{ false: T.line, true: T.primary }}
-          ios_backgroundColor={T.line}
+          trackColor={{ false: color.border, true: color.primary }}
+          ios_backgroundColor={color.border}
           accessibilityLabel="기기 안 AI 보조(실험)"
         />
       </Card>
@@ -95,7 +118,7 @@ export default function SettingsScreen() {
         <Switch
           value={app.settings.light}
           onValueChange={(v) => app.updateSettings({ light: v })}
-          trackColor={{ true: T.primary }}
+          trackColor={{ true: color.primary }}
           accessibilityLabel="가벼운 3D 지도"
         />
       </Card>
@@ -124,8 +147,8 @@ export default function SettingsScreen() {
         autoCorrect={false}
         accessibilityLabel="3D 지도 주소"
       />
-      <Btn label="주소 저장" onPress={() => app.updateSettings({ serverUrl: server.trim(), map3dUrl: map3d.trim() })} />
-      <Btn kind="soft" label="지도 갱신 확인" onPress={app.checkUpdate} />
+      <Button label="주소 저장" onPress={() => app.updateSettings({ serverUrl: server.trim(), map3dUrl: map3d.trim() })} />
+      <Button variant="secondary" label="지도 갱신 확인" onPress={app.checkUpdate} />
       {app.updateStatus ? <P tone="caution">{app.updateStatus}</P> : null}
       <Section>개인정보</Section>
       <Card>
@@ -154,10 +177,10 @@ const s = StyleSheet.create({
     minHeight: 52,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: T.line,
-    backgroundColor: T.card,
+    borderColor: color.border,
+    backgroundColor: color.surface,
     paddingHorizontal: 16,
-    fontSize: T.small,
-    color: T.text,
+    fontSize: type.small,
+    color: color.text,
   },
 });

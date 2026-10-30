@@ -2,8 +2,10 @@
 import { router } from 'expo-router';
 import { Building } from 'lucide-react-native';
 import { View } from 'react-native';
-import { placeSubtitle, useApp } from '../../state/AppState';
-import { Btn, H, P, Row, Screen, Section, TabBar } from '../../ui/kit';
+import { placeSubtitle } from '../../map/labels';
+import { useApp } from '../../state/AppState';
+import { Button, ResultRow } from '../../ui/components';
+import { H, P, Screen, Section, TabBar } from '../../ui/kit';
 import { modeInfo } from '../../route/modes';
 
 export default function SavedScreen() {
@@ -18,7 +20,7 @@ export default function SavedScreen() {
           app.favorites.map((k) => {
             const p = pkg.places.find((x) => x.key === k);
             return (
-              <Row
+              <ResultRow
                 key={k}
                 icon={Building}
                 title={p ? p.name : '없어진 장소'}
@@ -34,7 +36,7 @@ export default function SavedScreen() {
         {app.recentRoutes.map((r) => {
           const d = pkg.places.find((p) => p.key === r.destKey);
           return (
-            <Row
+            <ResultRow
               key={r.at}
               title={`${r.startLabel} → ${d?.name ?? '없어진 장소'}`}
               sub={`${modeInfo(r.condition).label} · ${r.at.slice(5, 10).replace('-', '월 ')}일`}
@@ -50,7 +52,11 @@ export default function SavedScreen() {
             />
           );
         })}
-        <Btn kind={app.favorites.length ? 'soft' : 'primary'} label="다른 장소 찾아보기" onPress={() => router.push('/search')} />
+        <Button
+          variant={app.favorites.length ? 'secondary' : 'primary'}
+          label="다른 장소 찾아보기"
+          onPress={() => router.push('/search')}
+        />
       </Screen>
       <TabBar at="saved" />
     </View>

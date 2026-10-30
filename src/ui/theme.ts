@@ -17,8 +17,8 @@ export const color = {
   canvas: '#F6F8FB',
   onPrimary: '#FFFFFF',
 } as const;
-export const space = { 4: 4, 8: 8, 12: 12, 16: 16, 20: 20, 24: 24, 32: 32, 48: 48 } as const;
-export const radius = { 12: 12, 16: 16, 24: 24 } as const;
+export const space = { 8: 8, 12: 12, 16: 16, 20: 20, 48: 48 } as const;
+export const radius = { 16: 16 } as const;
 export const type = {
   display: 28,
   title: 22,
@@ -69,7 +69,6 @@ export const shape = {
 /** 움직임(V3-7·8). 동작 줄이기면 0 또는 짧은 페이드. */
 export const motion = {
   press: 100,
-  fast: 160,
   base: 240,
   slow: 300,
   draw: 900,

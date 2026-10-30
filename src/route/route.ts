@@ -1,12 +1,20 @@
 // 기기 안 경로 계산. 서버(/v1/routes)와 같은 규칙: 방식별 길 비용(cost.ts), 열린 면 가상 간선, 승강기 기다림은 탈 때 한 번.
 // 같은 꾸러미면 서버와 같은 길이 나온다(src/route/route.server.test.ts). 없는 길은 만들지 않는다.
 import type { EdgeIndicators, MapNode, MapPackage, ModeSpec, XYZ } from '../map/package';
-import { basicIndicators, DEFAULT_MODE_SPEC, edgeCost, ELEVATOR_WAIT_S, pyRound, type RouteEdge, type RouteEdgeKind } from './cost';
+import {
+  basicIndicators,
+  DEFAULT_MODE_SPEC,
+  edgeCost,
+  ELEVATOR_WAIT_S,
+  pyRound,
+  type RouteCondition,
+  type RouteEdge,
+  type RouteEdgeKind,
+} from './cost';
 import { MeshRouter } from './mesh';
 import { nearestNode, nodeAt, pointEdges, pointOn, surfaceHeightAt, walkEdges, walkIndex, type WalkIndex } from './walk';
 
-/** 경로 방식 7가지(서버 GET /v1/route-modes·자연어 Mode 와 같은 이름). */
-export type RouteCondition = 'shortest' | 'fastest' | 'avoidStairs' | 'accessible' | 'preferElevator' | 'rainProtected' | 'nightSafe';
+export type { RouteCondition } from './cost';
 
 export interface RouteStep {
   edgeKey: string;
@@ -90,7 +98,8 @@ export function buildGraph(pkg: MapPackage): Graph {
     const f = n.floorKey ? floors.get(n.floorKey)?.code : null;
     return f ? `${b} ${f}`.trim() : null;
   };
-  const modes = pkg.routeModes ?? DEFAULT_MODE_SPEC;
+  // 꾸러미에 방식이 빠져 있어도(옛 릴리스) 기본값으로 메움: mesh 가 모든 방식을 전제로 함
+  const modes = { ...DEFAULT_MODE_SPEC, ...pkg.routeModes };
   const edgeByKey = new Map(pkg.edges.map((e) => [e.key, e]));
   const mesh = pkg.walkMeshes?.length
     ? new MeshRouter(

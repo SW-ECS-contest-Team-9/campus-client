@@ -37,6 +37,10 @@ const WHEELCHAIR_COMFORT_SLOPE_PCT = 5.56;
 const WHEELCHAIR_MIN_WIDTH_M = 0.9;
 
 const COMMON = { pedestrianUnknown: 1.2, vehicleRoadWalk: 1.1, vehicleRoad: 1.5, openArea: 1.02 };
+/** 경로 방식 7가지(서버 GET /v1/route-modes·자연어 Mode 와 같은 이름). 순서가 곧 서버 MODE_SPEC·그물 칸 등급 f 배열 순서라 바꾸지 않는다. */
+export const ROUTE_MODES = ['shortest', 'fastest', 'avoidStairs', 'accessible', 'preferElevator', 'rainProtected', 'nightSafe'] as const;
+export type RouteCondition = (typeof ROUTE_MODES)[number];
+
 /** 꾸러미에 routeModes 가 없을 때 쓰는 규칙(서버 MODE_SPEC 과 같음). */
 export const DEFAULT_MODE_SPEC: Record<string, ModeSpec> = {
   shortest: { label: '최단 거리', base: 'lengthM', exclude: [], mult: { ...COMMON } },

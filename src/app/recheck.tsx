@@ -2,29 +2,30 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { buildingsWithFloors, floorLabel, floorsOf } from '../map/labels';
 import { useApp } from '../state/AppState';
-import { FloorItem } from '../ui/components';
-import { Btn, Card, Chip, P, Screen, Section, T } from '../ui/kit';
+import { Button, FloorItem } from '../ui/components';
+import { color, type } from '../ui/theme';
+import { Card, P, Screen, Section } from '../ui/kit';
 import { Character } from '../ui/v3';
 
 export default function RecheckScreen() {
   const app = useApp();
-  const pkg = app.pkg!;
-  const withFloors = pkg.buildings.filter((b) => pkg.floors.some((f) => f.buildingKey === b.key));
-  const dest = pkg.places.find((p) => p.key === app.destKey);
+  const pkg = app.pkg;
+  const withFloors = pkg ? buildingsWithFloors(pkg) : [];
+  const dest = pkg?.places.find((p) => p.key === app.destKey);
   const [building, setBuilding] = useState(app.confirmedFloor?.buildingKey ?? dest?.buildingKey ?? withFloors[0]?.key ?? null);
-  const floors = pkg.floors.filter((f) => f.buildingKey === building).sort((a, b) => a.sortOrder - b.sortOrder);
+  if (!pkg) return null;
+  const floors = floorsOf(pkg, building);
   const last = app.confirmedFloor;
-  const lastText = last
-    ? `${pkg.buildings.find((b) => b.key === last.buildingKey)?.name} ${pkg.floors.find((f) => f.key === last.floorKey)?.code}`
-    : '없음';
+  const lastText = last ? floorLabel(pkg, last.floorKey) : '없음';
   return (
     <Screen
       title="위치 다시 확인"
       footer={
         <>
-          <Btn label="출발점 직접 지정" onPress={() => router.push({ pathname: '/search', params: { mode: 'start' } })} />
-          <Btn kind="ghost" label="경로 지도로 돌아가기" onPress={() => router.back()} />
+          <Button label="출발점 직접 지정" onPress={() => router.push({ pathname: '/search', params: { mode: 'start' } })} />
+          <Button variant="quiet" label="경로 지도로 돌아가기" onPress={() => router.back()} />
         </>
       }
     >
@@ -45,7 +46,7 @@ export default function RecheckScreen() {
           <Section>건물</Section>
           <View style={s.chips}>
             {withFloors.map((b) => (
-              <Chip key={b.key} label={b.name} on={building === b.key} onPress={() => setBuilding(b.key)} />
+              <FloorItem key={b.key} label={b.name} state={building === b.key ? 'selected' : 'idle'} onPress={() => setBuilding(b.key)} />
             ))}
           </View>
         </>
@@ -75,8 +76,8 @@ export default function RecheckScreen() {
 
 const s = StyleSheet.create({
   warn: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  t: { fontSize: T.title - 2, fontWeight: '800', color: T.caution },
-  last: { fontSize: T.body, fontWeight: '800', color: T.text },
-  q: { fontSize: T.body, fontWeight: '800', color: T.text, marginBottom: 8 },
+  t: { fontSize: type.title - 2, fontWeight: '800', color: color.warning },
+  last: { fontSize: type.body, fontWeight: '800', color: color.text },
+  q: { fontSize: type.body, fontWeight: '800', color: color.text, marginBottom: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 });

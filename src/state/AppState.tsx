@@ -6,8 +6,9 @@ import { checkForUpdate, loadLocal, type Deps, type LoadedPackage } from '../api
 import { serverRoute as fetchServerRoute, type ServerRoute } from '../api/serverRoute';
 import type { MapPackage } from '../map/package';
 import fixtureJson from '../map/fixture/campus-fixture.json';
-import { buildGraph, findRoute, pointStart, routeBetween, type Graph, type RouteCondition, type RouteResult } from '../route/route';
-import { startNodeForFix, type Fix } from '../location/fix';
+import { buildGraph, findRoute, routeBetween, type Graph, type RouteCondition, type RouteResult } from '../route/route';
+import type { Fix } from '../location/fix';
+import type { StartPoint } from '../location/start';
 import { createTracker, type Tracker } from '../location/tracker';
 import { startTracking, type SensorStatus } from '../location/sensors';
 import { expoSensors, hasLocationPermission, requestLocationPermission } from '../location/expoSensors';
@@ -42,8 +43,8 @@ export interface Settings {
   map3dEngine: Map3dEngine;
   /** 검색 화면을 열 때 자연어 검색으로 시작할지 */
   naturalSearchDefault: boolean;
-  /** AI 문장 해석(실험, 기기 안 Gemma). null = 기본(꺼짐: S21 실측 한 번 6~8 s, 불러오면 메모리 +0.56 GB) */
-  aiParse?: boolean | null;
+  /** AI 문장 해석(실험, 기기 안 Gemma). 기본 꺼짐: S21 실측 한 번 6~8 s, 불러오면 메모리 +0.56 GB */
+  aiParse: boolean;
 }
 /** 개발 기본값. 운영 주소는 나중에 정함. */
 export const DEFAULT_SERVER_URL = `http://${DEV_HOST}:8010`;
@@ -56,7 +57,7 @@ const DEFAULT_SETTINGS: Settings = {
   autoTier3dChecked: false,
   map3dEngine: 'native',
   naturalSearchDefault: false,
-  aiParse: null,
+  aiParse: false,
 };
 /** 갱신 실패 문구: 개발용 오류 글(TypeError 등)을 그대로 보이지 않음(카카오 디자인: 진단 정보 분리). */
 const failText = (e: string) =>
@@ -81,19 +82,7 @@ export interface NlpState {
   notes: string[];
   mandatory: Mandatory[];
 }
-export type StartPoint =
-  | { type: 'place'; placeKey: string }
-  | { type: 'node'; nodeKey: string; label: string }
-  /** 걷는 면·열린 면 위 현재 위치(면 높이): 노드가 아니라 그 점에서 면을 가로질러 출발 */
-  | { type: 'point'; x: number; y: number; z: number; label: string };
-
-/** 현재 위치에서 출발: 걷는 면·열린 면 위면 그 점(면을 가로질러 출발), 아니면 맞춘 길의 가까운 끝 노드(50 m 안 바깥 노드). */
-export function startFromFix(pkg: MapPackage, graph: Graph | null, fix: Fix, label: string): StartPoint | null {
-  const p = graph ? pointStart(graph, fix.x, fix.y, fix.match?.z ?? null) : null;
-  if (p) return { type: 'point', x: p[0], y: p[1], z: p[2], label };
-  const n = startNodeForFix(pkg, fix);
-  return n ? { type: 'node', nodeKey: n.key, label } : null;
-}
+export type { StartPoint };
 
 const SETTINGS_KEY = 'settings.v1';
 const FAVORITES_KEY = 'favorites.v1';
@@ -106,12 +95,11 @@ const deps: Deps = {
   fixture,
 };
 
-interface AppState {
+interface AppCtx {
   loaded: LoadedPackage | null;
   pkg: MapPackage | null;
   graph: Graph | null;
   settings: Settings;
-  setServerUrl: (url: string) => Promise<void>;
   updateSettings: (patch: Partial<Settings>) => Promise<void>;
   /** 지금 쓰는 표현 등급(사용자 지정 > 자동) */
   tier: DeviceTier;
@@ -122,8 +110,6 @@ interface AppState {
   addRecentRoute: (r: RecentRoute) => void;
   confirmedFloor: ConfirmedFloor | null;
   setConfirmedFloor: (f: ConfirmedFloor | null) => void;
-  guideStep: number;
-  setGuideStep: (n: number) => void;
   updateStatus: string | null;
   checkUpdate: () => Promise<void>;
   favorites: string[];
@@ -142,10 +128,8 @@ interface AppState {
   route: RouteResult | null;
   /** 서버 경로 요청 결과. null = 요청 중이거나 출발·도착이 없음 */
   serverRoute: ServerRoute | null;
-  startNodeKey: string | null;
   /** 현재 위치(위치 보정 v2 로 통로 위에 끌린 점). 센서가 켜져 있으면 계속 바뀜. */
   fix: Fix | null;
-  setFix: (f: Fix | null) => void;
   /** 위치 권한을 받고 위치·걸음·기압 읽기를 켬. 권한이 없으면 false. */
   enableLocation: () => Promise<boolean>;
   /** 지금 위치(있으면 바로, 없으면 다음 위치)를 기다림. 시간 넘으면 null. */
@@ -158,14 +142,13 @@ interface AppState {
   setFloor: (buildingKey: string, floorKey: string) => void;
 }
 
-const Ctx = createContext<AppState | null>(null);
+const Ctx = createContext<AppCtx | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState<LoadedPackage | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [recent, setRecent] = useState<{ searches: string[]; routes: RecentRoute[] }>({ searches: [], routes: [] });
   const [confirmedFloor, setConfirmedFloor] = useState<ConfirmedFloor | null>(null);
-  const [guideStep, setGuideStep] = useState(0);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [updateStatus, setUpdateStatus] = useState<string | null>(null);
   const [start, setStart] = useState<StartPoint | null>(null);
@@ -191,11 +174,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       fixRef.current
         ? Promise.resolve(fixRef.current)
         : new Promise<Fix | null>((done) => {
-            const t = setTimeout(() => done(null), ms);
-            fixWaiters.current.push((f) => {
+            const waiter = (f: Fix) => {
               clearTimeout(t);
               done(f);
-            });
+            };
+            const t = setTimeout(() => {
+              fixWaiters.current = fixWaiters.current.filter((w) => w !== waiter);
+              done(null);
+            }, ms);
+            fixWaiters.current.push(waiter);
           }),
     [],
   );
@@ -230,23 +217,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  const setServerUrl = useCallback(
-    async (serverUrl: string) => {
-      const next = { ...settings, serverUrl: serverUrl.trim() };
-      setSettings(next);
-      await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
-    },
-    [settings],
-  );
-
-  const updateSettings = useCallback(
-    async (patch: Partial<Settings>) => {
-      const next = { ...settings, ...patch };
-      setSettings(next);
-      await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
-    },
-    [settings],
-  );
+  // 저장되는 상태(설정·즐겨찾기·최근)는 함수형 갱신: 연달아 불러도 앞 변경이 사라지지 않음
+  const updateSettings = useCallback(async (patch: Partial<Settings>) => {
+    setSettings((cur) => {
+      const next = { ...cur, ...patch };
+      void AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
   /** 3D 첫 화면까지 걸린 시간(앱 켠 뒤 한 번). 자동 등급이면 느릴 때 한 단계 낮춤. */
   const noteFirst3dReady = useCallback((ms: number, engine: Map3dEngine) => {
     setSettings((cur) => {
@@ -260,16 +238,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
-  const saveRecent = (next: typeof recent) => {
-    setRecent(next);
-    void AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next));
-  };
-  const addRecentSearch = (q: string) => saveRecent({ ...recent, searches: [q, ...recent.searches.filter((x) => x !== q)].slice(0, 5) });
-  const addRecentRoute = (r: RecentRoute) =>
-    saveRecent({
-      ...recent,
-      routes: [r, ...recent.routes.filter((x) => x.destKey !== r.destKey || x.startLabel !== r.startLabel)].slice(0, 5),
+  const saveRecent = useCallback((f: (cur: typeof recent) => typeof recent) => {
+    setRecent((cur) => {
+      const next = f(cur);
+      void AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next));
+      return next;
     });
+  }, []);
+  const addRecentSearch = useCallback(
+    (q: string) => saveRecent((cur) => ({ ...cur, searches: [q, ...cur.searches.filter((x) => x !== q)].slice(0, 5) })),
+    [saveRecent],
+  );
+  const addRecentRoute = useCallback(
+    (r: RecentRoute) =>
+      saveRecent((cur) => ({
+        ...cur,
+        routes: [r, ...cur.routes.filter((x) => x.destKey !== r.destKey || x.startLabel !== r.startLabel)].slice(0, 5),
+      })),
+    [saveRecent],
+  );
 
   const checkUpdate = useCallback(async () => {
     if (!loaded) return;
@@ -279,14 +266,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUpdateStatus(r.updated ? `새 지도 v${r.pkg.release.version} 받음` : r.error ? failText(r.error) : '최신 지도임');
   }, [loaded, settings.serverUrl]);
 
-  const toggleFavorite = useCallback(
-    async (key: string) => {
-      const next = favorites.includes(key) ? favorites.filter((k) => k !== key) : [...favorites, key];
-      setFavorites(next);
-      await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
-    },
-    [favorites],
-  );
+  const toggleFavorite = useCallback(async (key: string) => {
+    setFavorites((cur) => {
+      const next = cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key];
+      void AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
 
   const pkg = loaded?.pkg ?? null;
   const graph = useMemo(() => (pkg ? buildGraph(pkg) : null), [pkg]);
@@ -375,12 +361,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setFloor = useCallback((b: string, f: string) => setFloorSel((s) => ({ ...s, [b]: f })), []);
 
-  const value: AppState = {
+  const value: AppCtx = {
     loaded,
     pkg,
     graph,
     settings,
-    setServerUrl,
     updateSettings,
     tier: settings.deviceTier ?? settings.autoTier ?? 2,
     noteFirst3dReady,
@@ -391,8 +376,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addRecentRoute,
     confirmedFloor,
     setConfirmedFloor,
-    guideStep,
-    setGuideStep,
     checkUpdate,
     favorites,
     toggleFavorite,
@@ -406,9 +389,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setNlp,
     route,
     serverRoute,
-    startNodeKey,
     fix,
-    setFix,
     enableLocation,
     waitFix,
     aiModel,
@@ -417,22 +398,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setFloor,
   };
   // eslint-disable-next-line react-hooks/immutability -- 개발 빌드 시험 손잡이(전역)
-  if (__DEV__) (globalThis as { __app?: AppState }).__app = value; // 개발 중 화면 시험용(갈무리 스크립트)
+  if (__DEV__) (globalThis as { __app?: AppCtx }).__app = value; // 개발 중 화면 시험용(갈무리 스크립트)
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-export function useApp(): AppState {
+export function useApp(): AppCtx {
   const v = useContext(Ctx);
   if (!v) throw new Error('AppProvider 밖');
   return v;
-}
-
-/** 장소 표시 이름: "이름 · 건물 층" */
-export function placeSubtitle(pkg: MapPackage, placeKey: string): string {
-  const p = pkg.places.find((x) => x.key === placeKey);
-  if (!p) return '';
-  const b = p.buildingKey ? pkg.buildings.find((x) => x.key === p.buildingKey)?.name : null;
-  const f = p.floorKey ? pkg.floors.find((x) => x.key === p.floorKey)?.code : null;
-  if (p.location === 'outdoor') return '바깥';
-  return [b, f ?? '층 모름'].filter(Boolean).join(' ');
 }

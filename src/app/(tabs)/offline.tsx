@@ -1,17 +1,20 @@
 // CT11 오프라인 지도: 기기에 저장된 지도 꾸러미(버전·크기·날짜·범위)와 갱신. 3D 지도: 기본(네이티브)은 앱에 들어 있어 인터넷 없이, 웹 엔진은 인터넷 필요.
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { buildingsWithFloors } from '../../map/labels';
 import { useApp } from '../../state/AppState';
-import { MapPackCard } from '../../ui/components';
-import { Btn, Card, H, P, Screen, T, TabBar } from '../../ui/kit';
+import { Button, MapPackCard } from '../../ui/components';
+import { color, type } from '../../ui/theme';
+import { Card, H, P, Screen, TabBar } from '../../ui/kit';
 import { Character } from '../../ui/v3';
 
 export default function OfflineScreen() {
   const app = useApp();
   const l = app.loaded;
   const pkg = app.pkg;
+  const kb = useMemo(() => (pkg ? Math.round(JSON.stringify(pkg).length / 1024) : 0), [pkg]); // 지도 전체 직렬화: 렌더마다 하지 않음
   if (!l || !pkg) return null;
-  const kb = Math.round(JSON.stringify(pkg).length / 1024);
-  const indoor = pkg.buildings.filter((b) => pkg.floors.some((f) => f.buildingKey === b.key));
+  const indoor = buildingsWithFloors(pkg);
   const src =
     l.source === 'server' ? '방금 서버에서 받음' : l.source === 'stored' ? '기기에 저장됨' : '저장된 지도 없음 · 앱에 들어 있는 개발 지도';
   return (
@@ -45,7 +48,7 @@ export default function OfflineScreen() {
               : '3D 지도는 앱에 들어 있어 인터넷 없이도 보여요(건물 모양은 앱을 받을 때 기준).'}
           </P>
         </Card>
-        <Btn label="지도 갱신 확인" onPress={app.checkUpdate} />
+        <Button label="지도 갱신 확인" onPress={app.checkUpdate} />
         {app.updateStatus ? <P tone="caution">{app.updateStatus}</P> : null}
         <P tone="muted">오프라인에서는 통행 변경과 시설 운영 정보를 확인할 수 없어요.</P>
       </Screen>
@@ -55,7 +58,7 @@ export default function OfflineScreen() {
 }
 
 const s = StyleSheet.create({
-  t: { fontSize: T.body, fontWeight: '800', color: T.text },
+  t: { fontSize: type.body, fontWeight: '800', color: color.text },
   hero: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   char: { marginVertical: -12 },
 });

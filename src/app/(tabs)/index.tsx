@@ -5,12 +5,13 @@ import { Bookmark, Clock, House, Layers, MapPin, Navigation, Search, Settings } 
 import { useCallback, useState } from 'react';
 import { BackHandler, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { buildingName, floorLabel } from '../../map/labels';
 import { useApp } from '../../state/AppState';
 import { CampusMap } from '../../ui/CampusMap';
 import { useMap3dControls } from '../../ui/Map3D';
-import { IconButton, PressScale, SearchInput } from '../../ui/components';
-import { Badge, T, TabBar } from '../../ui/kit';
-import { color, gradient, shape } from '../../ui/theme';
+import { IconButton, PressScale, SearchInput, StatusChip } from '../../ui/components';
+import { TabBar } from '../../ui/kit';
+import { color, gradient, shape, type } from '../../ui/theme';
 import { Character, Glass, Gradient, Sheet } from '../../ui/v3';
 
 const TAB_H = 88;
@@ -50,12 +51,8 @@ export default function Home() {
   };
   // 위치 보정 상태(통로에 맞춘 점). 불확실은 꼬리표일 뿐 점은 계속 통로 위에 있음.
   const fix = app.fix;
-  const fixFloor = fix?.match?.floorKey ? pkg.floors.find((f) => f.key === fix.match?.floorKey) : null;
-  const fixWhere = fixFloor
-    ? `${pkg.buildings.find((b) => b.key === fixFloor.buildingKey)?.name ?? ''} ${fixFloor.code}`.trim()
-    : fix?.match?.buildingKey
-      ? (pkg.buildings.find((b) => b.key === fix.match?.buildingKey)?.name ?? '건물 안')
-      : '바깥 길';
+  const fixWhere =
+    floorLabel(pkg, fix?.match?.floorKey) || (fix?.match?.buildingKey ? buildingName(pkg, fix.match.buildingKey) || '건물 안' : '바깥 길');
   const fixText = !fix
     ? locMsg
     : fix.uncertain
@@ -95,7 +92,7 @@ export default function Home() {
               <SearchInput onPress={() => router.navigate('/search')} />
               {fixText ? (
                 <View pointerEvents="none" accessibilityLiveRegion="polite">
-                  <Badge text={fixText} tone={fix && !fix.uncertain ? 'confirmed' : 'caution'} />
+                  <StatusChip label={fixText} tone={fix && !fix.uncertain ? 'confirmed' : 'warning'} />
                 </View>
               ) : null}
               {fix && noBaro && !app.confirmedFloor ? (
@@ -105,7 +102,7 @@ export default function Home() {
                   onPress={() => router.navigate('/recheck')}
                   style={s.unsaved}
                 >
-                  <Badge text="기압계 없음 · 지금 층 고르기" tone="caution" />
+                  <StatusChip label="기압계 없음 · 지금 층 고르기" tone="warning" />
                 </Pressable>
               ) : null}
               {app.loaded?.source === 'fixture' ? (
@@ -115,7 +112,7 @@ export default function Home() {
                   onPress={() => router.navigate('/unsaved')}
                   style={s.unsaved}
                 >
-                  <Badge text="저장된 지도 없음" tone="caution" />
+                  <StatusChip label="저장된 지도 없음" tone="warning" />
                 </Pressable>
               ) : null}
             </View>
@@ -138,7 +135,7 @@ export default function Home() {
                   />
                 </>
               ) : null}
-              <IconButton icon={Navigation} label="내 위치" onPress={locate} iconColor={T.route} />
+              <IconButton icon={Navigation} label="내 위치" onPress={locate} iconColor={color.route} />
             </View>
             <Sheet
               snaps={[PEEK, 300]}
@@ -165,7 +162,7 @@ export default function Home() {
                         style={(on) => [s.quickB, on && { backgroundColor: color.primarySoftPressed }]}
                         onPress={() => router.navigate({ pathname: '/place/[key]', params: { key: p.key } })}
                       >
-                        {fav ? <Bookmark size={16} color={T.primary} /> : <Clock size={16} color={T.primary} />}
+                        {fav ? <Bookmark size={16} color={color.primary} /> : <Clock size={16} color={color.primary} />}
                         <Text style={s.quickT} numberOfLines={1}>
                           {p.name}
                         </Text>
@@ -174,7 +171,7 @@ export default function Home() {
                   </View>
                 ) : (
                   <View style={s.hint}>
-                    <MapPin size={16} color={T.sub} />
+                    <MapPin size={16} color={color.secondary} />
                     <Text style={s.hintT}>장소를 저장하거나 길을 찾으면 여기에 바로가기가 생겨요</Text>
                   </View>
                 )}
@@ -193,19 +190,19 @@ export default function Home() {
 const PEEK = 132;
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: T.canvas },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: T.canvas },
-  loadingT: { fontSize: T.small, color: T.sub, fontWeight: '600' },
+  root: { flex: 1, backgroundColor: color.canvas },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: color.canvas },
+  loadingT: { fontSize: type.small, color: color.secondary, fontWeight: '600' },
   // 오른쪽 위 88 dp 는 3D 페이지 자체 단추(처음 시점·층 펼치기) 자리라 비움
   top: { position: 'absolute', left: 16, right: 92, top: 0, gap: 10 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 9 },
   brandDot: { width: 12, height: 12, borderRadius: 6, overflow: 'hidden' },
-  brandT: { color: '#FFFFFF', fontSize: T.small, fontWeight: '800', letterSpacing: -0.2 },
+  brandT: { color: '#FFFFFF', fontSize: type.small, fontWeight: '800', letterSpacing: -0.2 },
   unsaved: { alignSelf: 'flex-start' },
   ctl: { position: 'absolute', right: 16, gap: 10, alignItems: 'center' },
   sheet: { paddingHorizontal: 20, paddingTop: 14 },
-  sheetT: { fontSize: T.title - 2, fontWeight: '800', color: T.text, letterSpacing: -0.5 },
+  sheetT: { fontSize: type.title - 2, fontWeight: '800', color: color.text, letterSpacing: -0.5 },
   settings: { shadowOpacity: 0, elevation: 0, borderColor: 'rgba(49,46,129,0.10)' },
   findBtn: {
     flexDirection: 'row',
@@ -217,7 +214,7 @@ const s = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: gradient.brand[0],
   },
-  findT: { color: color.onPrimary, fontWeight: '800', fontSize: T.small },
+  findT: { color: color.onPrimary, fontWeight: '800', fontSize: type.small },
   quick: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   quickB: {
     flexDirection: 'row',
@@ -226,11 +223,11 @@ const s = StyleSheet.create({
     minHeight: 48,
     maxWidth: '100%',
     borderRadius: shape.pill,
-    backgroundColor: T.primarySoft,
+    backgroundColor: color.primarySoft,
     paddingHorizontal: 16,
   },
-  quickT: { fontSize: T.small, fontWeight: '700', color: T.primary, flexShrink: 1 },
+  quickT: { fontSize: type.small, fontWeight: '700', color: color.primary, flexShrink: 1 },
   hint: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  hintT: { flex: 1, fontSize: T.caption, color: T.sub, lineHeight: 19 },
+  hintT: { flex: 1, fontSize: type.caption, color: color.secondary, lineHeight: 19 },
   tabs: { position: 'absolute', left: 0, right: 0, bottom: 0 },
 });

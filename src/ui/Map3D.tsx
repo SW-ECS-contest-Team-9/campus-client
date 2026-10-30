@@ -1,5 +1,5 @@
 // 3D 캠퍼스 지도를 앱 전체에서 하나만 띄워 둔다. Android 기본은 네이티브 3D(expo-gl + three.js, 앱에 묶은 campus.glb, 서버 없이 뜸),
-// 설정 "3D 엔진: 웹" 이거나 웹 빌드면 campus-tracker 의 client3d.html(웹 <iframe>, 네이티브 react-native-webview). 두 엔진 모두 메시지 형식 v1.
+// 설정 "3D 엔진: 웹" 이거나 웹 빌드면 campus-tracker 의 client3d.html(웹 <iframe>, 네이티브 react-native-webview). 두 엔진 모두 메시지 형식 v1(map3d/native/protocol.ts).
 // 화면은 <MapSlot> 으로 자리만 잡고, 초점을 받은 화면의 자리로 그 하나를 옮겨 보여 준다(화면 바꿀 때 다시 불러오지 않음).
 // 명령은 페이지가 ready 를 보낸 뒤 보내고, 자리·명령이 바뀔 때마다 다시 보낸다. 못 불러오면 각 자리에 평면 지도 + 알림.
 import { useFocusEffect, useNavigation } from 'expo-router';
@@ -10,10 +10,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurTargetView } from 'expo-blur';
 import { BlurTargetCtx } from './look';
 import { Character } from './v3';
-import { parseEvent, type Map3dCommand, type Map3dEvent } from '../map3d/embed';
+import { parseEvent, type Map3dCommand, type Map3dEvent } from '../map3d/commands';
 import { CHARACTER_OK, CHARACTER_UNCERTAIN } from './characterImages';
-import { color } from './components';
-import { tabSlideSpec } from './theme';
+import { color, tabSlideSpec } from './theme';
 import { Campus3DView, type Campus3DHandle } from '../map3d/native/Campus3DView';
 import { note3dStat } from '../map3d/diag';
 
@@ -144,7 +143,7 @@ export function Map3DHost({
     [useNative, status],
   );
 
-  const post = useCallback((msg: Map3dCommand | { v: 1; type: 'setMode'; light?: boolean; ui: 'min' | 'full' }) => {
+  const post = useCallback((msg: Map3dCommand) => {
     if (Platform.OS === 'web') frame.current?.contentWindow?.postMessage(msg, '*');
     else if (native.current) native.current.post(msg);
     else web.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify(msg))}, '*'); true;`);
@@ -159,7 +158,7 @@ export function Map3DHost({
       markersSent.current = true;
     }
     if (lastUi.current !== slot.minimal) {
-      post({ v: 1, type: 'setMode', ui: slot.minimal ? 'min' : 'full' });
+      post({ v: 1, type: 'setMode', light: null, ui: slot.minimal ? 'min' : 'full' });
       lastUi.current = slot.minimal;
     }
     // 같은 자리에서 바뀐 명령만 다시 보냄(위치가 1초마다 바뀔 때 경로를 다시 보내면 페이지가 경로 전체로 화면을 되돌림)
@@ -177,7 +176,8 @@ export function Map3DHost({
     if (!slot.commands.some((c) => c.type === 'setRoute')) send({ v: 1, type: 'clearRoute' });
     if (!slot.commands.some((c) => c.type === 'setLocation')) send({ v: 1, type: 'clearLocation' });
     // 1인칭은 그 명령을 가진 화면에서만(다른 화면으로 가면 끔). 웹 페이지는 모르는 명령이라 네이티브만
-    if (useNative && !slot.commands.some((c) => c.type === 'firstPerson')) send({ v: 1, type: 'firstPerson', on: false });
+    if (useNative && !slot.commands.some((c) => c.type === 'firstPerson'))
+      send({ v: 1, type: 'firstPerson', on: false, speed: null, paused: null, follow: false });
     for (const c of slot.commands) send(c);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- cmdKey 가 slot 의 내용
   }, [status, cmdKey, post]);

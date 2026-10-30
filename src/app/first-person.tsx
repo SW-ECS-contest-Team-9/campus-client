@@ -8,12 +8,14 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Flag, MoveUp, Pause, Play, X
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { routeCommand, type Map3dCommand, type Map3dEvent } from '../map3d/embed';
+import type { Map3dCommand, Map3dEvent } from '../map3d/commands';
 import { DEFAULT_GPS_DISTRUST } from '../location/matcher';
 import { createRouteFollower, distrustZones, followNotice, type FollowState } from '../route/follow';
 import { useApp } from '../state/AppState';
-import { Btn, T } from '../ui/kit';
+import { Button } from '../ui/components';
 import { MapSlot, useMap3dControls } from '../ui/Map3D';
+import { color, space, type } from '../ui/theme';
+import { useRouteCommand } from '../ui/useRouteCommand';
 
 type FpEvent = Extract<Map3dEvent, { type: 'firstPerson' }>;
 const SPEEDS = [1, 2, 3] as const;
@@ -33,11 +35,11 @@ export default function FirstPersonScreen() {
   const [ev, setEv] = useState<FpEvent | null>(null);
   const [fs, setFs] = useState<FollowState | null>(null);
   const barW = useRef(0);
-  const route = useMemo(() => (app.graph && r?.ok ? routeCommand(app.graph, r) : null), [app.graph, r]);
+  const route = useRouteCommand();
   const fpCmd = useMemo<Map3dCommand>(
     () =>
       follow
-        ? { v: 1, type: 'firstPerson', on: true, follow: true }
+        ? { v: 1, type: 'firstPerson', on: true, follow: true, speed: null, paused: null }
         : { v: 1, type: 'firstPerson', on: true, follow: false, speed, paused },
     [follow, speed, paused],
   );
@@ -173,11 +175,11 @@ export default function FirstPersonScreen() {
           ) : null}
           <View style={{ flex: 1 }} />
           <Pressable accessibilityRole="button" accessibilityLabel="나가기" style={st.exit} onPress={() => router.back()}>
-            <X size={22} color={T.text} />
+            <X size={22} color={color.text} />
             <Text style={st.exitT}>나가기</Text>
           </Pressable>
         </View>
-        {!follow ? null : <Btn kind="ghost" label="위치 다시 확인" onPress={() => router.push('/recheck')} />}
+        {!follow ? null : <Button variant="quiet" label="위치 다시 확인" onPress={() => router.push('/recheck')} />}
       </View>
     </View>
   );
@@ -201,56 +203,56 @@ const st = StyleSheet.create({
   hudT: { color: '#fff', fontSize: 19, fontWeight: '800' },
   hudS: { color: '#C9D3E0', fontSize: 13, marginTop: 2 },
   fail: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  failT: { color: '#fff', fontSize: T.body, textAlign: 'center' },
+  failT: { color: '#fff', fontSize: type.body, textAlign: 'center' },
   panel: { flex: 1, backgroundColor: '#F6F8FB', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, gap: 10 },
-  notice: { backgroundColor: T.cautionSoft, borderRadius: 12, padding: 10 },
-  noticeT: { color: T.caution, fontWeight: '700', fontSize: T.small },
+  notice: { backgroundColor: color.warningSoft, borderRadius: 12, padding: 10 },
+  noticeT: { color: color.warning, fontWeight: '700', fontSize: type.small },
   bar: { height: 32, justifyContent: 'center' },
   track: { height: 6, borderRadius: 3, backgroundColor: '#D7DDF0', overflow: 'hidden' },
-  fill: { height: 6, backgroundColor: T.primary },
+  fill: { height: 6, backgroundColor: color.primary },
   knob: {
     position: 'absolute',
     width: 20,
     height: 20,
     marginLeft: -10,
     borderRadius: 10,
-    backgroundColor: T.primary,
+    backgroundColor: color.primary,
     borderWidth: 3,
     borderColor: '#fff',
   },
-  meta: { color: T.sub, fontSize: T.caption },
+  meta: { color: color.secondary, fontSize: type.caption },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   play: {
-    width: T.touch + 4,
-    height: T.touch + 4,
+    width: space[48] + 4,
+    height: space[48] + 4,
     borderRadius: 26,
-    backgroundColor: T.primary,
+    backgroundColor: color.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   speed: {
-    minWidth: T.touch,
-    height: T.touch,
+    minWidth: space[48],
+    height: space[48],
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: T.line,
+    borderColor: color.border,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
   },
-  speedOn: { backgroundColor: T.primarySoft, borderColor: T.primary },
-  speedT: { fontSize: T.body, fontWeight: '700', color: T.sub },
-  speedTOn: { color: T.primary },
+  speedOn: { backgroundColor: color.primarySoft, borderColor: color.primary },
+  speedT: { fontSize: type.body, fontWeight: '700', color: color.secondary },
+  speedTOn: { color: color.primary },
   exit: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    height: T.touch,
+    height: space[48],
     paddingHorizontal: 14,
     borderRadius: 24,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: T.line,
+    borderColor: color.border,
   },
-  exitT: { fontSize: T.small, fontWeight: '700', color: T.text },
+  exitT: { fontSize: type.small, fontWeight: '700', color: color.text },
 });

@@ -18,8 +18,6 @@ export interface MatchResult {
   /** 실내 길이 없는 건물 안 상태면 그 건물 키(층은 floor). edgeKey·areaKey·buildingKey 가 모두 null 이면 길 밖 상태. */
   buildingKey: string | null;
   state: 'ok' | 'uncertain';
-  /** lagS 초 전 시점의 지연 보정값(고정 지연 Viterbi 역추적). 화면 표시는 x,y, 기록·분석엔 lagged. */
-  lagged: { t: number; x: number; y: number; z: number; floor: string | null; edgeKey: string | null } | null;
 }
 
 export interface MatcherOptions {
@@ -371,14 +369,9 @@ export function createMatcher(pkgOrGraph: MapPackage | Graph, options: MatcherOp
     let uncertain = col.reset || lastSigma > 40 || t - lastFixT > 30;
     for (let j = 0; j < col.c.length && !uncertain; j++)
       if (j !== bi && col.s[j] > -1.5 && Math.hypot(col.c[j].x - c.x, col.c[j].y - c.y) > 15) uncertain = true;
-    // 지연 보정: 최선 경로를 lagS 초 전까지 역추적
-    let li = bi, k = cols.length - 1;
-    while (k > 0 && cols[k].t > t - o.lagS && cols[k].b[li] >= 0) { li = cols[k].b[li]; k--; }
-    const lc = cols[k].c[li];
     return {
       t, x, y, z, floor: floorOf({ ...c, z }), edgeKey: c.k === K.Edge ? g.edges[c.e].key : null, areaKey: c.k === K.Area ? g.areas[c.e].key : null, buildingKey: c.k === K.Bldg ? g.bareBuildings[c.e].key : null,
       state: uncertain ? 'uncertain' : 'ok',
-      lagged: { t: cols[k].t, x: lc.x, y: lc.y, z: lc.z, floor: floorOf(lc), edgeKey: lc.k === K.Edge ? g.edges[lc.e].key : null },
     };
   };
 
@@ -423,9 +416,7 @@ export function createMatcher(pkgOrGraph: MapPackage | Graph, options: MatcherOp
     return r;
   }
 
-  /** 기압 영점(절대 높이 = 기압 + off). 기준을 아직 못 잡았으면 null. */
-  const baroOffset = () => (offN > 0 ? off : null);
   /** 사용자가 층을 고르면 부른다(기압계 없는 기기에서 층 판정에 쓰임). null 이면 해제. */
   const setFloor = (floorKey: string | null) => { o.userFloor = floorKey; };
-  return { push, graph: g, baroOffset, setFloor };
+  return { push, graph: g, setFloor };
 }

@@ -39,9 +39,14 @@ const INFO_KEY = 'map.package.v1.info';
 /** 저장된 꾸러미(검증 통과한 것) 또는 fixture. 네트워크 안 씀. */
 export async function loadLocal(d: Deps): Promise<LoadedPackage> {
   const [raw, info] = await Promise.all([d.store.getItem(PKG_KEY), d.store.getItem(INFO_KEY)]);
-  if (raw) {
-    const v = validatePackage(JSON.parse(raw));
-    if (v.ok) return { pkg: v.pkg, source: 'stored', info: info ? (JSON.parse(info) as ReleaseInfo) : null, error: null };
+  // 저장본이 깨져 있으면(JSON 오류·검증 실패) 앱에 든 지도로 — 켜기가 막히면 안 됨
+  try {
+    if (raw) {
+      const v = validatePackage(JSON.parse(raw));
+      if (v.ok) return { pkg: v.pkg, source: 'stored', info: info ? (JSON.parse(info) as ReleaseInfo) : null, error: null };
+    }
+  } catch {
+    /* 아래 fixture 로 */
   }
   return { pkg: d.fixture, source: 'fixture', info: null, error: null };
 }

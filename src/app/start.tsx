@@ -3,16 +3,18 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { currentLocationLabel } from '../location/fix';
-import { startFromFix, useApp } from '../state/AppState';
+import { startFromFix } from '../location/start';
+import { startLabel } from '../map/labels';
+import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
-import { Badge, Btn, Card, H, P, Screen } from '../ui/kit';
+import { Button, StatusChip } from '../ui/components';
+import { Card, H, P, Screen } from '../ui/kit';
 
 export default function StartScreen() {
   const app = useApp();
   const [msg, setMsg] = useState<string | null>(null);
   if (!app.pkg) return null;
   const pkg = app.pkg;
-  const placeName = (k: string) => pkg.places.find((p) => p.key === k)?.name ?? '없어진 장소';
 
   // 위치 보정(통로 위로 끌린 점)의 그 길 가까운 끝 노드에서 출발. 불확실하면 직접 고르게 함(제품 규칙 02).
   const useHere = async () => {
@@ -28,7 +30,7 @@ export default function StartScreen() {
     setMsg(null);
   };
   const st = app.start;
-  const startTitle = st ? (st.type === 'place' ? placeName(st.placeKey) : st.label) : null;
+  const startTitle = startLabel(pkg, st) || null;
   const displayedStartTitle = st && st.type !== 'place' && app.fix ? currentLocationLabel(pkg, app.fix) : startTitle;
   const tone = msg ? 'caution' : st && st.type !== 'place' ? 'confirmed' : 'primary';
   return (
@@ -37,11 +39,11 @@ export default function StartScreen() {
       scroll={false}
       footer={
         <>
-          <Btn label="이 위치에서 경로 보기" disabled={!st} onPress={() => router.navigate('/options')} />
+          <Button label="이 위치에서 경로 보기" disabled={!st} onPress={() => router.navigate('/options')} />
           <View style={s.two}>
-            <Btn kind="soft" label="위치 다시 읽기" onPress={useHere} style={{ flex: 1 }} />
-            <Btn
-              kind="soft"
+            <Button variant="secondary" label="위치 다시 읽기" onPress={useHere} style={{ flex: 1 }} />
+            <Button
+              variant="secondary"
               label="장소로 고르기"
               onPress={() => router.push({ pathname: '/search', params: { mode: 'start' } })}
               style={{ flex: 1 }}
@@ -51,7 +53,7 @@ export default function StartScreen() {
       }
     >
       <H>어디에서 출발하나요?</H>
-      {msg ? <Badge tone="caution" text={msg} /> : null}
+      {msg ? <StatusChip tone="warning" label={msg} /> : null}
       <View style={s.map}>
         <CampusMap pickPlaces={false} minimal />
       </View>
@@ -59,7 +61,7 @@ export default function StartScreen() {
         <P tone="muted">{st && st.type !== 'place' ? '현재 위치에서 출발' : st ? '사용자가 지정한 출발점' : '출발점을 골라 주세요'}</P>
         <P>{displayedStartTitle ?? '아직 고르지 않음'}</P>
         {st?.type === 'place' ? <P tone="muted">직접 고른 위치라 실제 현재 위치와 다를 수 있어요.</P> : null}
-        {tone === 'confirmed' ? <Badge tone="confirmed" text="현재 위치 확인됨" /> : null}
+        {tone === 'confirmed' ? <StatusChip tone="confirmed" label="현재 위치 확인됨" /> : null}
       </Card>
     </Screen>
   );

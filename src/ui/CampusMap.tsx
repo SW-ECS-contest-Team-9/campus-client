@@ -15,13 +15,11 @@ interface Props {
   overlay?: ReactNode;
   /** 지도 위·아래를 가리는 카드 높이(dp) */
   padding?: { top: number; bottom: number };
-  /** 아래 탭 화면이면 탭 전환 때 3D 를 같이 밀기(MapSlot 참고) */
-  tabSlide?: { route: string; exitX: number };
   /** 사용자가 지도를 만지기 시작할 때 */
   onTouch?: () => void;
 }
 
-export function CampusMap({ commands = [], pickPlaces = true, minimal = false, overlay, padding, tabSlide, onTouch }: Props) {
+export function CampusMap({ commands = [], pickPlaces = true, minimal = false, overlay, padding, onTouch }: Props) {
   const app = useApp();
   const pkg = app.pkg;
   const loc = useMemo<Map3dCommand | null>(() => {
@@ -50,7 +48,6 @@ export function CampusMap({ commands = [], pickPlaces = true, minimal = false, o
       minimal={minimal}
       overlay={overlay}
       padding={padding}
-      tabSlide={tabSlide}
       onTouch={onTouch}
       onEvent={(e) => {
         if (pickPlaces && e.type === 'pick' && e.kind === 'place' && e.id) {

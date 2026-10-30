@@ -2,18 +2,30 @@
 // 설정 "3D 엔진: 웹" 이거나 웹 빌드면 campus-tracker 의 client3d.html(웹 <iframe>, 네이티브 react-native-webview). 두 엔진 모두 메시지 형식 v1(map3d/native/protocol.ts).
 // 화면은 <MapSlot> 으로 자리만 잡고, 초점을 받은 화면의 자리로 그 하나를 옮겨 보여 준다(화면 바꿀 때 다시 불러오지 않음).
 // 명령은 페이지가 ready 를 보낸 뒤 보내고, 자리·명령이 바뀔 때마다 다시 보낸다. 못 불러오면 각 자리에 오류 안내와 재시도 단추.
-import { useFocusEffect, useNavigation } from 'expo-router';
-import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Animated, Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useIsFocused, useRoute } from 'expo-router';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurTargetView } from 'expo-blur';
-import { BlurTargetCtx, useLook } from './look';
+import { BlurTargetCtx } from './look';
 import { Character } from './v3';
 import { Button } from './components';
 import { parseEvent, type Map3dCommand, type Map3dEvent } from '../map3d/commands';
 import { CHARACTER_OK, CHARACTER_UNCERTAIN } from './characterImages';
-import { color, tabSlideSpec } from './theme';
+import { color } from './theme';
+import { useActiveRouteKey } from './useActiveRoute';
 import { Campus3DView, type Campus3DHandle } from '../map3d/native/Campus3DView';
 import { note3dStat } from '../map3d/diag';
 
@@ -45,6 +57,7 @@ interface Rect {
 }
 interface Slot {
   id: string;
+  routeKey: string;
   rect: Rect | null;
   commands: Map3dCommand[];
   minimal: boolean;
@@ -52,14 +65,11 @@ interface Slot {
   overlay?: ReactNode;
   /** 지도 위·아래를 가리는 카드 높이(dp) */
   padding?: { top: number; bottom: number };
-  /** 탭 전환 때 3D 를 화면과 함께 옆으로 미는 값(dp) */
-  offset?: Animated.Value;
   /** 사용자가 지도를 만지기 시작할 때(시트 접기 등) */
   onTouch?: () => void;
 }
 interface Api {
   put: (s: Slot) => void;
-  focus: (id: string, on: boolean) => void;
   remove: (id: string) => void;
   retry: () => void;
 }
@@ -111,7 +121,7 @@ export function Map3DHost({
   const [status, setStatus] = useState<Status>('loading');
   const [attempt, setAttempt] = useState(0);
   const [slots, setSlots] = useState<Record<string, Slot>>({});
-  const [active, setActive] = useState<string | null>(null);
+  const routeKey = useActiveRouteKey();
   const [origin, setOrigin] = useState({ x: 0, y: 0 });
   // 앱 뿌리 크기(네이티브 3D 표면은 이 크기로 고정하고, 자리 밖은 잘라 보임 — 표면 크기를 바꾸면 Android TextureView 가 옛 크기 버퍼를 늘여 보임)
   const [root, setRoot] = useState<{ w: number; h: number } | null>(null);
@@ -153,10 +163,7 @@ export function Map3DHost({
     () => ({
       retry,
       put: (s) => setSlots((all) => ({ ...all, [s.id]: s })),
-      // 초점 잃어도 자리 정보는 남김(뒤로 와서 다시 초점 받을 때 바로 씀)
-      focus: (id, on) => setActive((cur) => (on ? id : cur === id ? null : cur)),
       remove: (id) => {
-        setActive((cur) => (cur === id ? null : cur));
         setSlots((all) => {
           if (!(id in all)) return all;
           const next = { ...all };
@@ -167,7 +174,8 @@ export function Map3DHost({
     }),
     [retry],
   );
-  const slot = active ? slots[active] : undefined;
+  // 늦게 도착한 focus/blur·전환 종료 신호가 이전 지도를 다시 활성화하지 않도록 한다.
+  const slot = Object.values(slots).find((entry) => entry.routeKey === routeKey);
   const controls = useMemo<Map3dControls>(
     () => ({
       available: useNative && status === 'ready',
@@ -311,13 +319,10 @@ export function Map3DHost({
             }}
           >
             {children}
-            <Animated.View
+            <View
+              testID="shared-map-host"
               pointerEvents={shown ? 'box-none' : 'none'}
-              style={[
-                s.host,
-                { left: r.x - origin.x, top: r.y - origin.y, width: r.w, height: r.h, opacity: shown ? 1 : 0 },
-                { transform: [{ translateX: slot?.offset ?? 0 }] },
-              ]}
+              style={[s.host, { left: r.x - origin.x, top: r.y - origin.y, width: r.w, height: r.h, opacity: shown ? 1 : 0 }]}
               accessibilityElementsHidden={!shown}
               importantForAccessibility={shown ? 'auto' : 'no-hide-descendants'}
             >
@@ -387,7 +392,7 @@ export function Map3DHost({
                 {status !== 'failed' &&
                   Object.values(slots).map((entry) => {
                     if (entry.overlay == null) return null;
-                    const visible = shown && entry.id === active;
+                    const visible = shown && entry.id === slot?.id;
                     return (
                       <View
                         key={entry.id}
@@ -401,7 +406,7 @@ export function Map3DHost({
                     );
                   })}
               </BlurTargetCtx.Provider>
-            </Animated.View>
+            </View>
           </View>
         </StatusCtx.Provider>
       </ControlsCtx.Provider>
@@ -417,7 +422,6 @@ export function MapSlot({
   overlay,
   style,
   padding,
-  tabSlide,
   onTouch,
 }: {
   /** 지도 위·아래를 가리는 카드 높이(dp): 네이티브 3D 가 보이는 부분 가운데에 맞춤 */
@@ -430,72 +434,34 @@ export function MapSlot({
   /** 지도 위에 얹는 단추·배지(3D 위에도 보이게 공용 지도와 함께 그림) */
   overlay?: ReactNode;
   style?: StyleProp<ViewStyle>;
-  /** 아래 탭 화면이면: 이 탭의 route 이름과, 탭 전환으로 밀려났을 때 화면이 가 있는 x(dp). 지도 탭은 맨 왼쪽이라 -너비 */
-  tabSlide?: { route: string; exitX: number };
 }) {
   const api = useContext(ApiCtx);
   const status = useContext(StatusCtx);
+  const { key: routeKey } = useRoute();
+  const focused = useIsFocused();
   const inset = useSafeAreaInsets();
   const id = useId();
   const ref = useRef<View | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
   const list = useMemo(() => commands.filter((c): c is Map3dCommand => !!c), [commands]);
-  const exitX = tabSlide?.exitX;
-  const tabRoute = tabSlide?.route;
-  // 아래 탭 화면은 전환 때 옆으로 밀리므로, 밀려나 있는 채로 잰 자리는 제자리 값으로 고치고 전환 중간값은 버림
   const measure = useCallback(
     () =>
       ref.current?.measureInWindow((x, y, w, h) => {
         if (!(w > 0 && h > 0)) return;
-        if (exitX != null && Math.abs(x - exitX) < 2) x -= exitX;
-        else if (exitX != null && Math.abs(x) >= Math.abs(exitX) / 2) return;
-        setRect({ x, y, w, h });
+        setRect((cur) => (cur?.x === x && cur.y === y && cur.w === w && cur.h === h ? cur : { x, y, w, h }));
       }),
-    [exitX],
+    [],
   );
 
-  const [offset] = useState(() => new Animated.Value(0));
-  const { moving } = useLook(); // 동작 줄이기면 3D 도 밀지 않고 바로
-  useEffect(() => {
-    api?.put({ id, rect, commands: list, minimal, onEvent, overlay, padding, offset, onTouch });
+  useLayoutEffect(() => {
+    api?.put({ id, routeKey, rect, commands: list, minimal, onEvent, overlay, padding, onTouch });
   });
   // 화면이 스택에서 제거될 때 보관한 UI도 함께 정리.
   useEffect(() => () => api?.remove(id), [api, id]);
 
-  // 아래 탭 전환: 공용 3D 는 탭 화면들 위에 그려지므로, 이 화면이 밀려날 때 3D 도 같은 시간·곡선으로 밀어 두고(초점은 유지)
-  // 돌아올 때 transitionStart 에서 바로 되밀어 옴(React 재렌더를 기다리지 않아 흰 화면이 없음).
-  // 스택 화면(미리보기·안내 등)으로 갈 때는 전처럼 초점을 넘김. 전환이 끝나면 자리를 다시 잼.
-  const nav = useNavigation() as unknown as {
-    addListener: (type: string, cb: () => void) => () => void;
-    getState: () => { type?: string; index: number; routes: { name: string }[] } | undefined;
-  };
-  const slideTo = (to: number) =>
-    Animated.timing(offset, { toValue: to, ...tabSlideSpec, duration: moving ? tabSlideSpec.duration : 0, useNativeDriver: true }).start();
-  useEffect(() => {
-    if (exitX == null) return;
-    const a = nav.addListener('transitionStart', () => {
-      offset.setValue(exitX);
-      slideTo(0);
-    });
-    const b = nav.addListener('transitionEnd', measure);
-    return () => {
-      a();
-      b();
-    };
-  }, [nav, exitX, offset, measure]); // eslint-disable-line react-hooks/exhaustive-deps -- slideTo 는 offset 만 씀
-  useFocusEffect(
-    useCallback(() => {
-      api?.focus(id, true);
-      const t = setTimeout(measure, exitX == null ? 0 : tabSlideSpec.duration + 150);
-      return () => {
-        clearTimeout(t);
-        const st = nav.getState();
-        const leftByTab = exitX != null && st?.type === 'tab' && st.routes[st.index]?.name !== tabRoute;
-        if (leftByTab) slideTo(exitX);
-        else api?.focus(id, false);
-      };
-    }, [api, id, measure, nav, exitX, tabRoute]), // eslint-disable-line react-hooks/exhaustive-deps -- slideTo 는 offset 만 씀
-  );
+  useLayoutEffect(() => {
+    if (focused) measure();
+  }, [focused, measure]);
 
   return (
     <View ref={ref} style={[s.fill, style]} onLayout={measure} collapsable={false}>

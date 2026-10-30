@@ -1,12 +1,11 @@
 // CT12 저장한 장소 + 최근 이용 경로.
 import { router } from 'expo-router';
 import { Building } from 'lucide-react-native';
-import { View } from 'react-native';
 import { displayName, placeSubtitle } from '../../map/labels';
 import { beginRoute } from '../../location/goRoute';
 import { useApp } from '../../state/AppState';
 import { Button, ResultRow } from '../../ui/components';
-import { H, P, Screen, Section, TabBar } from '../../ui/kit';
+import { H, P, Screen, Section, TabScreen } from '../../ui/kit';
 import { modeInfo } from '../../route/modes';
 
 export default function SavedScreen() {
@@ -14,7 +13,7 @@ export default function SavedScreen() {
   const pkg = app.pkg;
   if (!pkg) return null;
   return (
-    <View style={{ flex: 1 }}>
+    <TabScreen>
       <Screen title="저장한 장소" back={false}>
         <H>자주 가는 곳,{'\n'}한 번에 찾아가요.</H>
         {app.favorites.length ? (
@@ -59,7 +58,6 @@ export default function SavedScreen() {
           onPress={() => router.push('/search')}
         />
       </Screen>
-      <TabBar at="saved" />
-    </View>
+    </TabScreen>
   );
 }

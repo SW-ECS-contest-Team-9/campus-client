@@ -5,7 +5,7 @@ import { buildingsWithFloors } from '../../map/labels';
 import { useApp } from '../../state/AppState';
 import { Button, MapPackCard } from '../../ui/components';
 import { color, type } from '../../ui/theme';
-import { Card, H, P, Screen, TabBar } from '../../ui/kit';
+import { Card, H, P, Screen, TabScreen } from '../../ui/kit';
 import { Character } from '../../ui/v3';
 
 export default function OfflineScreen() {
@@ -18,7 +18,7 @@ export default function OfflineScreen() {
   const src =
     l.source === 'server' ? '방금 서버에서 받음' : l.source === 'stored' ? '기기에 저장됨' : '저장된 지도 없음 · 앱에 들어 있는 개발 지도';
   return (
-    <View style={{ flex: 1 }}>
+    <TabScreen>
       <Screen title="지도 저장" back={false}>
         <H>인터넷 없이도{'\n'}저장한 범위에서 길찾기</H>
         <View style={s.hero}>
@@ -52,8 +52,7 @@ export default function OfflineScreen() {
         {app.updateStatus ? <P tone="caution">{app.updateStatus}</P> : null}
         <P tone="muted">오프라인에서는 통행 변경과 시설 운영 정보를 확인할 수 없어요.</P>
       </Screen>
-      <TabBar at="offline" />
-    </View>
+    </TabScreen>
   );
 }
 

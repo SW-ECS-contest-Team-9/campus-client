@@ -1,13 +1,15 @@
 // 화면 공통 틀(Screen·Card·글·아래 탭). 단추·칩·줄은 ./components 를 직접 쓴다.
 // 기준 기기 Galaxy S21(360×800 dp): 누르는 곳 48 dp 이상, CTA 52.
-import { router, useIsFocused } from 'expo-router';
+import { router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gradient, WaveHeader } from './v3';
 import { color, elevation, glass, shape, space, type } from './theme';
-import { IconButton, TabBarView, type TabKey } from './components';
+import { IconButton, TabBarView } from './components';
+import { TAB_BAR_HEIGHT } from './navigation';
+import { useActiveTab } from './useActiveRoute';
 import { Banner } from './feedback';
 import { useApp } from '../state/AppState';
 import { useState } from 'react';
@@ -119,14 +121,28 @@ export const P = ({ children, tone }: { children: ReactNode; tone?: 'caution' | 
   </Text>
 );
 
-/** 아래 탭(지도·저장·오프라인) — Navigation/TabBar */
-export function TabBar({ at }: { at: TabKey }) {
+/** 3D와 화면 전환 위에 하나만 유지하는 하단 메뉴. */
+export function MainTabBar() {
   const inset = useSafeAreaInsets();
+  const at = useActiveTab();
+  const app = useApp();
   const to = { map: '/', saved: '/saved', offline: '/offline' } as const;
-  return <TabBarView at={at} focused={useIsFocused()} bottomInset={inset.bottom} onSelect={(k) => router.navigate(to[k])} />;
+  if (!at || !app.pkg) return null;
+  return (
+    <View testID="main-tab-bar" style={s.tabs} pointerEvents="box-none">
+      <TabBarView at={at} bottomInset={inset.bottom} onSelect={(k) => router.navigate(to[k])} />
+    </View>
+  );
+}
+
+/** 고정 메뉴에 가리지 않도록 탭 콘텐츠의 아래 공간을 확보한다. */
+export function TabScreen({ children }: { children: ReactNode }) {
+  const inset = useSafeAreaInsets();
+  return <View style={{ flex: 1, paddingBottom: TAB_BAR_HEIGHT + inset.bottom }}>{children}</View>;
 }
 
 const s = StyleSheet.create({
+  tabs: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   root: { flex: 1, backgroundColor: color.canvas },
   head: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
   back: { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: 'rgba(255,255,255,0.35)', shadowOpacity: 0, elevation: 0 },

@@ -20,6 +20,7 @@ import {
 import { color, elevation, glass, gradient, ICON, motion, radius, shape, space, type } from './theme';
 import { useLook } from './look';
 import { Gradient } from './v3';
+import type { TabKey } from './navigation';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -290,7 +291,6 @@ export function StatusChip({ tone, label, style }: { tone: ChipTone; label: stri
 }
 
 // ---------- Navigation/TabBar (4:586) ----------
-export type TabKey = 'map' | 'saved' | 'offline';
 const TAB_GAP = 4; // b.tabs.gap
 const TAB_PAD = 6; // b.tabs.padding
 const TAB_BORDER = 1; // b.tabs.borderWidth
@@ -299,28 +299,15 @@ const TABS: { k: TabKey; label: string; icon: LucideIcon }[] = [
   { k: 'saved', label: '저장', icon: Bookmark },
   { k: 'offline', label: '지도 저장', icon: Download },
 ];
-// 알약 자리(탭 단위 0~2)는 탭 화면 셋이 함께 씀: 화면이 겹쳐 바뀌는 동안 세 탭 바가 같은 알약을 그려 하나로 보이게
-const pillX = new Animated.Value(0);
-let lastTabIndex = 0;
-export function TabBarView({
-  at,
-  focused = true,
-  onSelect,
-  bottomInset = 0,
-}: {
-  at: TabKey;
-  /** 이 탭 바가 있는 화면이 보이는 중인지(보일 때만 알약을 제 자리로) */
-  focused?: boolean;
-  onSelect: (k: TabKey) => void;
-  bottomInset?: number;
-}) {
+export function TabBarView({ at, onSelect, bottomInset = 0 }: { at: TabKey; onSelect: (k: TabKey) => void; bottomInset?: number }) {
   const reduce = !useLook().moving;
   const idx = Math.max(
     0,
     TABS.findIndex((t) => t.k === at),
   );
   const [w, setW] = useState(0); // 탭 하나 너비
-  const dragFrom = useRef(lastTabIndex); // 끌기 시작 때 알약 자리(손가락 사건 때만 읽음)
+  const [pillX] = useState(() => new Animated.Value(idx));
+  const dragFrom = useRef(idx); // 끌기 시작 때 알약 자리
   const last = TABS.length - 1;
   const clamp = (v: number) => Math.min(last, Math.max(0, v));
   const settle = (to: number) => {
@@ -328,10 +315,8 @@ export function TabBarView({
     else Animated.spring(pillX, { toValue: to, ...motion.sheetSpring, useNativeDriver: true }).start();
   };
   useEffect(() => {
-    if (!focused) return;
-    lastTabIndex = idx;
     settle(idx);
-  }, [focused, idx]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [idx, reduce]); // eslint-disable-line react-hooks/exhaustive-deps
   // 알약 끌기: 옆으로 6 px 넘게 움직이면 끌기(그 전에는 탭 누르기), 놓으면 가까운 탭으로
   const pan = useMemo(
     () =>

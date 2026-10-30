@@ -3,7 +3,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { Bookmark, Clock, House, Layers, MapPin, Navigation, Search, Settings, type LucideIcon } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import { BackHandler, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { beginRoute } from '../../location/goRoute';
 import { buildingName, displayName, floorLabel } from '../../map/labels';
@@ -13,7 +13,6 @@ import { preparationMessage } from '../../ui/AppLoading';
 import { CoachMarks } from '../../ui/CoachMarks';
 import { useMap3dControls } from '../../ui/Map3D';
 import { IconButton, PressScale, SearchInput, StatusChip } from '../../ui/components';
-import { TabBar } from '../../ui/kit';
 import { color, gradient, shape, type } from '../../ui/theme';
 import { Gradient, Sheet } from '../../ui/v3';
 
@@ -49,7 +48,6 @@ function CtlButton({
 export default function Home() {
   const app = useApp();
   const inset = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
   const [locMsg, setLocMsg] = useState<string | null>(null);
   const [exploded, setExploded] = useState(false);
   const [collapse, setCollapse] = useState(0);
@@ -99,7 +97,6 @@ export default function Home() {
   return (
     <View style={s.root}>
       <CampusMap
-        tabSlide={{ route: 'index', exitX: -width }}
         padding={{ top: inset.top + 110, bottom: bottom + SHEET_MIN }}
         onTouch={() => setCollapse((n) => n + 1)}
         overlay={
@@ -202,9 +199,6 @@ export default function Home() {
                 )}
               </View>
             </Sheet>
-            <View style={s.tabs} pointerEvents="box-none">
-              <TabBar at="map" />
-            </View>
           </>
         }
       />
@@ -252,5 +246,4 @@ const s = StyleSheet.create({
   quickT: { fontSize: type.small, fontWeight: '700', color: color.primary, flexShrink: 1 },
   hint: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   hintT: { flex: 1, fontSize: type.caption, color: color.secondary, lineHeight: 19 },
-  tabs: { position: 'absolute', left: 0, right: 0, bottom: 0 },
 });

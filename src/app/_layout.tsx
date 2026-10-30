@@ -12,6 +12,8 @@ import { AppLoading, preparationMessage } from '../ui/AppLoading';
 import { TierCtx, useLook } from '../ui/look';
 import { Map3DHost, type Map3dPlace } from '../ui/Map3D';
 import { color, motion } from '../ui/theme';
+import { MainTabBar } from '../ui/kit';
+import { ActiveRouteProvider, renderActiveScreen } from '../ui/useActiveRoute';
 
 // 머리는 각 화면이 직접 그림(ui/kit Screen). 흐름: 지도 → 검색 → 장소 → 출발점 → 옵션 → 미리보기 → 안내 → 도착.
 if (__DEV__) (globalThis as { __router?: typeof router }).__router = router; // 개발 중 화면 시험용
@@ -21,12 +23,14 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AppProvider>
-          <StatusBar style="dark" />
-          <ToastProvider>
-            <Shared3D>
-              <Screens />
-            </Shared3D>
-          </ToastProvider>
+          <ActiveRouteProvider>
+            <StatusBar style="dark" />
+            <ToastProvider>
+              <Shared3D>
+                <Screens />
+              </Shared3D>
+            </ToastProvider>
+          </ActiveRouteProvider>
         </AppProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
@@ -39,6 +43,7 @@ function Screens() {
   return (
     <Stack
       initialRouteName="(tabs)"
+      screenLayout={renderActiveScreen}
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: color.canvas },
@@ -82,6 +87,7 @@ function Shared3D({ children }: { children: React.ReactNode }) {
           >
             {children}
           </Map3DHost>
+          <MainTabBar />
         </View>
         <AppLoading message={loadingMessage} />
       </View>

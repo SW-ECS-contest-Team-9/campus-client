@@ -1,19 +1,16 @@
-// CT05 경로 옵션: 출발·도착, 이동 방식 7가지(서버 경로 방식과 같음). 필수 조건(계단 없이·휠체어)은 자동으로 풀지 않음(제품 규칙 04).
+// CT05 경로 확인: 출발·도착과 적용된 이동 조건을 표시. 조건 변경은 자연어 검색에서만.
 import { router } from 'expo-router';
-import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { effectiveCondition } from '../nlp/apply';
-import { MODES, modeInfo } from '../route/modes';
+import { modeInfo } from '../route/modes';
 import { hasRouteIndicators } from '../route/route';
 import { displayName, floorCode, startLabel as startLabelOf } from '../map/labels';
 import { useApp } from '../state/AppState';
-import { Button, FloorItem } from '../ui/components';
+import { Button } from '../ui/components';
 import { color, type } from '../ui/theme';
 import { Card, P, Screen, Section } from '../ui/kit';
 
 export default function OptionsScreen() {
   const app = useApp();
-  const [lockMsg, setLockMsg] = useState(false);
   if (!app.pkg) return null;
   const pkg = app.pkg;
   const st = app.start;
@@ -21,7 +18,7 @@ export default function OptionsScreen() {
   const dest = pkg.places.find((p) => p.key === app.destKey);
   const destFloor = floorCode(pkg, dest?.floorKey);
   const cond = modeInfo(app.condition);
-  // 말로 정한 필수 조건(계단 없이·휠체어)은 하드 필터: 그보다 느슨한 방식으로 바꾸려면 직접 "필수 조건 풀기"
+  // 말로 정한 필수 조건(계단 없이·휠체어)은 다음 자연어 요청 전까지 유지
   const nlp = app.nlp;
   const mandatory = nlp?.mandatory ?? [];
   const locked = mandatory.length > 0;
@@ -33,7 +30,7 @@ export default function OptionsScreen() {
   };
   return (
     <Screen
-      title="경로 옵션"
+      title="경로 확인"
       footer={
         <>
           <P tone="muted">
@@ -82,31 +79,10 @@ export default function OptionsScreen() {
           ))}
         </Card>
       ) : null}
-      <Section>이동 방식</Section>
-      <View style={s.chips}>
-        {MODES.map((c) => (
-          <FloorItem
-            key={c.key}
-            label={c.label}
-            state={app.condition === c.key ? 'selected' : 'idle'}
-            onPress={() => (effectiveCondition(c.key, mandatory) !== c.key ? setLockMsg(true) : app.setCondition(c.key))}
-          />
-        ))}
-      </View>
+      <Section>적용된 이동 조건</Section>
       {locked ? (
         <Card tone="caution" style={{ gap: 6 }}>
-          <P tone="caution">
-            {lockMsg ? '필수 조건이라 다른 방식으로 바꾸지 않았어요. ' : ''}말씀하신 「{mustLabel}」는 필수 조건이에요. 그런 길이 없으면
-            「경로 없음」으로 알려 드려요.
-          </P>
-          <Button
-            variant="quiet"
-            label="필수 조건 풀기"
-            onPress={() => {
-              app.setNlp({ ...nlp!, mandatory: [], chips: nlp!.chips.filter((c) => !c.startsWith('필수')) });
-              setLockMsg(false);
-            }}
-          />
+          <P tone="caution">말씀하신 「{mustLabel}」는 필수 조건이에요. 그런 길이 없으면 「경로 없음」으로 알려 드려요.</P>
         </Card>
       ) : null}
       <Card tone="primary">
@@ -116,6 +92,17 @@ export default function OptionsScreen() {
           <P tone="muted">{cond.device}</P>
         ) : null}
       </Card>
+      <P tone="muted">이동 조건을 바꾸려면 자연어 검색에서 원하는 길을 말씀해 주세요.</P>
+      <Button
+        variant="secondary"
+        label="자연어로 조건 변경"
+        onPress={() =>
+          router.push({
+            pathname: '/search',
+            params: { mode: 'natural', q: nlp?.text ?? (dest ? displayName(dest.name) : '') },
+          })
+        }
+      />
     </Screen>
   );
 }

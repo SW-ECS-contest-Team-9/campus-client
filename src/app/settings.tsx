@@ -1,9 +1,8 @@
-// CT13 설정: 기본 이동 방식, 자연어 검색, 화면 표시(2D·가벼운 3D), 위치 권한 안내, 개인정보. 기기 등급·3D 엔진·서버 주소·측정은 개발 빌드에서만.
+// CT13 설정: 자연어 검색, 화면 표시(가벼운 3D), 위치 권한 안내, 개인정보. 기기 등급·3D 엔진·서버 주소·측정은 개발 빌드에서만.
 import { useState } from 'react';
 import { StyleSheet, Switch, TextInput, View } from 'react-native';
 import { DEFAULT_MAP3D_URL } from '../map3d/commands';
 import { get3dStats } from '../map3d/diag';
-import { MODES } from '../route/modes';
 import { DEFAULT_SERVER_URL, useApp } from '../state/AppState';
 import { Button, FloorItem } from '../ui/components';
 import { color, type } from '../ui/theme';
@@ -17,18 +16,6 @@ export default function SettingsScreen() {
   const aiOn = app.settings.aiParse;
   return (
     <Screen title="설정">
-      <H>내 이동에 맞게</H>
-      <Section>이동 경로(기본 조건)</Section>
-      <View style={s.chips}>
-        {MODES.map((m) => (
-          <FloorItem
-            key={m.key}
-            label={m.label}
-            state={app.condition === m.key ? 'selected' : 'idle'}
-            onPress={() => app.setCondition(m.key)}
-          />
-        ))}
-      </View>
       <Section>자연어 검색</Section>
       <Card style={s.row}>
         <View style={{ flex: 1 }}>
@@ -62,19 +49,6 @@ export default function SettingsScreen() {
         />
       </Card>
       <Section>화면 표시</Section>
-      <Card style={s.row}>
-        <View style={{ flex: 1 }}>
-          <P>평면(2D) 지도로 보기</P>
-          <P tone="muted">3D 대신 평면 지도를 써요. 지도 화면의 2D/3D 단추로도 바꿀 수 있어요.</P>
-        </View>
-        <Switch
-          value={app.settings.map2d}
-          onValueChange={(v) => app.updateSettings({ map2d: v })}
-          trackColor={{ false: color.border, true: color.primary }}
-          ios_backgroundColor={color.border}
-          accessibilityLabel="평면 지도로 보기"
-        />
-      </Card>
       <Card style={s.row}>
         <View style={{ flex: 1 }}>
           <P>저사양 모드</P>

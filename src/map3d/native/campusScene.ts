@@ -2,7 +2,6 @@
 // 자료: export/build-glb.mjs 가 만든 campus.glb(웹 모델링을 그대로 구운 것). 명령·사건은 client3d 메시지 형식 v1 과 같음.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { createFirstPerson, scanSurfaces, type FpStep, type Hud } from './firstPerson';
 import { makeFrame, tmForward } from './geo';
 import { matchFloor, parseCommand, PROTOCOL_VERSION, type Command, type PageEvent } from './protocol';
 
@@ -70,9 +69,8 @@ export async function createCampusScene(o: SceneOptions) {
     b.floors.push({ m: n.userData.m, name: n.userData.name, node: meshOf(n) });
   }
   for (const b of buildings.values()) b.floors.sort((a, c) => a.m - c.m);
-  // 실내 빈 곳(i| 노드, 1인칭용): 처음엔 숨김
-  const interiors: { node: THREE.Mesh; m: number; floor: string; rings: number[][][] }[] = [];
-  root.traverse((n) => { if (n.userData?.interior && !interiors.some((i) => i.node === meshOf(n))) { const m = meshOf(n); m.visible = false; n.visible = false; interiors.push({ node: n as THREE.Mesh, m: n.userData.m, floor: n.userData.floor, rings: n.userData.rings }); } });
+  // 실내 보조 메시는 위에서 보는 지도에서 숨김.
+  root.traverse((n) => { if (n.userData?.interior) n.visible = false; });
   // 블록(예: '한림관#고리')은 기본 건물('한림관')에 딸림 — 펼치기·비침·고르기를 함께
   const baseId = (id: string) => id.split('#')[0];
   const blocksOf = (id: string) => [...buildings.values()].filter((b) => baseId(b.id) === id);
@@ -162,8 +160,6 @@ export async function createCampusScene(o: SceneOptions) {
     renderer.setRenderTarget(null);
     renderer.render(blitScene, blitCam);
   };
-  // 저사양 1인칭: 30 fps 상한(연속 그리기라 배터리·발열)
-  let lastFpDraw = 0;
 
   // ---------- 다시 그리기: 바뀐 것이 있을 때만(배터리) ----------
 
@@ -305,11 +301,8 @@ export async function createCampusScene(o: SceneOptions) {
     switch (c.type) {
       case 'setLocation': setLocation(c); break;
       case 'clearLocation': loc = null; here.visible = false; dirty(); break;
-      case 'setRoute': setRoute(c.points, c.floorChanges); fpRoute = { points: c.points, steps: c.steps }; if (fp.active()) fpCommand({ type: 'firstPerson', on: true, speed: null, paused: null, follow: fp.progress().follow }); break;
-      case 'clearRoute': clearRoute(); fpRoute = null; if (fp.active()) fpCommand({ type: 'firstPerson', on: false, speed: null, paused: null, follow: false }); break;
-      case 'firstPerson': fpCommand(c); break;
-      case 'firstPersonSeek': firstPerson.seek(c.m); break;
-      case 'firstPersonFollow': firstPerson.follow(c.m); break;
+      case 'setRoute': setRoute(c.points, c.floorChanges); break;
+      case 'clearRoute': clearRoute(); break;
       case 'focus': { const v = fromTm(c.x, c.y, c.z ?? 0); if (c.z === null) v.y = groundAt(v.x, v.z); cam.target.copy(v); cam.dist = 140; follow.paused = true; if (c.building) setFloorView(c.building, c.floor, true); dirty(); break; }
       case 'setFloor': {
         setFloorView(c.building, c.floor, c.explode);
@@ -322,52 +315,6 @@ export async function createCampusScene(o: SceneOptions) {
       case 'setMode': if (c.light !== null && c.light !== light) { light = c.light; applyLight(); dirty(); } break;
     }
   }
-
-  // ---------- 1인칭 미리 걷기(firstPerson.ts) ----------
-  // 마지막 setRoute 경로(점·단계)를 눈높이로 걸음. 명령 firstPerson(on·speed·paused)·firstPersonSeek, 사건 firstPerson(진행·안내 글, 4번/s 안팎).
-  type FpRoute = { points: number[][]; steps: FpStep[] };
-  let fpRoute: FpRoute | null = null;
-  let fpStarted: FpRoute | null = null;
-  let lastHud: Hud | null = null;
-  const fp = createFirstPerson({
-    scene, camera, fromTm, toTm,
-    surfaces: (pts) => scanSurfaces(groundTargets, pts),
-    buildings: [...buildings.values()].map((b) => b.node), interiors, hide: [routeGroup, here],
-    outdoor: [layer.ground, layer.structures, layer.surfaces, layer.lines].filter(Boolean) as THREE.Object3D[],
-    // 앱 카드가 화면 일부를 가리면(pad) 보이는 부분 기준으로 시야를 맞춤(투영은 applyPadding 이 옮김)
-    viewAspect: () => { const w = o.width - pad.left - pad.right, h = o.height - pad.top - pad.bottom; return w > 0 && h > 0 ? w / h : camera.aspect; },
-    setFov: (deg) => { const vh = o.height + Math.abs(pad.bottom - pad.top), hv = Math.max(1, o.height - pad.top - pad.bottom); camera.fov = (2 * Math.atan(Math.tan((deg / 2) * DEG) * (vh / hv))) / DEG; camera.updateProjectionMatrix(); },
-  }, (h) => { lastHud = h; fpEmit(true); });
-  let lastT = 0, fpSentAt = 0, fpSentKey = '';
-  function fpEmit(force = false) {
-    const p = fp.progress();
-    const state = !fp.active() ? 'off' : p.done ? 'done' : p.playing ? 'playing' : 'paused';
-    const key = `${state}|${p.speed}|${p.follow}|${lastHud?.text}|${lastHud?.sub}`;
-    if (!force && key === fpSentKey && now() - fpSentAt < 250) return;
-    fpSentKey = key; fpSentAt = now();
-    const h = fp.active() ? lastHud : null;
-    emit({ type: 'firstPerson', state, s: Math.round(p.s * 10) / 10, total: Math.round(p.total * 10) / 10, speed: p.speed, follow: p.follow, text: h?.text ?? null, sub: h?.sub ?? null, floor: h?.floor ?? null, turn: h?.turn ?? null });
-  }
-  function fpCommand(c: Extract<Command, { type: 'firstPerson' }>) {
-    if (!c.on) { if (fp.active()) { fp.stop(); applyLight(); fpStarted = null; fpEmit(true); } dirty(); return; }
-    if (!fpRoute) { emit({ type: 'error', error: '1인칭: 경로가 없음(setRoute 먼저)', command: 'firstPerson' }); return; }
-    if (!fp.active() || fpStarted !== fpRoute || fp.progress().follow !== c.follow) {
-      const t0 = now();
-      if (!fp.start(fpRoute.points, fpRoute.steps, { speed: c.speed ?? 1, paused: c.paused ?? false, follow: c.follow })) { emit({ type: 'error', error: '1인칭: 경로 점이 모자람', command: 'firstPerson' }); return; }
-      fpStarted = fpRoute; lastT = 0;
-      console.log(`FP_START ${now() - t0} ms ${fpRoute.points.length} pts`);
-    }
-    if (c.speed !== null) fp.setSpeed(c.speed);
-    if (c.paused !== null) fp.setPaused(c.paused);
-    fpEmit(true);
-    dirty();
-  }
-  const firstPerson = {
-    /** 따라가기 목표(m). 지금보다 8 m 넘게 뒤면 바로 옮김(되돌아감), 조금 뒤면 그 자리 */
-    follow: (m: number | null) => { const p = fp.progress(); if (m != null && m < p.s - 8) fp.seek(m); fp.setTarget(m); fpEmit(true); dirty(); },
-    seek: (s: number) => { fp.seek(s); fpEmit(true); dirty(); },
-    active: fp.active,
-  };
 
   // ---------- 손 조작(앱·미리보기가 부름) ----------
   function pan(dx: number, dy: number) {
@@ -385,16 +332,6 @@ export async function createCampusScene(o: SceneOptions) {
   function resize(w: number, h: number) { o.width = w; o.height = h; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false); if (pad.top || pad.bottom || pad.left || pad.right) applyPadding(); dirty(); }
   /** 그릴 것이 있으면 그리고 true. 앱의 rAF 고리가 매 프레임 부름. */
   function frameTick() {
-    if (fp.active()) {
-      const t = now() / 1000;
-      if (lowSpec && t - lastFpDraw < 1 / 30) return false;
-      lastFpDraw = t;
-      fp.tick(lastT ? t - lastT : 0);
-      lastT = t;
-      draw();
-      fpEmit();
-      return true;
-    }
     if (!needs) return false;
     needs = false;
     applyCamera();
@@ -431,7 +368,6 @@ export async function createCampusScene(o: SceneOptions) {
     if (!dx && !dy) camera.clearViewOffset();
     else camera.setViewOffset(vw, vh, dx > 0 ? dx : 0, dy > 0 ? dy : 0, o.width, o.height);
     camera.updateProjectionMatrix();
-    fp.fit(); // 1인칭이면 시야를 보이는 부分에 다시 맞춤
     dirty();
   }
   function setPadding(top: number, bottom: number, left = 0, right = 0) {
@@ -460,11 +396,24 @@ export async function createCampusScene(o: SceneOptions) {
     if (loc) { cam.target.copy(here.position); cam.dist = Math.min(cam.dist, 170); dirty(); }
   }
 
+  /** 재시도·엔진 변경으로 장면을 버릴 때 GPU 자원을 함께 정리. */
+  function dispose() {
+    const geometries = new Set<THREE.BufferGeometry>();
+    const materials = new Set<THREE.Material>();
+    for (const group of [scene, blitScene]) group.traverse((n) => {
+      const mesh = n as THREE.Mesh;
+      if (mesh.geometry) geometries.add(mesh.geometry);
+      if (mesh.material) for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) materials.add(m);
+    });
+    for (const g of geometries) g.dispose();
+    for (const m of materials) m.dispose();
+    lowRt?.dispose();
+  }
+
   resize(o.width, o.height);
   const info = () => ({ ...lastInfo, geometries: renderer.info.memory.geometries });
   emit({ type: 'ready', buildings: [...buildings.values()].filter((b) => baseId(b.id) === b.id).map((b) => ({ id: b.id, name: b.name })), light });
-  return { command, frameTick, resize, pan, zoom, rotate, tilt, tap, home, markerScreen, info, redraw: dirty,
-    firstPerson,
+  return { dispose, command, frameTick, resize, pan, zoom, rotate, tilt, tap, home, markerScreen, info, redraw: dirty,
     buildingAnchors: () => anchors, screenOf, toScene, cameraDistance: () => cam.dist, setPadding, toggleExplode, focusMe };
 }
 

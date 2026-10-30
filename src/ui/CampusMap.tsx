@@ -1,20 +1,12 @@
-// 화면들이 쓰는 지도: 공용 3D 지도 자리(MapSlot) + 현재 위치·확인한 층 명령, 못 불러오면 평면 지도(MapView).
+// 화면들이 쓰는 지도: 공용 3D 지도 자리(MapSlot) + 현재 위치·확인한 층 명령, 장소 선택.
 import { router } from 'expo-router';
 import { useMemo, type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
-import type { XYZ } from '../map/package';
 import { floorCommand, locationCommand, packagePlaceKey, type Map3dCommand } from '../map3d/commands';
 import { useApp } from '../state/AppState';
 import { MapSlot } from './Map3D';
-import { MapView } from './MapView';
 
 interface Props {
   commands?: (Map3dCommand | null)[];
-  /** 경로 모양(평면 지도에 그림. 3D 는 commands 의 setRoute) */
-  routePoints?: XYZ[] | null;
-  highlightPlaceKeys?: string[];
-  /** 평면 지도의 처음 화면. 없고 경로가 있으면 경로 전체에 맞춤 */
-  focus?: { x: number; y: number }[];
   /** 누른 장소로 가기(기본 켬) */
   pickPlaces?: boolean;
   /** 3D 페이지 자체의 층 판을 숨김(이 화면이 층 고르기를 보여 줄 때) */
@@ -29,18 +21,7 @@ interface Props {
   onTouch?: () => void;
 }
 
-export function CampusMap({
-  commands = [],
-  routePoints = null,
-  highlightPlaceKeys = [],
-  focus,
-  pickPlaces = true,
-  minimal = false,
-  overlay,
-  padding,
-  tabSlide,
-  onTouch,
-}: Props) {
+export function CampusMap({ commands = [], pickPlaces = true, minimal = false, overlay, padding, tabSlide, onTouch }: Props) {
   const app = useApp();
   const pkg = app.pkg;
   const loc = useMemo<Map3dCommand | null>(() => {
@@ -60,35 +41,9 @@ export function CampusMap({
   }, [app.fix, app.confirmedFloor, pkg]);
   // 층 고르기(보는 층)
   const floors = useMemo(() => (pkg ? Object.entries(app.floorSel).map(([b, f]) => floorCommand(pkg, b, f)) : []), [app.floorSel, pkg]);
-  const routeFocus = useMemo(() => {
-    if (focus || !routePoints?.length) return focus;
-    return routePoints.map((p) => ({ x: p[0], y: p[1] }));
-  }, [focus, routePoints]);
   const all = useMemo(() => [loc, ...floors, ...commands], [loc, floors, commands]);
   if (!pkg) return null;
   const openPlace = (key: string) => router.push({ pathname: '/place/[key]', params: { key } });
-  const flat = (
-    <MapView
-      pkg={pkg}
-      floorSel={app.floorSel}
-      routePoints={routePoints}
-      highlightPlaceKeys={highlightPlaceKeys}
-      me={app.fix}
-      focus={routeFocus}
-      onPlacePress={pickPlaces ? openPlace : undefined}
-      bottomInset={padding?.bottom ?? 0}
-    />
-  );
-  // 설정 "2D 지도"면 공용 3D 자리를 쓰지 않고 평면 지도만(3D 는 숨겨진 채 유지)
-  if (app.settings.map2d)
-    return (
-      <View style={s.fill}>
-        <View style={s.fill} onTouchStart={onTouch}>
-          {flat}
-        </View>
-        {overlay}
-      </View>
-    );
   return (
     <MapSlot
       commands={all}
@@ -103,9 +58,6 @@ export function CampusMap({
           if (pkg.places.some((p) => p.key === key)) openPlace(key);
         }
       }}
-      fallback={flat}
     />
   );
 }
-
-const s = StyleSheet.create({ fill: { flex: 1 } });

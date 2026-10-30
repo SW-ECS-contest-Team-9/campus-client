@@ -1,5 +1,5 @@
 // CT02 검색. 기본은 장소 이름 검색, 스위치를 켜면 자연어 경로 요청을 해석한다.
-// mode=start 면 자연어 모드 없이 고른 장소를 출발점으로 지정하고 CT04 로 돌아간다.
+// mode=start 는 출발 장소 선택, mode=natural 은 저장된 기본값과 관계없이 자연어로 조건 변경.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Building, Info, MapPin, MessageCircleQuestion, Navigation, Search, X } from 'lucide-react-native';
@@ -32,9 +32,9 @@ export default function SearchScreen() {
   const toast = useToast();
   const choosingStart = params.mode === 'start';
   const [q, setQ] = useState(params.q ?? '');
-  // 사용자가 이 화면에서 직접 바꾸기 전에는 저장된 기본값을 따름(설정이 비동기로 불러와져도 반영).
+  // 조건 변경 링크는 자연어로 열고, 그 외에는 저장된 기본값을 따름(설정이 비동기로 불러와져도 반영).
   const [searchModeOverride, setSearchModeOverride] = useState<SearchMode | null>(null);
-  const searchMode = searchModeOverride ?? (app.settings.naturalSearchDefault ? 'natural' : 'place');
+  const searchMode = searchModeOverride ?? (params.mode === 'natural' || app.settings.naturalSearchDefault ? 'natural' : 'place');
   const naturalSearch = !choosingStart && searchMode === 'natural';
   // 이미 열린 검색 화면에 새 검색어로 들어오면(링크·최근 검색) 그 글로 바꿈
   const [lastParam, setLastParam] = useState(params.q);

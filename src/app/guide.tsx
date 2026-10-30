@@ -12,14 +12,12 @@ import { Button } from '../ui/components';
 import { CampusMap } from '../ui/CampusMap';
 import { FloorCapsule } from '../ui/FloorCapsule';
 import { P, Screen } from '../ui/kit';
-import { useMap3dControls } from '../ui/Map3D';
 import { useRouteCommand } from '../ui/useRouteCommand';
 import { Character, Gradient, Pulse, RouteDrawBar, WaveEdge } from '../ui/v3';
 import { color, gradient, shape, space, type } from '../ui/theme';
 
 export default function GuideScreen() {
   const app = useApp();
-  const ctl = useMap3dControls();
   const r = app.route;
   const cmd = useRouteCommand();
   // 단계는 이 화면만 씀. 경로가 바뀌면 처음 단계로.
@@ -91,14 +89,6 @@ export default function GuideScreen() {
               <Button label="도착 확인" onPress={() => router.navigate('/arrive')} style={{ flex: 2 }} />
             )}
           </View>
-          {/* 걸으며 1인칭: 보정 위치(길 쪽으로 끌어당긴 위치)를 경로 위에서 따라감 */}
-          {ctl.available ? (
-            <Button
-              variant="secondary"
-              label="1인칭으로 따라가기"
-              onPress={() => router.push({ pathname: '/first-person', params: { mode: 'follow' } })}
-            />
-          ) : null}
           <Button variant="quiet" label="안내 종료" onPress={() => router.dismissTo('/')} />
         </>
       }
@@ -128,7 +118,6 @@ export default function GuideScreen() {
       <View style={s.map}>
         <CampusMap
           commands={[cmd]}
-          routePoints={r.points}
           pickPlaces={false}
           minimal
           padding={{ top: 68, bottom: 20 }}

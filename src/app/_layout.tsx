@@ -1,12 +1,14 @@
 import { router, Stack } from 'expo-router';
 import type React from 'react';
 import { useMemo } from 'react';
+import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { pageUrl } from '../map3d/commands';
 import { AppProvider, useApp } from '../state/AppState';
 import { ToastProvider } from '../ui/feedback';
+import { AppLoading, preparationMessage } from '../ui/AppLoading';
 import { TierCtx, useLook } from '../ui/look';
 import { Map3DHost, type Map3dPlace } from '../ui/Map3D';
 import { color, motion } from '../ui/theme';
@@ -52,6 +54,7 @@ function Screens() {
 /** 3D 지도 페이지 하나를 앱 전체가 함께 씀(화면 바꿀 때 다시 불러오지 않음). */
 function Shared3D({ children }: { children: React.ReactNode }) {
   const app = useApp();
+  const loadingMessage = preparationMessage(app.preparation);
   // 네이티브 3D 위 장소 점(길찾기 되는 장소만)
   const pkg = app.pkg;
   const places = useMemo<Map3dPlace[] | undefined>(
@@ -63,16 +66,25 @@ function Shared3D({ children }: { children: React.ReactNode }) {
   );
   return (
     <TierCtx.Provider value={app.tier}>
-      <Map3DHost
-        url={pageUrl(app.settings.map3dUrl, app.settings.light)}
-        engine={app.settings.map3dEngine}
-        light={app.settings.light || app.tier === 3}
-        places={places}
-        onFirstReady={app.noteFirst3dReady}
-        onPreparationChange={app.note3dPreparation}
-      >
-        {children}
-      </Map3DHost>
+      <View style={{ flex: 1 }}>
+        <View
+          style={{ flex: 1 }}
+          accessibilityElementsHidden={loadingMessage !== null}
+          importantForAccessibility={loadingMessage !== null ? 'no-hide-descendants' : 'auto'}
+        >
+          <Map3DHost
+            url={pageUrl(app.settings.map3dUrl, app.settings.light)}
+            engine={app.settings.map3dEngine}
+            light={app.settings.light || app.tier === 3}
+            places={places}
+            onFirstReady={app.noteFirst3dReady}
+            onPreparationChange={app.note3dPreparation}
+          >
+            {children}
+          </Map3DHost>
+        </View>
+        <AppLoading message={loadingMessage} />
+      </View>
     </TierCtx.Provider>
   );
 }

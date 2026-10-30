@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Building, Info, MapPin, MessageCircleQuestion, Navigation, Search, X } from 'lucide-react-native';
 import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
-import { startFromCurrentFix } from '../location/start';
+import { beginRoute } from '../location/goRoute';
 import { displayName, placeSubtitle } from '../map/labels';
 import { describe as describeRequest, planFromRequest } from '../nlp/apply';
 import { mergeWithGemma, shouldAskGemma } from '../nlp/gemma';
@@ -123,13 +123,12 @@ export default function SearchScreen() {
     rememberSearch();
     app.setNlp(null);
     app.setDestKey(key);
-    app.setStart(startFromCurrentFix(pkg, app.graph, app.fix));
-    router.push('/start');
+    beginRoute(pkg, app.graph, app.fix, { start: app.setStart });
   };
   const pick = (key: string) => {
     rememberSearch();
     app.setStart({ type: 'place', placeKey: key });
-    router.back();
+    router.navigate('/preview'); // 출발 장소를 고르면 바로 경로(사례 R20)
   };
   // 알아들은 조건과 출발점을 채운 뒤 출발점 확인으로. 필수 조건은 앱 상태에 남아 경로 계산의 하드 필터가 됨.
   const go = () => {
@@ -138,9 +137,10 @@ export default function SearchScreen() {
     app.setNlp({ text: q.trim(), chips: describeRequest(req, pkg), notes: plan.notes, mandatory: plan.mandatory });
     app.setDestKey(plan.destKey);
     app.setCondition(plan.condition);
-    if (plan.origin.type === 'place') app.setStart({ type: 'place', placeKey: plan.origin.placeKey });
-    else app.setStart(startFromCurrentFix(pkg, app.graph, app.fix));
-    router.push('/start');
+    if (plan.origin.type === 'place') {
+      app.setStart({ type: 'place', placeKey: plan.origin.placeKey });
+      router.push('/preview');
+    } else beginRoute(pkg, app.graph, app.fix, { start: app.setStart });
   };
   const sub = (key: string, nodeKey: string | null) => {
     const place = pkg ? placeSubtitle(pkg, key) : '';

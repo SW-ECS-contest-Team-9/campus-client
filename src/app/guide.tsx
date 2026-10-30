@@ -1,7 +1,9 @@
 // CT07 3D 지도 안내: 지금 할 일(단계), 현재 위치 층(추정)과 확인, 3D 지도(경로 + 위치 따라가기), 남은 시간, 도착 확인 / 안내 종료.
 // 위치가 불확실하면 단계 안내 대신 위치 확인으로 보냄(제품 규칙 02). AR 은 넣지 않음.
 import { Redirect, router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createRouteFollower, distrustZones } from '../route/follow';
+import { DEFAULT_GPS_DISTRUST } from '../location/matcher';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { displayName, floorCode, floorLabel } from '../map/labels';
 import { minutesOf } from '../route/time';
@@ -27,6 +29,31 @@ export default function GuideScreen() {
     setStepRoute(r);
     setStep0(0);
   }
+  // 자동 진행: 보정 위치 → 경로 위 거리(m) → 그 거리가 든 단계. 손으로 넘긴 단계보다 앞일 때만 앞으로(뒤로는 안 감)
+  const follower = useMemo(
+    () =>
+      r?.ok && app.pkg
+        ? createRouteFollower(r.points, { zones: distrustZones(app.pkg.buildings, Object.keys(DEFAULT_GPS_DISTRUST)) })
+        : null,
+    [r, app.pkg],
+  );
+  const stepEnds = useMemo(() => {
+    const out: number[] = [];
+    let acc = 0;
+    for (const s of r?.ok ? r.steps : []) out.push((acc += s.lengthM));
+    return out;
+  }, [r]);
+  useEffect(() => {
+    const f = app.fix;
+    if (!follower || !f || f.uncertain || !app.pkg) return;
+    const fk = app.confirmedFloor?.floorKey ?? f.match?.floorKey ?? null;
+    const floorZ = fk ? (app.pkg.floors.find((x) => x.key === fk)?.floorZ ?? null) : null;
+    const st = follower.update({ x: f.x, y: f.y, z: floorZ ?? f.match?.z ?? null, uncertain: f.uncertain, raw: null });
+    if (st.status !== 'following' || st.m == null) return;
+    const at = stepEnds.findIndex((end) => st.m! < end - 2); // 단계 끝 2 m 전부터 다음 단계
+    const next = at < 0 ? stepEnds.length - 1 : at;
+    setStep0((cur) => (next > cur ? next : cur)); // eslint-disable-line react-hooks/set-state-in-effect -- 위치가 올 때마다 단계 맞춤
+  }, [app.fix, app.confirmedFloor, app.pkg, follower, stepEnds]);
   if (!app.pkg || !r?.ok) return <Redirect href="/" />;
   const pkg = app.pkg;
   const i = Math.min(step0, r.steps.length - 1);

@@ -1,6 +1,6 @@
 // 사용자용 3D 페이지(client3d.html)의 끼워 넣기 메시지 형식 v1. 브라우저·Cesium 에 의존하지 않음(시험 가능).
 // 받는 명령: setLocation, clearLocation, setRoute, clearRoute, focus, setFloor, setMarkerImages, setMode.
-// 보내는 사건: ready, pick, error. 모든 메시지에 v: 1.
+// 보내는 사건: ready(장면 준비), firstFrame(네이티브 첫 프레임 제출), pick, error. 모든 메시지에 v: 1.
 // 좌표: 경로·focus 는 EPSG:5186 [x, y, z(MSL m)], 위치는 WGS84 lon/lat + z(MSL m).
 
 export const PROTOCOL_VERSION = 1;
@@ -20,6 +20,7 @@ export type Command =
 
 export type PageEvent =
   | { v: 1; type: 'ready'; buildings: { id: string; name: string }[]; light: boolean }
+  | { v: 1; type: 'firstFrame' }
   | { v: 1; type: 'pick'; kind: 'building' | 'place' | 'point'; id?: string; name?: string; x: number; y: number; z: number }
   | { v: 1; type: 'error'; error: string; command?: string };
 

@@ -69,6 +69,7 @@ function Shared3D({ children }: { children: React.ReactNode }) {
         light={app.settings.light || app.tier === 3}
         places={places}
         onFirstReady={app.noteFirst3dReady}
+        onPreparationChange={app.note3dPreparation}
       >
         {children}
       </Map3DHost>

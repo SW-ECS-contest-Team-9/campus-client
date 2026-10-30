@@ -18,6 +18,13 @@ import { Campus3DView, type Campus3DHandle } from '../map3d/native/Campus3DView'
 import { note3dStat } from '../map3d/diag';
 
 export type Map3dEngine = 'native' | 'web';
+/** 로딩 UI와 독립적인 준비 신호. 웹 페이지는 아직 첫 프레임을 보고하지 않음(null). */
+export interface Map3dPreparation {
+  sceneReady: boolean;
+  /** 네이티브 첫 프레임을 그리고 화면에 제출했음(실제 디스플레이 표시 시각은 아님). */
+  firstFrameReady: boolean | null;
+  failed: boolean;
+}
 /** 네이티브 3D 위에 찍을 장소 점(꾸러미 장소, EPSG:5186) */
 export interface Map3dPlace {
   id: string;
@@ -84,6 +91,7 @@ export function Map3DHost({
   places,
   children,
   onFirstReady,
+  onPreparationChange,
 }: {
   /** 웹 엔진의 페이지 주소 */
   url: string;
@@ -94,6 +102,8 @@ export function Map3DHost({
   children: ReactNode;
   /** 앱 켠 뒤 첫 ready 까지 걸린 시간(ms, 한 번) — 기기 등급 확인용 */
   onFirstReady?: (ms: number, engine: Map3dEngine) => void;
+  /** 초기 상태·재시도·장면 준비·첫 프레임·실패 시 앱 공통 상태로 전달. */
+  onPreparationChange?: (preparation: Map3dPreparation) => void;
 }) {
   const [t0] = useState(() => Date.now());
   const firstReady = useRef(false);
@@ -110,6 +120,24 @@ export function Map3DHost({
   const web = useRef<WebView | null>(null);
   const native = useRef<Campus3DHandle | null>(null);
   const useNative = engine === 'native' && Platform.OS !== 'web';
+  const source = useNative ? `native:${light}` : url;
+  const preparationKey = JSON.stringify([source, attempt]);
+  const [preparation, setPreparation] = useState(() => ({
+    key: preparationKey,
+    sceneReady: false,
+    firstFrameReady: false,
+    failed: false,
+  }));
+  if (preparation.key !== preparationKey) {
+    setPreparation({ key: preparationKey, sceneReady: false, firstFrameReady: false, failed: false });
+  }
+  useEffect(() => {
+    onPreparationChange?.({
+      sceneReady: preparation.sceneReady,
+      firstFrameReady: useNative ? preparation.firstFrameReady : null,
+      failed: preparation.failed || status === 'failed',
+    });
+  }, [preparation, useNative, status, onPreparationChange]);
   const ready = useRef(false);
   const lastUi = useRef<boolean | null>(null);
   const markersSent = useRef(false);
@@ -198,6 +226,15 @@ export function Map3DHost({
     (raw: unknown) => {
       const e = parseEvent(raw);
       if (!e) return;
+      // 이전 엔진/재시도에서 늦게 도착한 사건은 새 준비 상태에 반영하지 않음.
+      if (e.type === 'ready' || e.type === 'firstFrame' || (e.type === 'error' && /^native3d:/.test(e.error))) {
+        setPreparation((cur) => {
+          if (cur.key !== preparationKey) return cur;
+          if (e.type === 'ready') return { ...cur, sceneReady: true };
+          if (e.type === 'firstFrame') return { ...cur, firstFrameReady: true };
+          return { ...cur, failed: true };
+        });
+      }
       if (e.type === 'ready') {
         if (!firstReady.current) {
           firstReady.current = true;
@@ -213,11 +250,10 @@ export function Map3DHost({
       if (e.type === 'error' && /^native3d:/.test(e.error) && !ready.current) setStatus('failed');
       handler.current?.(e);
     },
-    [t0],
+    [t0, preparationKey],
   );
 
   // 엔진·주소·가벼운 모드가 바뀌면 다시 불러옴. 너무 오래 ready 가 안 오면 실패.
-  const source = useNative ? `native:${light}` : url;
   const [loadedSource, setLoadedSource] = useState(source);
   if (loadedSource !== source) {
     setLoadedSource(source);
@@ -225,7 +261,13 @@ export function Map3DHost({
   }
   useEffect(() => {
     ready.current = false;
-    const t = setTimeout(() => !ready.current && setStatus('failed'), READY_TIMEOUT_MS);
+    const t = setTimeout(() => {
+      if (!ready.current) setStatus('failed');
+      // 기존 UI의 ready 기준은 유지하면서, 첫 프레임 이전의 정지도 준비 실패로 전달.
+      if (useNative) {
+        setPreparation((cur) => (cur.key === preparationKey && !cur.firstFrameReady ? { ...cur, failed: true } : cur));
+      }
+    }, READY_TIMEOUT_MS);
     let cancelled = false;
     if (Platform.OS === 'web')
       fetch(source, { mode: 'no-cors' }).catch(() => {
@@ -235,7 +277,7 @@ export function Map3DHost({
       cancelled = true;
       clearTimeout(t);
     };
-  }, [source, attempt]);
+  }, [source, attempt, preparationKey, useNative]);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;

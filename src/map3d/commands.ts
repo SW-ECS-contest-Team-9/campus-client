@@ -32,6 +32,8 @@ export function parseEvent(raw: unknown): Map3dEvent | null {
   if (e.v !== V || typeof e.type !== 'string') return null;
   const n = (k: string) => typeof e[k] === 'number' && Number.isFinite(e[k] as number);
   switch (e.type) {
+    case 'firstFrame':
+      return { v: 1, type: 'firstFrame' };
     case 'ready':
       return Array.isArray(e.buildings) ? (e as unknown as Map3dEvent) : null;
     case 'pick':

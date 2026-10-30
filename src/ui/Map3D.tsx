@@ -8,7 +8,7 @@ import { Animated, Platform, StyleSheet, Text, View, type StyleProp, type ViewSt
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurTargetView } from 'expo-blur';
-import { BlurTargetCtx } from './look';
+import { BlurTargetCtx, useLook } from './look';
 import { Character } from './v3';
 import { parseEvent, type Map3dCommand, type Map3dEvent } from '../map3d/commands';
 import { CHARACTER_OK, CHARACTER_UNCERTAIN } from './characterImages';
@@ -46,6 +46,8 @@ interface Slot {
   padding?: { top: number; bottom: number };
   /** 탭 전환 때 3D 를 화면과 함께 옆으로 미는 값(dp) */
   offset?: Animated.Value;
+  /** 사용자가 지도를 만지기 시작할 때(시트 접기 등) */
+  onTouch?: () => void;
 }
 interface Api {
   put: (s: Slot) => void;
@@ -276,7 +278,7 @@ export function Map3DHost({
                   style={{ border: 0, width: '100%', height: '100%', display: 'block', pointerEvents: shown ? 'auto' : 'none' }}
                 />
               ) : (
-                <BlurTargetView ref={blurTarget} style={s.fill}>
+                <BlurTargetView ref={blurTarget} style={s.fill} onTouchStart={() => slot?.onTouch?.()}>
                   {useNative ? (
                     root ? (
                       <View
@@ -364,9 +366,12 @@ export function MapSlot({
   style,
   padding,
   tabSlide,
+  onTouch,
 }: {
   /** 지도 위·아래를 가리는 카드 높이(dp): 네이티브 3D 가 보이는 부분 가운데에 맞춤 */
   padding?: { top: number; bottom: number };
+  /** 사용자가 지도를 만지기 시작할 때 */
+  onTouch?: () => void;
   commands: (Map3dCommand | null)[];
   onEvent?: (e: Map3dEvent) => void;
   minimal?: boolean;
@@ -399,8 +404,9 @@ export function MapSlot({
   );
 
   const [offset] = useState(() => new Animated.Value(0));
+  const { moving } = useLook(); // 동작 줄이기면 3D 도 밀지 않고 바로
   useEffect(() => {
-    api?.put({ id, rect, commands: list, minimal, onEvent, overlay, padding, offset });
+    api?.put({ id, rect, commands: list, minimal, onEvent, overlay, padding, offset, onTouch });
   });
   // 화면이 스택에서 제거될 때 보관한 UI도 함께 정리.
   useEffect(() => () => api?.remove(id), [api, id]);
@@ -412,7 +418,8 @@ export function MapSlot({
     addListener: (type: string, cb: () => void) => () => void;
     getState: () => { type?: string; index: number; routes: { name: string }[] } | undefined;
   };
-  const slideTo = (to: number) => Animated.timing(offset, { toValue: to, ...tabSlideSpec, useNativeDriver: true }).start();
+  const slideTo = (to: number) =>
+    Animated.timing(offset, { toValue: to, ...tabSlideSpec, duration: moving ? tabSlideSpec.duration : 0, useNativeDriver: true }).start();
   useEffect(() => {
     if (exitX == null) return;
     const a = nav.addListener('transitionStart', () => {

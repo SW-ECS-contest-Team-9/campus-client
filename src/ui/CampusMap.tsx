@@ -1,6 +1,7 @@
 // 화면들이 쓰는 지도: 공용 3D 지도 자리(MapSlot) + 현재 위치·확인한 층 명령, 못 불러오면 평면 지도(MapView).
 import { router } from 'expo-router';
 import { useMemo, type ReactNode } from 'react';
+import { StyleSheet, View } from 'react-native';
 import type { XYZ } from '../map/package';
 import { floorCommand, locationCommand, packagePlaceKey, type Map3dCommand } from '../map3d/commands';
 import { useApp } from '../state/AppState';
@@ -24,6 +25,8 @@ interface Props {
   padding?: { top: number; bottom: number };
   /** 아래 탭 화면이면 탭 전환 때 3D 를 같이 밀기(MapSlot 참고) */
   tabSlide?: { route: string; exitX: number };
+  /** 사용자가 지도를 만지기 시작할 때 */
+  onTouch?: () => void;
 }
 
 export function CampusMap({
@@ -36,6 +39,7 @@ export function CampusMap({
   overlay,
   padding,
   tabSlide,
+  onTouch,
 }: Props) {
   const app = useApp();
   const pkg = app.pkg;
@@ -63,6 +67,28 @@ export function CampusMap({
   const all = useMemo(() => [loc, ...floors, ...commands], [loc, floors, commands]);
   if (!pkg) return null;
   const openPlace = (key: string) => router.push({ pathname: '/place/[key]', params: { key } });
+  const flat = (
+    <MapView
+      pkg={pkg}
+      floorSel={app.floorSel}
+      routePoints={routePoints}
+      highlightPlaceKeys={highlightPlaceKeys}
+      me={app.fix}
+      focus={routeFocus}
+      onPlacePress={pickPlaces ? openPlace : undefined}
+      bottomInset={padding?.bottom ?? 0}
+    />
+  );
+  // 설정 "2D 지도"면 공용 3D 자리를 쓰지 않고 평면 지도만(3D 는 숨겨진 채 유지)
+  if (app.settings.map2d)
+    return (
+      <View style={s.fill}>
+        <View style={s.fill} onTouchStart={onTouch}>
+          {flat}
+        </View>
+        {overlay}
+      </View>
+    );
   return (
     <MapSlot
       commands={all}
@@ -70,23 +96,16 @@ export function CampusMap({
       overlay={overlay}
       padding={padding}
       tabSlide={tabSlide}
+      onTouch={onTouch}
       onEvent={(e) => {
         if (pickPlaces && e.type === 'pick' && e.kind === 'place' && e.id) {
           const key = packagePlaceKey(e.id);
           if (pkg.places.some((p) => p.key === key)) openPlace(key);
         }
       }}
-      fallback={
-        <MapView
-          pkg={pkg}
-          floorSel={app.floorSel}
-          routePoints={routePoints}
-          highlightPlaceKeys={highlightPlaceKeys}
-          me={app.fix}
-          focus={routeFocus}
-          onPlacePress={pickPlaces ? openPlace : undefined}
-        />
-      }
+      fallback={flat}
     />
   );
 }
+
+const s = StyleSheet.create({ fill: { flex: 1 } });

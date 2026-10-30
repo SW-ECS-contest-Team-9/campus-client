@@ -1,9 +1,11 @@
 // CT03 장소 상세(층 확인): 3D 지도에서 그 건물의 그 층을 보여 줌, 보는 층 고르기, 장소 저장 / 여기로 길찾기.
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { sceneBuildingId, type Map3dCommand } from '../../map3d/commands';
-import { buildingName, floorCode, floorsOf, placeSubtitle } from '../../map/labels';
+import { buildingName, displayName, floorCode, floorsOf, placeSubtitle } from '../../map/labels';
+import { beginRoute } from '../../location/goRoute';
 import { useApp } from '../../state/AppState';
+import { useToast } from '../../ui/feedback';
 import { CampusMap } from '../../ui/CampusMap';
 import { color, space, type } from '../../ui/theme';
 import { Button, FloorItem, StatusChip } from '../../ui/components';
@@ -23,6 +25,7 @@ const CATEGORY: Record<string, string> = {
 export default function PlaceScreen() {
   const { key } = useLocalSearchParams<{ key: string }>();
   const app = useApp();
+  const toast = useToast();
   const pkg = app.pkg;
   const p = pkg?.places.find((x) => x.key === key);
   if (!pkg || !p)
@@ -48,18 +51,26 @@ export default function PlaceScreen() {
   const floorName = floorCode(pkg, p.floorKey);
   return (
     <Screen
-      title={buildingName(pkg, p.buildingKey) || p.name}
+      title={displayName(p.name)}
       scroll={false}
       footer={
         <View style={s.actions}>
-          <Button variant="secondary" label={fav ? '저장됨' : '장소 저장'} onPress={() => app.toggleFavorite(p.key)} style={{ flex: 1 }} />
+          <Button
+            variant="secondary"
+            label={fav ? '저장됨' : '장소 저장'}
+            onPress={() => {
+              void app.toggleFavorite(p.key);
+              toast(fav ? '저장을 해제했어요' : '저장했어요', { label: '되돌리기', onPress: () => void app.toggleFavorite(p.key) });
+            }}
+            style={{ flex: 1 }}
+          />
           <Button
             label="여기로 길찾기"
             disabled={!p.nodeKey}
             onPress={() => {
               app.setNlp(null); // 말로 한 요청의 필수 조건은 그 요청에만
               app.setDestKey(p.key);
-              router.navigate('/start');
+              beginRoute(pkg, app.graph, app.fix, { start: app.setStart });
             }}
             style={{ flex: 2 }}
           />
@@ -82,12 +93,10 @@ export default function PlaceScreen() {
         />
       </View>
       <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 4 }}>
-        <Text style={s.name}>
-          {floorName ? `${floorName} ` : ''}
-          {p.name}
-        </Text>
+        <Text style={s.name}>{displayName(p.name)}</Text>
         <P tone="muted">
-          {CATEGORY[p.category] ?? p.category} · {placeSubtitle(pkg, p.key)}
+          {CATEGORY[p.category] ?? p.category} ·{' '}
+          {buildingName(pkg, p.buildingKey) ? `${buildingName(pkg, p.buildingKey)} ${floorName ?? '층 모름'}` : placeSubtitle(pkg, p.key)}
         </P>
         {p.nodeKey ? (
           <StatusChip

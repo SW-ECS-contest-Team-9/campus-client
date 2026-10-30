@@ -76,6 +76,20 @@ export async function createCampusScene(o: SceneOptions) {
   // 블록(예: '한림관#고리')은 기본 건물('한림관')에 딸림 — 펼치기·비침·고르기를 함께
   const baseId = (id: string) => id.split('#')[0];
   const blocksOf = (id: string) => [...buildings.values()].filter((b) => baseId(b.id) === id);
+  // 저사양 모드(R22): PBR(Standard) 재질을 Lambert 로 바꿔 픽셀 조명 계산을 줄임(색·정점 색·투명은 그대로). 구조물(나무·작은 물체)과 선은 숨김.
+  // 사례: three.js 모바일 지침(그림자·안티앨리어싱 끄기, 단순 조명, 해상도 낮추기), Google Maps Go(3D 같은 무거운 기능을 뺀 경량판).
+  const lowSpec = !!o.light;
+  if (lowSpec) {
+    const swapped = new Map<THREE.Material, THREE.Material>();
+    root.traverse((n: any) => {
+      const m = n.material as THREE.MeshStandardMaterial | undefined;
+      if (!m || !(m as any).isMeshStandardMaterial) return;
+      let l = swapped.get(m);
+      if (!l) { l = new THREE.MeshLambertMaterial({ color: m.color, vertexColors: m.vertexColors, transparent: m.transparent, opacity: m.opacity, side: m.side, map: m.map ?? null }); swapped.set(m, l); }
+      n.material = l;
+    });
+    if (layer.structures) layer.structures.visible = false;
+  }
   // 건물 재질은 하나를 나눠 씀 → 비침(한 층 보기)을 위해 건물마다 복제
   for (const b of buildings.values()) { const m = (b.node.material as THREE.MeshStandardMaterial).clone(); m.transparent = false; b.node.material = m; }
   for (const b of buildings.values()) for (const f of b.floors) f.node.material = new THREE.MeshLambertMaterial({ color: COLOR.floor, vertexColors: false, transparent: true, opacity: 0.92, side: THREE.DoubleSide });
@@ -120,6 +134,36 @@ export async function createCampusScene(o: SceneOptions) {
     if (Math.abs(near - camera.near) > 0.01) { camera.near = near; camera.updateProjectionMatrix(); }
   };
   home();
+
+  // ---------- 저사양: 낮은 해상도 버퍼에 그리고 화면에 펼침(expo-gl 표면 크기는 못 바꾸므로 render target 으로) ----------
+  const LOW_SCALE = 0.6;
+  let lowRt: THREE.WebGLRenderTarget | null = null;
+  const blitScene = new THREE.Scene();
+  const blitCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const blitMat = new THREE.MeshBasicMaterial({ depthTest: false, depthWrite: false });
+  blitScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), blitMat));
+  const ensureLowRt = () => {
+    const w = Math.max(1, Math.round(o.width * LOW_SCALE)), h = Math.max(1, Math.round(o.height * LOW_SCALE));
+    if (!lowRt || lowRt.width !== w || lowRt.height !== h) {
+      lowRt?.dispose();
+      lowRt = new THREE.WebGLRenderTarget(w, h, { depthBuffer: true, stencilBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+      blitMat.map = lowRt.texture;
+      blitMat.needsUpdate = true;
+    }
+    return lowRt;
+  };
+  let lastInfo = { calls: 0, triangles: 0, points: 0, lines: 0, frame: 0 };
+  const draw = () => {
+    if (!lowSpec) { renderer.render(scene, camera); lastInfo = { ...renderer.info.render }; return; }
+    const rt = ensureLowRt();
+    renderer.setRenderTarget(rt);
+    renderer.render(scene, camera);
+    lastInfo = { ...renderer.info.render }; // 측정은 장면 그리기 기준(펼치기 1콜 제외)
+    renderer.setRenderTarget(null);
+    renderer.render(blitScene, blitCam);
+  };
+  // 저사양 1인칭: 30 fps 상한(연속 그리기라 배터리·발열)
+  let lastFpDraw = 0;
 
   // ---------- 다시 그리기: 바뀐 것이 있을 때만(배터리) ----------
 
@@ -343,9 +387,11 @@ export async function createCampusScene(o: SceneOptions) {
   function frameTick() {
     if (fp.active()) {
       const t = now() / 1000;
+      if (lowSpec && t - lastFpDraw < 1 / 30) return false;
+      lastFpDraw = t;
       fp.tick(lastT ? t - lastT : 0);
       lastT = t;
-      renderer.render(scene, camera);
+      draw();
       fpEmit();
       return true;
     }
@@ -353,7 +399,7 @@ export async function createCampusScene(o: SceneOptions) {
     needs = false;
     applyCamera();
     placeMarker();
-    renderer.render(scene, camera);
+    draw();
     return true;
   }
   // ---------- 이름표 자리(campus-client 추가): 건물 이름(지붕 가운데 위), 화면 좌표 ----------
@@ -415,7 +461,7 @@ export async function createCampusScene(o: SceneOptions) {
   }
 
   resize(o.width, o.height);
-  const info = () => ({ ...renderer.info.render, geometries: renderer.info.memory.geometries });
+  const info = () => ({ ...lastInfo, geometries: renderer.info.memory.geometries });
   emit({ type: 'ready', buildings: [...buildings.values()].filter((b) => baseId(b.id) === b.id).map((b) => ({ id: b.id, name: b.name })), light });
   return { command, frameTick, resize, pan, zoom, rotate, tilt, tap, home, markerScreen, info, redraw: dirty,
     firstPerson,

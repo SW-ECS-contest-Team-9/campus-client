@@ -1,20 +1,61 @@
-// CT01 캠퍼스 지도(V3): 3D 지도가 화면 전체(V3-1), 위에 유리 검색 알약, 아래 끄는 시트("어디로 갈까요?"), 떠 있는 탭 캡슐.
+// CT01 캠퍼스 지도(V3): 지도가 화면 전체(V3-1), 위에 검색 알약, 아래 끄는 시트("어디로 갈까요?", 지도를 만지면 접힘), 떠 있는 탭 캡슐.
 // 지도 위 부품은 모두 overlay 로 공용 3D 지도와 함께 그림(3D 가 화면 위에 겹쳐 있어서).
 import { router, useFocusEffect } from 'expo-router';
-import { Bookmark, Clock, House, Layers, MapPin, Navigation, Search, Settings } from 'lucide-react-native';
+import {
+  Bookmark,
+  Box,
+  Clock,
+  House,
+  Layers,
+  Map as MapIcon,
+  MapPin,
+  Navigation,
+  Search,
+  Settings,
+  type LucideIcon,
+} from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { BackHandler, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { buildingName, floorLabel } from '../../map/labels';
+import { beginRoute } from '../../location/goRoute';
+import { buildingName, displayName, floorLabel } from '../../map/labels';
 import { useApp } from '../../state/AppState';
 import { CampusMap } from '../../ui/CampusMap';
+import { CoachMarks } from '../../ui/CoachMarks';
 import { useMap3dControls } from '../../ui/Map3D';
 import { IconButton, PressScale, SearchInput, StatusChip } from '../../ui/components';
 import { TabBar } from '../../ui/kit';
 import { color, gradient, shape, type } from '../../ui/theme';
-import { Character, Glass, Gradient, Sheet } from '../../ui/v3';
+import { Character, Gradient, Sheet } from '../../ui/v3';
 
 const TAB_H = 88;
+/** 시트 접힘(손잡이 + 제목 줄)·펼침 높이 */
+const SHEET_MIN = 84;
+const SHEET_MAX = 300;
+
+/** 지도 위 둥근 단추 + 2~3자 이름(초등학생도 뜻을 알게) */
+function CtlButton({
+  icon,
+  label,
+  text,
+  onPress,
+  on,
+  iconColor,
+}: {
+  icon: LucideIcon;
+  label: string;
+  text: string;
+  onPress: () => void;
+  on?: boolean;
+  iconColor?: string;
+}) {
+  return (
+    <View style={s.ctlItem}>
+      <IconButton icon={icon} label={label} tone={on ? 'primary' : 'surface'} onPress={onPress} iconColor={iconColor} />
+      <Text style={s.ctlT}>{text}</Text>
+    </View>
+  );
+}
 
 export default function Home() {
   const app = useApp();
@@ -22,7 +63,9 @@ export default function Home() {
   const { width } = useWindowDimensions();
   const [locMsg, setLocMsg] = useState<string | null>(null);
   const [exploded, setExploded] = useState(false);
+  const [collapse, setCollapse] = useState(0);
   const map = useMap3dControls();
+  const map2d = app.settings.map2d;
   // 지도에서는 탭 방문 기록 대신 앱 종료. 화면을 떠나면 다른 화면의 뒤로가기에 맡긴다.
   useFocusEffect(
     useCallback(() => {
@@ -67,28 +110,19 @@ export default function Home() {
     .filter((x, i, a) => a.findIndex((q) => q.p.key === x.p.key) === i)
     .slice(0, 4);
   const bottom = inset.bottom + TAB_H;
-  // 지도 단추 세로 묶음(오른쪽, 시트 위): 네이티브 3D 면 층 펼치기·처음 시점·내 위치, 웹 3D 면 내 위치만(페이지 자체 단추가 있음)
-  const ctlBottom = bottom + PEEK + 12;
+  // 지도 단추 세로 묶음(오른쪽, 시트 위): 2D/3D, 층 펼치기·처음 시점(3D 일 때), 내 위치
+  const ctlBottom = bottom + SHEET_MIN + 12;
 
   return (
     <View style={s.root}>
       <CampusMap
         tabSlide={{ route: 'index', exitX: -width }}
-        padding={{ top: inset.top + 172, bottom: bottom + PEEK }}
+        padding={{ top: inset.top + 110, bottom: bottom + SHEET_MIN }}
+        onTouch={() => setCollapse((n) => n + 1)}
         overlay={
           <>
-            {/* 위: 이름 알약 + 설정, 검색 알약 */}
-            <View style={[s.top, { paddingTop: inset.top + 8, right: map.available ? 16 : 92 }]} pointerEvents="box-none">
-              <View style={s.brandRow} pointerEvents="box-none">
-                <Glass dark radius={shape.pill} style={s.brand}>
-                  <View style={s.brandDot}>
-                    <Gradient />
-                  </View>
-                  <Text style={s.brandT} accessibilityRole="header">
-                    서경대 캠퍼스 길찾기
-                  </Text>
-                </Glass>
-              </View>
+            {/* 위: 검색 알약과 위치 상태(앱 이름 알약은 뺌: 지도를 더 크게, 제목은 시트 "어디로 갈까요?") */}
+            <View style={[s.top, { paddingTop: inset.top + 8, right: map.available || map2d ? 16 : 92 }]} pointerEvents="box-none">
               <SearchInput onPress={() => router.navigate('/search')} />
               {fixText ? (
                 <View pointerEvents="none" accessibilityLiveRegion="polite">
@@ -117,17 +151,25 @@ export default function Home() {
               ) : null}
             </View>
             <View style={[s.ctl, { bottom: ctlBottom }]} pointerEvents="box-none">
-              {map.available ? (
+              <CtlButton
+                icon={map2d ? Box : MapIcon}
+                label={map2d ? '3D 지도로 보기' : '평면 지도로 보기'}
+                text={map2d ? '3D' : '2D'}
+                onPress={() => void app.updateSettings({ map2d: !map2d })}
+              />
+              {map.available && !map2d ? (
                 <>
-                  <IconButton
+                  <CtlButton
                     icon={Layers}
                     label={exploded ? '층 접기' : '층 펼치기(가운데 건물)'}
-                    tone={exploded ? 'primary' : 'surface'}
+                    text="층"
+                    on={exploded}
                     onPress={() => setExploded(map.toggleExplode())}
                   />
-                  <IconButton
+                  <CtlButton
                     icon={House}
                     label="처음 시점"
+                    text="처음"
                     onPress={() => {
                       if (exploded) setExploded(map.toggleExplode());
                       map.home();
@@ -135,10 +177,11 @@ export default function Home() {
                   />
                 </>
               ) : null}
-              <IconButton icon={Navigation} label="내 위치" onPress={locate} iconColor={color.route} />
+              <CtlButton icon={Navigation} label="내 위치" text="내 위치" onPress={locate} iconColor={color.route} />
             </View>
             <Sheet
-              snaps={[PEEK, 300]}
+              snaps={[SHEET_MIN, SHEET_MAX]}
+              collapseSignal={collapse}
               bottomOffset={bottom}
               header={<Text style={s.sheetT}>어디로 갈까요?</Text>}
               headerActions={
@@ -158,13 +201,18 @@ export default function Home() {
                     {shortcuts.map(({ p, fav }) => (
                       <PressScale
                         key={p.key}
-                        accessibilityLabel={`${p.name}${fav ? ', 저장한 장소' : ', 최근 도착지'}`}
+                        accessibilityLabel={`${displayName(p.name)}${fav ? ', 저장한 장소' : ', 최근 도착지'}, 바로 길찾기`}
                         style={(on) => [s.quickB, on && { backgroundColor: color.primarySoftPressed }]}
-                        onPress={() => router.navigate({ pathname: '/place/[key]', params: { key: p.key } })}
+                        onPress={() => {
+                          if (!p.nodeKey) return router.navigate({ pathname: '/place/[key]', params: { key: p.key } });
+                          app.setNlp(null);
+                          app.setDestKey(p.key);
+                          beginRoute(pkg, app.graph, app.fix, { start: app.setStart });
+                        }}
                       >
                         {fav ? <Bookmark size={16} color={color.primary} /> : <Clock size={16} color={color.primary} />}
                         <Text style={s.quickT} numberOfLines={1}>
-                          {p.name}
+                          {displayName(p.name)}
                         </Text>
                       </PressScale>
                     ))}
@@ -183,24 +231,21 @@ export default function Home() {
           </>
         }
       />
+      <CoachMarks visible={app.settingsLoaded && !app.settings.coachDone} onDone={() => void app.updateSettings({ coachDone: true })} />
     </View>
   );
 }
-
-const PEEK = 132;
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.canvas },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: color.canvas },
   loadingT: { fontSize: type.small, color: color.secondary, fontWeight: '600' },
-  // 오른쪽 위 88 dp 는 3D 페이지 자체 단추(처음 시점·층 펼치기) 자리라 비움
+  // 오른쪽 위 88 dp 는 웹 3D 페이지 자체 단추(처음 시점·층 펼치기) 자리라 비움
   top: { position: 'absolute', left: 16, right: 92, top: 0, gap: 10 },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 9 },
-  brandDot: { width: 12, height: 12, borderRadius: 6, overflow: 'hidden' },
-  brandT: { color: '#FFFFFF', fontSize: type.small, fontWeight: '800', letterSpacing: -0.2 },
-  unsaved: { alignSelf: 'flex-start' },
-  ctl: { position: 'absolute', right: 16, gap: 10, alignItems: 'center' },
+  unsaved: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
+  ctl: { position: 'absolute', right: 16, gap: 8, alignItems: 'center' },
+  ctlItem: { alignItems: 'center', gap: 2 },
+  ctlT: { fontSize: 11, fontWeight: '700', color: color.text },
   sheet: { paddingHorizontal: 20, paddingTop: 14 },
   sheetT: { fontSize: type.title - 2, fontWeight: '800', color: color.text, letterSpacing: -0.5 },
   settings: { shadowOpacity: 0, elevation: 0, borderColor: 'rgba(49,46,129,0.10)' },

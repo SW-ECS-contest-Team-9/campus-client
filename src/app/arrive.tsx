@@ -1,8 +1,9 @@
 // CT10 도착 확인.
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
-import { placeSubtitle } from '../map/labels';
+import { displayName, placeSubtitle } from '../map/labels';
 import { useApp } from '../state/AppState';
+import { useToast } from '../ui/feedback';
 import { Button } from '../ui/components';
 import { Card, H, P, Screen } from '../ui/kit';
 import { Character, Gradient } from '../ui/v3';
@@ -10,6 +11,7 @@ import { color, gradient, type } from '../ui/theme';
 
 export default function ArriveScreen() {
   const app = useApp();
+  const toast = useToast();
   const pkg = app.pkg;
   const dest = pkg?.places.find((p) => p.key === app.destKey);
   const fav = dest ? app.favorites.includes(dest.key) : false;
@@ -29,7 +31,15 @@ export default function ArriveScreen() {
           />
           <Button variant="secondary" label="아직이에요 · 위치 확인" onPress={() => router.push('/recheck')} />
           {dest ? (
-            <Button variant="quiet" label={fav ? '저장한 장소예요' : '이 장소 저장'} onPress={() => !fav && app.toggleFavorite(dest.key)} />
+            <Button
+              variant="quiet"
+              label={fav ? '저장한 장소예요' : '이 장소 저장'}
+              onPress={() => {
+                if (fav) return;
+                void app.toggleFavorite(dest.key);
+                toast('저장했어요');
+              }}
+            />
           ) : null}
         </>
       }
@@ -40,13 +50,13 @@ export default function ArriveScreen() {
         <Character name="arrive" size={132} />
       </View>
       <H>
-        {dest?.name ?? '목적지'}에{'\n'}도착하셨나요?
+        {dest ? displayName(dest.name) : '목적지'}에{'\n'}도착하셨나요?
       </H>
       <P>목적지 근처예요. 건물·층·입구 표지를 확인해 주세요.</P>
       {dest ? (
         <Card>
           <Text style={s.k}>{placeSubtitle(pkg, dest.key)}</Text>
-          <Text style={s.v}>{dest.name}</Text>
+          <Text style={s.v}>{displayName(dest.name)}</Text>
           <P tone="muted">같은 건물이라도 다른 층일 수 있어요.</P>
         </Card>
       ) : null}

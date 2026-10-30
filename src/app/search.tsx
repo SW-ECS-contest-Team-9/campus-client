@@ -2,10 +2,10 @@
 // mode=start 면 자연어 모드 없이 고른 장소를 출발점으로 지정하고 CT04 로 돌아간다.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Building, Info, MapPin, MessageCircleQuestion, Navigation, Search } from 'lucide-react-native';
-import { StyleSheet, Switch, Text, View } from 'react-native';
-import { startFromCurrentFix } from '../location/start';
-import { placeSubtitle } from '../map/labels';
+import { Building, Info, MapPin, MessageCircleQuestion, Navigation, Search, X } from 'lucide-react-native';
+import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
+import { beginRoute } from '../location/goRoute';
+import { displayName, placeSubtitle } from '../map/labels';
 import { describe as describeRequest, planFromRequest } from '../nlp/apply';
 import { mergeWithGemma, shouldAskGemma } from '../nlp/gemma';
 import { cancelInterpret, interpretWithGemma } from '../nlp/gemmaRuntime';
@@ -15,7 +15,8 @@ import { parseRouteRequest } from '../nlp/parse';
 import type { RouteRequest } from '../nlp/types';
 import { searchResults } from '../search/search';
 import { useApp } from '../state/AppState';
-import { Button, IconButton, ResultRow, SearchInput, StatusChip } from '../ui/components';
+import { Button, IconButton, ResultRow, SearchInput } from '../ui/components';
+import { useToast } from '../ui/feedback';
 import { Card, P, Screen, Section } from '../ui/kit';
 import { color, shape, type } from '../ui/theme';
 import { Character } from '../ui/v3';
@@ -28,6 +29,7 @@ const INITIAL_BUILDING_PLACES = 3;
 export default function SearchScreen() {
   const params = useLocalSearchParams<{ q?: string; mode?: string }>();
   const app = useApp();
+  const toast = useToast();
   const choosingStart = params.mode === 'start';
   const [q, setQ] = useState(params.q ?? '');
   // 사용자가 이 화면에서 직접 바꾸기 전에는 저장된 기본값을 따름(설정이 비동기로 불러와져도 반영).
@@ -121,13 +123,12 @@ export default function SearchScreen() {
     rememberSearch();
     app.setNlp(null);
     app.setDestKey(key);
-    app.setStart(startFromCurrentFix(pkg, app.graph, app.fix));
-    router.push('/start');
+    beginRoute(pkg, app.graph, app.fix, { start: app.setStart });
   };
   const pick = (key: string) => {
     rememberSearch();
     app.setStart({ type: 'place', placeKey: key });
-    router.back();
+    router.navigate('/preview'); // 출발 장소를 고르면 바로 경로(사례 R20)
   };
   // 알아들은 조건과 출발점을 채운 뒤 출발점 확인으로. 필수 조건은 앱 상태에 남아 경로 계산의 하드 필터가 됨.
   const go = () => {
@@ -136,9 +137,10 @@ export default function SearchScreen() {
     app.setNlp({ text: q.trim(), chips: describeRequest(req, pkg), notes: plan.notes, mandatory: plan.mandatory });
     app.setDestKey(plan.destKey);
     app.setCondition(plan.condition);
-    if (plan.origin.type === 'place') app.setStart({ type: 'place', placeKey: plan.origin.placeKey });
-    else app.setStart(startFromCurrentFix(pkg, app.graph, app.fix));
-    router.push('/start');
+    if (plan.origin.type === 'place') {
+      app.setStart({ type: 'place', placeKey: plan.origin.placeKey });
+      router.push('/preview');
+    } else beginRoute(pkg, app.graph, app.fix, { start: app.setStart });
   };
   const sub = (key: string, nodeKey: string | null) => {
     const place = pkg ? placeSubtitle(pkg, key) : '';
@@ -151,7 +153,6 @@ export default function SearchScreen() {
     trailing:
       !choosingStart && nodeKey ? <IconButton icon={Info} label={`${name} 상세 보기`} onPress={() => openDetails(key)} /> : undefined,
   });
-  const offline = app.loaded?.source !== 'server';
   const visibleBuildings = showAllResults ? results.buildingHits : results.buildingHits.slice(0, INITIAL_BUILDINGS);
   const visiblePlaces = showAllResults ? results.placeHits : results.placeHits.slice(0, INITIAL_PLACES);
   const hiddenResultCount =
@@ -183,10 +184,6 @@ export default function SearchScreen() {
         accessibilityLabel={naturalSearch ? '자연어 길찾기 문장' : choosingStart ? '출발 장소 검색어' : '장소 또는 건물 검색어'}
         placeholder={choosingStart ? '출발 장소 이름' : naturalSearch ? '예: 계단 없이 북악관 편의점 가고 싶어' : '장소·건물 이름 또는 층'}
         onSubmitEditing={() => (naturalSearch && plan?.kind === 'go' ? go() : canAskAi ? void runAi() : undefined)}
-      />
-      <StatusChip
-        tone={offline ? 'offline' : 'info'}
-        label={`${offline ? '저장된 지도에서 검색 중' : '방금 받은 지도에서 검색 중'} · 지도 v${pkg?.release.version}`}
       />
       {naturalSearch && req && pkg && plan ? (
         <Card tone="primary" style={s.nlp}>
@@ -266,7 +263,7 @@ export default function SearchScreen() {
             {visibleBuildingPlaces.map((p) => (
               <View key={p.place.key} style={s.childResult}>
                 <ResultRow
-                  title={p.place.name}
+                  title={displayName(p.place.name)}
                   sub={sub(p.place.key, p.place.nodeKey)}
                   {...placeAction(p.place.key, p.place.name, p.place.nodeKey)}
                 />
@@ -287,7 +284,7 @@ export default function SearchScreen() {
       {visiblePlaces.map((h) => (
         <ResultRow
           key={h.place.key}
-          title={h.place.name}
+          title={displayName(h.place.name)}
           sub={sub(h.place.key, h.place.nodeKey)}
           {...placeAction(h.place.key, h.place.name, h.place.nodeKey)}
         />
@@ -299,16 +296,56 @@ export default function SearchScreen() {
           onPress={() => setShowAllResults((v) => !v)}
         />
       ) : null}
-      {!q && app.recentSearches.length ? <Section>최근 검색</Section> : null}
-      {!q ? app.recentSearches.map((r) => <ResultRow key={r} icon={Search} title={r} onPress={() => changeQuery(r)} />) : null}
+      {!q && app.recentSearches.length ? (
+        <View style={s.recentHead}>
+          <Section>최근 검색</Section>
+          <Button
+            variant="quiet"
+            label="전체 지우기"
+            onPress={() =>
+              Alert.alert('검색 기록을 모두 지울까요?', '되돌릴 수 없어요.', [
+                { text: '취소', style: 'cancel' },
+                {
+                  text: '지우기',
+                  style: 'destructive',
+                  onPress: () => {
+                    app.clearRecentSearches();
+                    toast('검색 기록을 모두 지웠어요');
+                  },
+                },
+              ])
+            }
+          />
+        </View>
+      ) : null}
+      {!q
+        ? app.recentSearches.map((r) => (
+            <ResultRow
+              key={r}
+              icon={Search}
+              title={r}
+              onPress={() => changeQuery(r)}
+              trailing={
+                <IconButton
+                  icon={X}
+                  label={`${r} 기록 지우기`}
+                  onPress={() => {
+                    app.removeRecentSearch(r);
+                    toast('기록 1개를 지웠어요', { label: '되돌리기', onPress: () => app.addRecentSearch(r) });
+                  }}
+                />
+              }
+            />
+          ))
+        : null}
       {!naturalSearch && q && !resultCount ? (
-        <Card tone="primary" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Character name="emptySearch" size={84} />
-          <View style={{ flex: 1, gap: 4 }}>
-            <P>「{q}」에 맞는 장소가 이 지도에 없어요</P>
-            <P tone="muted">건물 이름만(예: 북악관) 넣어 보거나, 새 지도를 받은 뒤 다시 찾아 주세요(설정 → 지도 갱신 확인).</P>
+        <View style={s.empty}>
+          <Character name="emptySearch" size={56} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <P>「{q}」에 맞는 곳이 없어요</P>
+            <P tone="muted">건물 이름만(예: 북악관) 넣어 보세요.</P>
           </View>
-        </Card>
+        </View>
       ) : null}
     </Screen>
   );
@@ -316,6 +353,8 @@ export default function SearchScreen() {
 
 const s = StyleSheet.create({
   modeCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  recentHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  empty: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   modeCopy: { flex: 1, gap: 2 },
   modeTitle: { fontSize: type.small, fontWeight: '800', color: color.text },
   buildingGroup: { gap: 6 },

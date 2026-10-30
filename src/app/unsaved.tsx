@@ -14,14 +14,14 @@ export default function UnsavedScreen() {
       title="지도 저장이 필요해요"
       footer={
         <>
-          <Button label="오프라인 지도 관리" onPress={() => router.dismissTo('/offline')} />
+          <Button label="지도 저장으로" onPress={() => router.dismissTo('/offline')} />
           <Button variant="secondary" label="지금 지도로 계속 보기" onPress={() => router.back()} />
         </>
       }
     >
       <Character name="offline" size={96} />
       <H>캠퍼스 지도를{'\n'}아직 받지 않았어요.</H>
-      <P>지금은 앱에 들어 있는 개발용 지도(v{app.pkg?.release.version})를 쓰고 있어요. 인터넷에 연결해 최신 지도를 받아 주세요.</P>
+      <P>지금은 앱에 들어 있는 지도(v{app.pkg?.release.version})를 쓰고 있어요. 인터넷에 연결하면 최신 지도를 받아요.</P>
       <Card>
         <P>캠퍼스 지도</P>
         <P tone="muted">{app.updateStatus ?? '받지 않음'}</P>
@@ -29,7 +29,7 @@ export default function UnsavedScreen() {
       </Card>
       <Card tone="primary">
         <P>지금 가능한 것</P>
-        <P tone="muted">개발 지도 안의 장소 검색과 길찾기는 계속 쓸 수 있어요.</P>
+        <P tone="muted">장소 검색과 길찾기는 지금 지도로도 계속 쓸 수 있어요.</P>
       </Card>
     </Screen>
   );

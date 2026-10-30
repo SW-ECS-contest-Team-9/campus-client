@@ -24,9 +24,11 @@ interface Props {
   me?: { x: number; y: number; accuracyM: number | null; uncertain: boolean } | null;
   onPlacePress?: (key: string) => void;
   focus?: { x: number; y: number }[]; // 처음 화면을 이 점들에 맞춤
+  /** 아래를 가리는 시트 높이(dp): 확대 단추를 그 위에 둠 */
+  bottomInset?: number;
 }
 
-export function MapView({ pkg, floorSel, routePoints, highlightPlaceKeys = [], me, onPlacePress, focus }: Props) {
+export function MapView({ pkg, floorSel, routePoints, highlightPlaceKeys = [], me, onPlacePress, focus, bottomInset = 0 }: Props) {
   const [size, setSize] = useState({ w: 360, h: 480 });
   const bounds = useMemo(() => {
     const xs = pkg.nodes.map((n) => n.x),
@@ -149,11 +151,21 @@ export function MapView({ pkg, floorSel, routePoints, highlightPlaceKeys = [], m
           </G>
         ) : null}
       </Svg>
-      <View style={styles.zoom}>
-        <Pressable style={styles.zbtn} onPress={() => setZoom((z) => Math.min(z * 1.5, 30))}>
+      <View style={[styles.zoom, { bottom: bottomInset + 12 }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="확대"
+          style={styles.zbtn}
+          onPress={() => setZoom((z) => Math.min(z * 1.5, 30))}
+        >
           <Text style={styles.ztxt}>+</Text>
         </Pressable>
-        <Pressable style={styles.zbtn} onPress={() => setZoom((z) => Math.max(z / 1.5, 0.5))}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="축소"
+          style={styles.zbtn}
+          onPress={() => setZoom((z) => Math.max(z / 1.5, 0.5))}
+        >
           <Text style={styles.ztxt}>−</Text>
         </Pressable>
       </View>
@@ -163,11 +175,11 @@ export function MapView({ pkg, floorSel, routePoints, highlightPlaceKeys = [], m
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: '#f8fafc', overflow: 'hidden' },
-  zoom: { position: 'absolute', right: 12, bottom: 12, gap: 8 },
+  zoom: { position: 'absolute', left: 12, gap: 8 },
   zbtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',

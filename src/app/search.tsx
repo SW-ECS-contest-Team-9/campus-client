@@ -158,7 +158,7 @@ export default function SearchScreen() {
     Math.max(0, results.buildingHits.length - INITIAL_BUILDINGS) + Math.max(0, results.placeHits.length - INITIAL_PLACES);
   const resultCount = results.buildingHits.length + results.placeHits.length;
   return (
-    <Screen title={choosingStart ? '출발 장소 고르기' : naturalSearch ? '자연어 검색' : '장소 검색'}>
+    <Screen title={choosingStart ? '출발 장소 고르기' : '장소 검색'}>
       {!choosingStart ? (
         <Card style={s.modeCard}>
           <View style={s.modeCopy}>

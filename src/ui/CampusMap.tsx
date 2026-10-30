@@ -22,6 +22,8 @@ interface Props {
   overlay?: ReactNode;
   /** 지도 위·아래를 가리는 카드 높이(dp) */
   padding?: { top: number; bottom: number };
+  /** 아래 탭 화면이면 탭 전환 때 3D 를 같이 밀기(MapSlot 참고) */
+  tabSlide?: { route: string; exitX: number };
 }
 
 export function CampusMap({
@@ -33,6 +35,7 @@ export function CampusMap({
   minimal = false,
   overlay,
   padding,
+  tabSlide,
 }: Props) {
   const app = useApp();
   const pkg = app.pkg!;
@@ -64,6 +67,7 @@ export function CampusMap({
       minimal={minimal}
       overlay={overlay}
       padding={padding}
+      tabSlide={tabSlide}
       onEvent={(e) => {
         if (pickPlaces && e.type === 'pick' && e.kind === 'place' && e.id) {
           const key = packagePlaceKey(e.id);

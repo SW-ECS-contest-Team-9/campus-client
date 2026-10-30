@@ -1,4 +1,5 @@
 // 디자인 토큰 한 곳(Figma Foundations 변수). 다시 꾸밀 때는 이 파일과 components.tsx 의 변형 표만 고친다.
+import { Easing } from 'react-native';
 export const color = {
   primary: '#4F46E5',
   primaryPressed: '#3730A3',
@@ -75,3 +76,6 @@ export const motion = {
   sheetSpring: { damping: 24, stiffness: 240, mass: 0.9 },
   pressScale: 0.96,
 };
+
+/** 아래 탭 전환(화면이 옆으로 밀림)과 공용 3D 지도가 같이 쓰는 시간·곡선 */
+export const tabSlideSpec = { duration: motion.base, easing: Easing.out(Easing.cubic) };

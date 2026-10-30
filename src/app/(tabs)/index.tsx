@@ -3,7 +3,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { Bookmark, Clock, House, Layers, MapPin, Navigation, Search, Settings } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import { BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../state/AppState';
 import { CampusMap } from '../../ui/CampusMap';
@@ -18,6 +18,7 @@ const TAB_H = 88;
 export default function Home() {
   const app = useApp();
   const inset = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const [locMsg, setLocMsg] = useState<string | null>(null);
   const [exploded, setExploded] = useState(false);
   const map = useMap3dControls();
@@ -75,6 +76,7 @@ export default function Home() {
   return (
     <View style={s.root}>
       <CampusMap
+        tabSlide={{ route: 'index', exitX: -width }}
         padding={{ top: inset.top + 172, bottom: bottom + PEEK }}
         overlay={
           <>

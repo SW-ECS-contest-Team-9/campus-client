@@ -30,6 +30,8 @@ export interface Campus3DHandle {
   /** 앱이 가진 지도 단추(campus-client 추가): 처음 시점, 층 펼치기(펼쳤으면 true), 내 위치로 */
   home: () => void;
   toggleExplode: () => boolean;
+  /** 숨겼다 다시 보일 때 다음 프레임을 꼭 그리게(표면 버퍼가 비어 흰 화면이 되지 않게) */
+  redraw: () => void;
   focusMe: () => void;
 }
 /** 장소 점(campus-client 추가): 꾸러미 장소, EPSG:5186. 누르면 pick(kind 'place', id). */
@@ -137,6 +139,7 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
     post,
     home: () => sceneRef.current?.home(),
     toggleExplode: () => sceneRef.current?.toggleExplode() ?? false,
+    redraw: () => sceneRef.current?.redraw(),
     focusMe: () => sceneRef.current?.focusMe(),
   }), [post]);
 

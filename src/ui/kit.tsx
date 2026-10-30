@@ -1,6 +1,6 @@
 // 화면 공통 틀과 짧은 이름 부품. 실제 모양은 ./components(Figma 컴포넌트 대응)에 있음.
 // 기준 기기 Galaxy S21(360×800 dp): 누르는 곳 48 dp 이상, CTA 52.
-import { router } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import { ChevronLeft, type LucideIcon } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -185,7 +185,7 @@ export const P = ({ children, tone }: { children: ReactNode; tone?: 'caution' | 
 export function TabBar({ at }: { at: TabKey }) {
   const inset = useSafeAreaInsets();
   const to = { map: '/', saved: '/saved', offline: '/offline' } as const;
-  return <TabBarView at={at} bottomInset={inset.bottom} onSelect={(k) => router.navigate(to[k])} />;
+  return <TabBarView at={at} focused={useIsFocused()} bottomInset={inset.bottom} onSelect={(k) => router.navigate(to[k])} />;
 }
 
 export const s = StyleSheet.create({

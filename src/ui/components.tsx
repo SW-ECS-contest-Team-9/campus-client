@@ -14,9 +14,10 @@ import {
   WifiOff,
   type LucideIcon,
 } from 'lucide-react-native';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Animated,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -358,15 +359,84 @@ export function MapPin({ type, size = 40, label }: { type: PinType; size?: numbe
 
 // ---------- Navigation/TabBar (4:586) ----------
 export type TabKey = 'map' | 'saved' | 'offline';
+const TAB_GAP = 4; // b.tabs.gap 과 같아야 함
+const TAB_PAD = 6; // b.tabs.padding(테두리 1 포함 안 함)
 const TABS: { k: TabKey; label: string; icon: LucideIcon }[] = [
   { k: 'map', label: '지도', icon: MapIcon },
   { k: 'saved', label: '저장', icon: Bookmark },
   { k: 'offline', label: '오프라인', icon: Download },
 ];
-export function TabBarView({ at, onSelect, bottomInset = 0 }: { at: TabKey; onSelect: (k: TabKey) => void; bottomInset?: number }) {
+// 알약 자리(탭 단위 0~2)는 탭 화면 셋이 함께 씀: 화면이 겹쳐 바뀌는 동안 세 탭 바가 같은 알약을 그려 하나로 보이게
+const pillX = new Animated.Value(0);
+let lastTabIndex = 0;
+export function TabBarView({
+  at,
+  focused = true,
+  onSelect,
+  bottomInset = 0,
+}: {
+  at: TabKey;
+  /** 이 탭 바가 있는 화면이 보이는 중인지(보일 때만 알약을 제 자리로) */
+  focused?: boolean;
+  onSelect: (k: TabKey) => void;
+  bottomInset?: number;
+}) {
+  const reduce = !useLook().moving;
+  const idx = Math.max(
+    0,
+    TABS.findIndex((t) => t.k === at),
+  );
+  const [w, setW] = useState(0); // 탭 하나 너비
+  const x = pillX;
+  const [drag] = useState(() => ({ from: lastTabIndex })); // 끌기 시작 때 알약 자리
+  const last = TABS.length - 1;
+  const clamp = (v: number) => Math.min(last, Math.max(0, v));
+  const settle = (to: number) => {
+    if (reduce) x.setValue(to);
+    else Animated.spring(x, { toValue: to, ...motion.sheetSpring, useNativeDriver: true }).start();
+  };
+  useEffect(() => {
+    if (!focused) return;
+    lastTabIndex = idx;
+    settle(idx);
+  }, [focused, idx]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 알약 끌기: 옆으로 6 px 넘게 움직이면 끌기(그 전에는 탭 누르기), 놓으면 가까운 탭으로
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 6 && Math.abs(g.dx) > Math.abs(g.dy),
+        onPanResponderGrant: () =>
+          x.stopAnimation((v) => {
+            drag.from = v;
+          }),
+        onPanResponderMove: (_, g) => {
+          if (w) x.setValue(clamp(drag.from + g.dx / (w + TAB_GAP)));
+        },
+        onPanResponderRelease: (_, g) => {
+          const to = w ? clamp(Math.round(drag.from + g.dx / (w + TAB_GAP))) : idx;
+          if (TABS[to].k !== at) onSelect(TABS[to].k);
+          else settle(idx);
+        },
+        onPanResponderTerminate: () => settle(idx),
+      }),
+    [w, at, idx, onSelect, reduce], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   return (
     <View style={[b.tabsWrap, { paddingBottom: bottomInset + 10 }]} pointerEvents="box-none">
-      <View style={[b.tabs, elevation.float]} accessibilityRole="tablist">
+      <View
+        style={[b.tabs, elevation.float]}
+        accessibilityRole="tablist"
+        onLayout={(e) => setW((e.nativeEvent.layout.width - 2 * TAB_PAD - 2 * TAB_GAP - last * TAB_GAP) / TABS.length)}
+        {...pan.panHandlers}
+      >
+        {w ? (
+          <Animated.View
+            style={[b.tabPill, { width: w, transform: [{ translateX: Animated.multiply(x, w + TAB_GAP) }] }]}
+            pointerEvents="none"
+          >
+            <Gradient angle="right" />
+          </Animated.View>
+        ) : null}
         {TABS.map((t) => {
           const on = at === t.k;
           const c = on ? color.onPrimary : '#B9C2E8';
@@ -377,9 +447,8 @@ export function TabBarView({ at, onSelect, bottomInset = 0 }: { at: TabKey; onSe
               accessibilityLabel={t.label}
               accessibilityState={{ selected: on }}
               onPress={() => !on && onSelect(t.k)}
-              style={[b.tab, on && b.tabOn]}
+              style={b.tab}
             >
-              {on ? <Gradient angle="right" /> : null}
               <t.icon size={ICON} color={c} strokeWidth={on ? 2.4 : 2} />
               <Text style={[b.tabT, { color: c }, on && { fontWeight: '700' }]}>{t.label}</Text>
             </PressScale>
@@ -493,11 +562,19 @@ const b = StyleSheet.create({
     borderRadius: shape.pill,
     borderWidth: 1,
     borderColor: glass.edgeDark,
-    padding: 6,
-    gap: 4,
+    padding: TAB_PAD,
+    gap: TAB_GAP,
+  },
+  tabPill: {
+    position: 'absolute',
+    left: TAB_PAD,
+    top: TAB_PAD,
+    bottom: TAB_PAD,
+    borderRadius: shape.pill,
+    backgroundColor: color.primary,
+    overflow: 'hidden',
   },
   tab: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', gap: 1, borderRadius: shape.pill, overflow: 'hidden' },
-  tabOn: { backgroundColor: color.primary },
   tabT: { fontSize: type.caption, lineHeight: 18 },
   pack: {
     backgroundColor: glass.fillStrong,

@@ -196,8 +196,22 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       let first = true;
       const frames: number[] = [];
       let lastLog = Date.now();
+      // 고주사율 기기에서도 지도·이름표·마커 갱신은 약 60fps로 제한.
+      const frameIntervalMs = 1000 / 60;
+      let lastTick: number | null = null;
       const loop = () => {
         if (stopped) return;
+        const now = performance.now();
+        if (lastTick !== null) {
+          const elapsed = now - lastTick;
+          if (elapsed < frameIntervalMs) {
+            frameId = requestAnimationFrame(loop);
+            return;
+          }
+          lastTick = now - (elapsed % frameIntervalMs);
+        } else {
+          lastTick = now;
+        }
         const drew = scene.frameTick();
         if (drew) {
           gl.endFrameEXP();

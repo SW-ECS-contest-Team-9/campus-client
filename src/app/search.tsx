@@ -3,8 +3,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Building, Info, MapPin, MessageCircleQuestion, Navigation, Search, X } from 'lucide-react-native';
-import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Keyboard, StyleSheet, Switch, Text, View } from 'react-native';
+import { currentLocationLabel } from '../location/fix';
 import { beginRoute } from '../location/goRoute';
+import { startFromFix } from '../location/start';
 import { displayName, placeSubtitle } from '../map/labels';
 import { describe as describeRequest, planFromRequest } from '../nlp/apply';
 import { mergeWithGemma, shouldAskGemma } from '../nlp/gemma';
@@ -15,7 +17,7 @@ import { parseRouteRequest } from '../nlp/parse';
 import type { RouteRequest } from '../nlp/types';
 import { searchResults } from '../search/search';
 import { useApp } from '../state/AppState';
-import { Button, IconButton, ResultRow, SearchInput } from '../ui/components';
+import { Button, IconButton, ResultRow, SearchInput, StatusChip } from '../ui/components';
 import { useToast } from '../ui/feedback';
 import { Card, P, Screen, Section } from '../ui/kit';
 import { color, shape, type } from '../ui/theme';
@@ -47,6 +49,9 @@ export default function SearchScreen() {
   const [ai, setAi] = useState<{ text: string; state: 'running' | 'done' | 'failed' } | null>(null);
   const [expandedBuilding, setExpandedBuilding] = useState<string | null>(null);
   const [showAllResults, setShowAllResults] = useState(false);
+  const [readingLocation, setReadingLocation] = useState(false);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
+  const locationRun = useRef(0);
   const aiRun = useRef(0);
   const pkg = app.pkg;
   const results = useMemo(
@@ -67,6 +72,7 @@ export default function SearchScreen() {
   useEffect(
     () => () => {
       aiRun.current += 1;
+      locationRun.current += 1;
       void cancelInterpret();
     },
     [],
@@ -126,9 +132,36 @@ export default function SearchScreen() {
     beginRoute(pkg, app.graph, app.fix, { start: app.setStart });
   };
   const pick = (key: string) => {
+    locationRun.current += 1;
+    setReadingLocation(false);
+    setLocationMessage(null);
     rememberSearch();
     app.setStart({ type: 'place', placeKey: key });
     router.navigate('/preview'); // 출발 장소를 고르면 바로 경로(사례 R20)
+  };
+  const readCurrentLocation = async () => {
+    if (!pkg || readingLocation) return;
+    const run = ++locationRun.current;
+    Keyboard.dismiss();
+    setReadingLocation(true);
+    setLocationMessage(null);
+    try {
+      const permitted = await app.enableLocation();
+      if (run !== locationRun.current) return;
+      if (!permitted) return setLocationMessage('위치 권한이 없어요 · 장소로 골라 주세요');
+      const fix = await app.waitFix(15000);
+      if (run !== locationRun.current) return;
+      if (!fix) return setLocationMessage('현재 위치를 확인하지 못했어요');
+      if (fix.uncertain) return setLocationMessage(`현재 위치가 정확하지 않아요 (${fix.reason})`);
+      const start = startFromFix(pkg, app.graph, fix, currentLocationLabel(pkg, fix));
+      if (!start) return setLocationMessage('가까운 길이 50 m 안에 없어요');
+      app.setStart(start);
+      router.navigate('/preview');
+    } catch {
+      if (run === locationRun.current) setLocationMessage('현재 위치를 읽지 못했어요 · 다시 시도하거나 장소로 골라 주세요');
+    } finally {
+      if (run === locationRun.current) setReadingLocation(false);
+    }
   };
   // 알아들은 조건과 출발점을 채운 뒤 출발점 확인으로. 필수 조건은 앱 상태에 남아 경로 계산의 하드 필터가 됨.
   const go = () => {
@@ -185,6 +218,17 @@ export default function SearchScreen() {
         placeholder={choosingStart ? '출발 장소 이름' : naturalSearch ? '예: 계단 없이 북악관 편의점 가고 싶어' : '장소·건물 이름 또는 층'}
         onSubmitEditing={() => (naturalSearch && plan?.kind === 'go' ? go() : canAskAi ? void runAi() : undefined)}
       />
+      {choosingStart ? (
+        <View style={s.locationAction} accessibilityLiveRegion="polite">
+          <Button
+            variant="secondary"
+            label={readingLocation ? '위치 읽는 중…' : '위치 다시 읽기'}
+            disabled={!pkg || readingLocation}
+            onPress={() => void readCurrentLocation()}
+          />
+          {locationMessage ? <StatusChip tone="warning" label={locationMessage} /> : null}
+        </View>
+      ) : null}
       {naturalSearch && req && pkg && plan ? (
         <Card tone="primary" style={s.nlp}>
           <View style={s.head}>
@@ -352,6 +396,7 @@ export default function SearchScreen() {
 }
 
 const s = StyleSheet.create({
+  locationAction: { gap: 8 },
   modeCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   recentHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   empty: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },

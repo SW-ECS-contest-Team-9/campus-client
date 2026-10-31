@@ -14,7 +14,7 @@ export default function UnsavedScreen() {
       title="지도 저장이 필요해요"
       footer={
         <>
-          <Button label="지도 저장으로" onPress={() => router.dismissTo('/offline')} />
+          <Button label="오프라인 지도로" onPress={() => router.dismissTo('/offline')} />
           <Button variant="secondary" label="지금 지도로 계속 보기" onPress={() => router.back()} />
         </>
       }

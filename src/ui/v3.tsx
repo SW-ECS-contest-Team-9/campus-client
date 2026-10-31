@@ -195,10 +195,11 @@ export function RouteDrawBar({ progress = 1, height = 6 }: { progress?: number; 
   useEffect(() => {
     v.value = k ? withTiming(progress, { duration: motion.draw * k, easing: Easing.out(Easing.cubic) }) : progress;
   }, [progress, k, v]);
-  const st = useAnimatedStyle(() => ({ width: `${Math.max(0, Math.min(1, v.value)) * 100}%` }));
+  // SVG의 % 크기는 부모의 애니메이션 너비를 따라 다시 그려지지 않을 수 있어, 전체 폭을 고정하고 왼쪽부터 늘린다.
+  const st = useAnimatedStyle(() => ({ transform: [{ scaleX: Math.max(0, Math.min(1, v.value)) }] }));
   return (
     <View style={[s.track, { height, borderRadius: height }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Animated.View style={[{ height, borderRadius: height, overflow: 'hidden' }, st]}>
+      <Animated.View style={[{ width: '100%', height, borderRadius: height, overflow: 'hidden', transformOrigin: 'left center' }, st]}>
         <Gradient angle="right" />
       </Animated.View>
     </View>

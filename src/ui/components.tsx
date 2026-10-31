@@ -1,7 +1,7 @@
 // Figma "01 · Components" 대응 부품(파일 4FWwpxPN4m0ixK1awFLsoA). 변형 이름은 Figma 와 같게 둔다.
 // 토큰은 Foundations 변수(color/*, space/*, radius/*, Campus/Action label·Caption). 터치 48 dp(space/48), CTA 52.
 // 누름: Figma 에 프로토타입 동작이 없어(reactions 0) 짧은 눌림(크기 0.97 + Pressed 색, 100 ms)을 넣음 — 동작 줄이기 설정이면 크기 변화 없음.
-import { Bookmark, Check, CircleAlert, Download, Map as MapIcon, Search, WifiOff, type LucideIcon } from 'lucide-react-native';
+import { Bookmark, Check, CircleAlert, Download, Map as MapIcon, Search, Settings, WifiOff, type LucideIcon } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
@@ -296,8 +296,9 @@ const TAB_PAD = 6; // b.tabs.padding
 const TAB_BORDER = 1; // b.tabs.borderWidth
 const TABS: { k: TabKey; label: string; icon: LucideIcon }[] = [
   { k: 'map', label: '지도', icon: MapIcon },
-  { k: 'saved', label: '저장', icon: Bookmark },
-  { k: 'offline', label: '지도 저장', icon: Download },
+  { k: 'saved', label: '내 장소', icon: Bookmark },
+  { k: 'offline', label: '오프라인', icon: Download },
+  { k: 'settings', label: '설정', icon: Settings },
 ];
 export function TabBarView({ at, onSelect, bottomInset = 0 }: { at: TabKey; onSelect: (k: TabKey) => void; bottomInset?: number }) {
   const reduce = !useLook().moving;

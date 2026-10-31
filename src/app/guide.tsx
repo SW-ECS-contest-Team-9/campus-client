@@ -90,7 +90,7 @@ export default function GuideScreen() {
         <Text style={s.min}>{t('approxMinutes', { minutes: String(minutesOf(leftS)) })}</Text>
         <P tone="muted">
           {t('distanceLeft', { distance: String(Math.round(left)) })}
-          {dest?.floorKey ? ` · ${t('destinationFloor', { floor: floorCode(pkg, dest.floorKey) ?? '' })}` : ''}
+          {dest?.floorKey ? `, ${t('destinationFloor', { floor: floorCode(pkg, dest.floorKey) ?? '' })}` : ''}
         </P>
       </View>
       {unsure && app.fix ? (

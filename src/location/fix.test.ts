@@ -43,3 +43,12 @@ describe('현재 위치 표시', () => {
     ).toBe('캠퍼스 바깥 길'));
   it('위치를 특정할 수 없으면 현재 위치로 표시', () => expect(currentLocationLabel(pkg, fix(null))).toBe('현재 위치'));
 });
+
+describe('current location labels by language', () => {
+  it('localizes building and generic labels', () => {
+    const floor = fix({ floorKey: 'f:북악관:1F', buildingKey: 'b:북악관', edgeKey: null, areaKey: null, z: 134, onNetwork: true });
+    expect(currentLocationLabel(pkg, floor, 'en')).toBe('Bukak Bldg. 1F (estimated)');
+    expect(currentLocationLabel(pkg, fix(null), 'zh')).toBe('当前位置');
+    expect(currentLocationLabel(pkg, fix(null), 'ja')).toBe('現在地');
+  });
+});

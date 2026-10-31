@@ -2,16 +2,17 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { AppPreparation } from '../state/AppState';
 import { color, type } from './theme';
 import { Character } from './v3';
+import { translate, type Language } from '../i18n/translations';
 
 /** 병렬로 준비되는 항목 중 아직 끝나지 않은 첫 단계를 안내. */
-export function preparationMessage(preparation: AppPreparation): string | null {
-  if (!preparation.settingsReady) return '저장된 설정을 읽는 중...';
-  if (!preparation.mapDataReady) return '지도 데이터를 준비하는 중...';
+export function preparationMessage(preparation: AppPreparation, language: Language = 'ko'): string | null {
+  if (!preparation.settingsReady) return translate(language, 'loadingSettings');
+  if (!preparation.mapDataReady) return translate(language, 'loadingMap');
   // 실패하면 기존 지도 오류 안내와 재시도 단추가 보이도록 로딩 화면을 걷음.
   if (preparation.failed) return null;
-  if (!preparation.sceneReady) return '3D 건물과 지형을 준비하는 중...';
+  if (!preparation.sceneReady) return translate(language, 'loading3d');
   // 웹 엔진(null)은 첫 프레임 신호가 없으므로 장면 ready 를 완료 기준으로 사용.
-  if (preparation.firstFrameReady === false) return '지도를 화면에 표시하는 중...';
+  if (preparation.firstFrameReady === false) return translate(language, 'loadingFrame');
   return null;
 }
 

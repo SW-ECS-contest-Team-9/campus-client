@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type { MapPackage } from '../map/package';
 import { checkForUpdate, loadLocal, type Deps } from './mapRelease';
+import { localizedEntityName } from '../map/names-i18n';
+import { localizedNamesCommand } from '../map3d/commands';
 import fixture from '../map/fixture/campus-fixture.json';
 
 const fx = fixture as unknown as MapPackage;
@@ -52,6 +54,30 @@ describe('지도 꾸러미 받기', () => {
     const again = await loadLocal(d);
     expect(again).toMatchObject({ source: 'stored' });
     expect(again.info?.version).toBe(7);
+  });
+  it('keeps published translations through download, restart, and map commands', async () => {
+    const translated = {
+      ...newPkg,
+      buildings: newPkg.buildings.map((b, i) => i === 0 ? { ...b, localizedNames: { en: 'Published Hall', ja: '公開館', zh: '发布楼' } } : b),
+      places: newPkg.places.map((p, i) => i === 0 ? { ...p, localizedNames: { en: 'Published Place', ja: '公開場所', zh: '发布地点' } } : p),
+    };
+    const contents = JSON.stringify(translated);
+    const release = await info({ sha256: await sha(contents), sizeBytes: contents.length });
+    const d = deps({
+      [`${B}/v1/map/releases/latest`]: () => Response.json(release),
+      [`${B}/v1/map/releases/3/package`]: () => new Response(contents),
+    });
+    const downloaded = await checkForUpdate(B, await loadLocal(d), d);
+    expect(downloaded.updated).toBe(true);
+    const restored = await loadLocal(d);
+    expect(restored.source).toBe('stored');
+    expect(localizedEntityName(restored.pkg.buildings[0], 'ja')).toBe('公開館');
+    expect(localizedEntityName(restored.pkg.places[0], 'zh')).toBe('发布地点');
+    expect(localizedNamesCommand(restored.pkg, 'en')).toMatchObject({
+      type: 'setLocalizedNames',
+      buildings: expect.arrayContaining([expect.objectContaining({ name: 'Published Hall' })]),
+      places: expect.arrayContaining([expect.objectContaining({ name: 'Published Place' })]),
+    });
   });
   it('체크섬 틀리면 이전 꾸러미 유지', async () => {
     const i = await info({ sha256: '0'.repeat(64) });

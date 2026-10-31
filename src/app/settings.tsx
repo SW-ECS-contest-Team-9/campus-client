@@ -7,37 +7,46 @@ import { DEFAULT_SERVER_URL, useApp } from '../state/AppState';
 import { Button, FloorItem } from '../ui/components';
 import { color, type } from '../ui/theme';
 import { Card, H, P, Screen, Section } from '../ui/kit';
+import { languageNames, translate, type Language } from '../i18n/translations';
 
 export default function SettingsScreen() {
   const app = useApp();
   const [server, setServer] = useState(app.settings.serverUrl);
   const [map3d, setMap3d] = useState(app.settings.map3dUrl);
+  const [tracker, setTracker] = useState(app.settings.trackerUrl);
   const [stats] = useState(get3dStats);
   const aiOn = app.settings.aiParse;
+  const t = (key: Parameters<typeof translate>[1], values?: Record<string, string>) => translate(app.settings.language, key, values);
   return (
-    <Screen title="설정">
-      <Section>자연어 검색</Section>
+    <Screen title={t('settings')}>
+      <Section>{t('language')}</Section>
+      <View style={s.chips}>
+        {(Object.keys(languageNames) as Language[]).map((lang) => <FloorItem key={lang} label={languageNames[lang]}
+          state={app.settings.language === lang ? 'selected' : 'idle'} onPress={() => void app.updateSettings({ language: lang })} />)}
+      </View>
+      {app.settings.language !== 'ko' ? <P tone="muted">{t('mapTranslationNotice')}</P> : null}
+      <Section>{t('naturalSearch')}</Section>
       <Card style={s.row}>
         <View style={{ flex: 1 }}>
-          <P>자연어 검색을 기본으로 사용</P>
-          <P tone="muted">검색 화면을 열면 문장으로 목적지와 이동 조건을 찾는 모드로 시작해요.</P>
+          <P>{t('naturalDefault')}</P>
+          <P tone="muted">{t('naturalDescription')}</P>
         </View>
         <Switch
           value={app.settings.naturalSearchDefault}
           onValueChange={(v) => app.updateSettings({ naturalSearchDefault: v })}
           trackColor={{ false: color.border, true: color.primary }}
           ios_backgroundColor={color.border}
-          accessibilityLabel="자연어 검색을 기본으로 사용"
+          accessibilityLabel={t('naturalDefault')}
         />
       </Card>
       <Card style={s.row}>
         <View style={{ flex: 1 }}>
-          <P>기기 안 AI 보조(실험)</P>
-          <P tone="muted">규칙으로 못 알아들은 문장을 Gemma 270M으로 한 번 더 해석해요.</P>
+          <P>{t('aiAssist')}</P>
+          <P tone="muted">{t('aiDescription')}</P>
           <P tone="muted">
             {app.aiModel
-              ? `모델 있음 · ${aiOn ? '켜짐' : '꺼짐'} · 필수 조건은 규칙 결과를 줄이지 않아요`
-              : '모델 파일이 없어요(시험판: PC 에서 넣음). 규칙 해석만 써요.'}
+              ? t('modelReady', { state: t(aiOn ? 'enabled' : 'disabled') })
+              : t('modelMissing')}
           </P>
         </View>
         <Switch
@@ -45,85 +54,85 @@ export default function SettingsScreen() {
           onValueChange={(v) => app.updateSettings({ aiParse: v })}
           trackColor={{ false: color.border, true: color.primary }}
           ios_backgroundColor={color.border}
-          accessibilityLabel="기기 안 AI 보조(실험)"
+          accessibilityLabel={t('aiAssist')}
         />
       </Card>
-      <Section>화면 표시</Section>
+      <Section>{t('displaySettings')}</Section>
       <Card style={s.row}>
         <View style={{ flex: 1 }}>
-          <P>저사양 모드</P>
-          <P tone="muted">3D 를 낮은 해상도·단순 조명으로 그리고 나무·선을 빼요. 오래된 휴대폰에서 부드럽게</P>
+          <P>{t('lightMode')}</P>
+          <P tone="muted">{t('lightDescription')}</P>
         </View>
         <Switch
           value={app.settings.light}
           onValueChange={(v) => app.updateSettings({ light: v })}
           trackColor={{ false: color.border, true: color.primary }}
           ios_backgroundColor={color.border}
-          accessibilityLabel="저사양 모드"
+          accessibilityLabel={t('lightMode')}
         />
       </Card>
-      <Section>위치 권한</Section>
+      <Section>{t('locationPermission')}</Section>
       <Card>
         <P tone="muted">
-          {'위치를 허락하면 앱을 보고 있는 동안만 위치·걸음·기압을 읽어 길 위에 맞춰 보여 줘요. 위치 기록은 기기 밖으로 보내지 않아요.'}
+          {t('locationPrivacy')}
         </P>
       </Card>
-      <Section>개인정보</Section>
+      <Section>{t('privacy')}</Section>
       <Card>
-        <P tone="muted">저장한 장소·최근 경로·설정은 이 기기에만 있어요(계정 없음).</P>
+        <P tone="muted">{t('privacyDescription')}</P>
       </Card>
       {__DEV__ ? (
         <>
-          <H>개발자</H>
-          <Section>화면 표현(기기 등급)</Section>
+          <H>{t('developer')}</H>
+          <Section>{t('deviceTier')}</Section>
           <View style={s.chips}>
             <FloorItem
-              label={`자동 · ${app.settings.autoTier ?? '-'}`}
+              label={t('autoTier', { tier: String(app.settings.autoTier ?? '-') })}
               state={app.settings.deviceTier == null ? 'selected' : 'idle'}
               onPress={() => app.updateSettings({ deviceTier: null })}
             />
             <FloorItem
-              label="1 유리·움직임"
+              label={t('tier1')}
               state={app.settings.deviceTier === 1 ? 'selected' : 'idle'}
               onPress={() => app.updateSettings({ deviceTier: 1 })}
             />
             <FloorItem
-              label="2 가볍게"
+              label={t('tier2')}
               state={app.settings.deviceTier === 2 ? 'selected' : 'idle'}
               onPress={() => app.updateSettings({ deviceTier: 2 })}
             />
             <FloorItem
-              label="3 정지"
+              label={t('tier3')}
               state={app.settings.deviceTier === 3 ? 'selected' : 'idle'}
               onPress={() => app.updateSettings({ deviceTier: 3 })}
             />
           </View>
           <P tone="muted">
             {app.tier === 1
-              ? '지금: 1 — 지도 위 유리 흐림과 움직임을 모두 써요(Galaxy S21 이상 기준).'
+              ? t('tier1Description')
               : app.tier === 2
-                ? '지금: 2 — 흐림 없이 반투명 면, 움직임은 짧게(조금 오래된 휴대폰).'
-                : '지금: 3 — 움직임과 움직이는 캐릭터 없이 가장 가볍게.'}
+                ? t('tier2Description')
+                : t('tier3Description')}
           </P>
-          <Section>3D 엔진</Section>
+          <Section>{t('mapEngine')}</Section>
           <View style={s.chips}>
             <FloorItem
-              label="기본(네이티브)"
+              label={t('nativeEngine')}
               state={app.settings.map3dEngine !== 'web' ? 'selected' : 'idle'}
               onPress={() => app.updateSettings({ map3dEngine: 'native' })}
             />
             <FloorItem
-              label="웹"
+              label={t('webEngine')}
               state={app.settings.map3dEngine === 'web' ? 'selected' : 'idle'}
               onPress={() => app.updateSettings({ map3dEngine: 'web' })}
             />
           </View>
           <P tone="muted">
             {app.settings.map3dEngine === 'web'
-              ? '웹: 3D 지도 페이지를 서버에서 받아 그려요(인터넷·서버 필요, 첫 화면이 느려요).'
-              : '기본: 앱에 들어 있는 3D 지도를 바로 그려요(서버 없이, 빠름).'}
+              ? t('webEngineDescription')
+              : t('nativeEngineDescription')}
           </P>
-          <Section>지도 서버(개발용)</Section>
+          <Section>{t('developerMapServer')}</Section>
           <TextInput
             style={s.input}
             value={server}
@@ -131,7 +140,7 @@ export default function SettingsScreen() {
             placeholder={DEFAULT_SERVER_URL}
             autoCapitalize="none"
             autoCorrect={false}
-            accessibilityLabel="지도 서버 주소"
+            accessibilityLabel={t('mapServerAddress')}
           />
           <TextInput
             style={s.input}
@@ -140,14 +149,16 @@ export default function SettingsScreen() {
             placeholder={DEFAULT_MAP3D_URL}
             autoCapitalize="none"
             autoCorrect={false}
-            accessibilityLabel="3D 지도 주소"
+            accessibilityLabel={t('map3dAddress')}
           />
-          <Button label="주소 저장" onPress={() => app.updateSettings({ serverUrl: server.trim(), map3dUrl: map3d.trim() })} />
-          <Button variant="secondary" label="지도 갱신 확인" onPress={app.checkUpdate} />
+          <TextInput style={s.input} value={tracker} onChangeText={setTracker} placeholder={t('calibrationServerAddress')}
+            autoCapitalize="none" autoCorrect={false} accessibilityLabel={t('calibrationServerAddress')} />
+          <Button label={t('saveAddresses')} onPress={() => app.updateSettings({ serverUrl: server.trim(), map3dUrl: map3d.trim(), trackerUrl: tracker.trim() })} />
+          <Button variant="secondary" label={t('checkMapUpdate')} onPress={app.checkUpdate} />
           {app.updateStatus ? <P tone="caution">{app.updateStatus}</P> : null}
           {stats.length ? (
             <>
-              <Section>측정(시험용)</Section>
+              <Section>{t('diagnostics')}</Section>
               <Card>
                 {stats.map((l) => (
                   <P key={l} tone="muted">

@@ -1,7 +1,8 @@
+import { localizedEntityName } from '../map/names-i18n';
 import { router, Stack } from 'expo-router';
 import type React from 'react';
-import { useMemo } from 'react';
-import { View } from 'react-native';
+import { useEffect, useMemo } from 'react';
+import { Platform, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -14,6 +15,7 @@ import { Map3DHost, type Map3dPlace } from '../ui/Map3D';
 import { color, motion } from '../ui/theme';
 import { MainTabBar } from '../ui/kit';
 import { ActiveRouteProvider, renderActiveScreen } from '../ui/useActiveRoute';
+import { translate } from '../i18n/translations';
 
 // 머리는 각 화면이 직접 그림(ui/kit Screen). 흐름: 지도 → 검색 → 장소 → 출발점 → 옵션 → 미리보기 → 안내 → 도착.
 if (__DEV__) (globalThis as { __router?: typeof router }).__router = router; // 개발 중 화면 시험용
@@ -59,15 +61,21 @@ function Screens() {
 /** 3D 지도 페이지 하나를 앱 전체가 함께 씀(화면 바꿀 때 다시 불러오지 않음). */
 function Shared3D({ children }: { children: React.ReactNode }) {
   const app = useApp();
-  const loadingMessage = preparationMessage(app.preparation);
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      document.title = translate(app.settings.language, 'appName');
+      document.documentElement.lang = app.settings.language === 'zh' ? 'zh-Hans' : app.settings.language;
+    }
+  }, [app.settings.language]);
+  const loadingMessage = preparationMessage(app.preparation, app.settings.language);
   // 네이티브 3D 위 장소 점(길찾기 되는 장소만)
   const pkg = app.pkg;
   const places = useMemo<Map3dPlace[] | undefined>(
     () =>
       pkg?.places
         .filter((p) => p.nodeKey)
-        .map((p) => ({ id: p.key.replace(/^p:/, ''), name: p.name.split(/[=(]/)[0].trim(), x: p.x, y: p.y, z: p.z })),
-    [pkg],
+        .map((p) => ({ id: p.key.replace(/^p:/, ''), name: localizedEntityName(p, app.settings.language), x: p.x, y: p.y, z: p.z })),
+    [pkg, app.settings.language],
   );
   return (
     <TierCtx.Provider value={app.tier}>
@@ -78,7 +86,7 @@ function Shared3D({ children }: { children: React.ReactNode }) {
           importantForAccessibility={loadingMessage !== null ? 'no-hide-descendants' : 'auto'}
         >
           <Map3DHost
-            url={pageUrl(app.settings.map3dUrl, app.settings.light)}
+            url={pageUrl(app.settings.map3dUrl, app.settings.light, app.settings.language)}
             engine={app.settings.map3dEngine}
             light={app.settings.light || app.tier === 3}
             places={places}

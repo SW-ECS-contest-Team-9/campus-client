@@ -9,43 +9,45 @@ import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
 import { Button, StatusChip } from '../ui/components';
 import { Card, H, P, Screen } from '../ui/kit';
+import { translate, type MessageKey } from '../i18n/translations';
 
 export default function StartScreen() {
   const app = useApp();
-  const [msg, setMsg] = useState<string | null>(null);
+  const t = (key: MessageKey) => translate(app.settings.language, key);
+  const [msg, setMsg] = useState<MessageKey | null>(null);
   if (!app.pkg) return null;
   const pkg = app.pkg;
 
   // 위치 보정(통로 위로 끌린 점)의 그 길 가까운 끝 노드에서 출발. 불확실하면 직접 고르게 함(제품 규칙 02).
   const useHere = async () => {
-    setMsg('위치 읽는 중…');
-    if (!(await app.enableLocation())) return setMsg('위치 권한이 없어요 · 장소로 골라 주세요');
+    setMsg('readingLocation');
+    if (!(await app.enableLocation())) return setMsg('locationDeniedStart');
     const fix = await app.waitFix(15000);
-    if (!fix) return setMsg('현재 위치를 확인하지 못했어요');
-    if (fix.uncertain) return setMsg(`현재 위치가 정확하지 않아요 (${fix.reason})`);
+    if (!fix) return setMsg('locationUnavailable');
+    if (fix.uncertain) return setMsg('locationInaccurate');
     // 걷는 면·광장 위면 그 자리에서, 아니면 가까운 길 끝에서
-    const st = startFromFix(pkg, app.graph, fix, currentLocationLabel(pkg, fix));
-    if (!st) return setMsg('가까운 길이 50 m 안에 없어요');
+    const st = startFromFix(pkg, app.graph, fix, currentLocationLabel(pkg, fix, app.settings.language));
+    if (!st) return setMsg('noNearbyPath');
     app.setStart(st);
     setMsg(null);
     router.replace('/preview');
   };
   const st = app.start;
-  const startTitle = startLabel(pkg, st) || null;
-  const displayedStartTitle = st && st.type !== 'place' && app.fix ? currentLocationLabel(pkg, app.fix) : startTitle;
+  const startTitle = startLabel(pkg, st, app.settings.language) || null;
+  const displayedStartTitle = st && st.type !== 'place' && app.fix ? currentLocationLabel(pkg, app.fix, app.settings.language) : startTitle;
   const tone = msg ? 'caution' : st && st.type !== 'place' ? 'confirmed' : 'primary';
   return (
     <Screen
-      title="출발점 확인"
+      title={t('startCheck')}
       scroll={false}
       footer={
         <>
-          <Button label="경로 보기" disabled={!st} onPress={() => router.navigate('/preview')} />
+          <Button label={t('viewRoute')} disabled={!st} onPress={() => router.navigate('/preview')} />
           <View style={s.two}>
-            <Button variant="secondary" label="위치 다시 읽기" onPress={useHere} style={{ flex: 1 }} />
+            <Button variant="secondary" label={t('readLocationAgain')} onPress={useHere} style={{ flex: 1 }} />
             <Button
               variant="secondary"
-              label="장소로 고르기"
+              label={t('choosePlace')}
               onPress={() => router.push({ pathname: '/search', params: { mode: 'start' } })}
               style={{ flex: 1 }}
             />
@@ -53,17 +55,17 @@ export default function StartScreen() {
         </>
       }
     >
-      <H>어디에서 출발하나요?</H>
-      <P tone="muted">내 위치를 아직 정확히 모르면 출발할 곳을 골라 주세요.</P>
-      {msg ? <StatusChip tone="warning" label={msg} /> : null}
+      <H>{t('whereStart')}</H>
+      <P tone="muted">{t('chooseIfUnsure')}</P>
+      {msg ? <StatusChip tone="warning" label={t(msg)} /> : null}
       <View style={s.map}>
         <CampusMap pickPlaces={false} minimal />
       </View>
       <Card>
-        <P tone="muted">{st && st.type !== 'place' ? '현재 위치에서 출발' : st ? '사용자가 지정한 출발점' : '출발점을 골라 주세요'}</P>
-        <P>{displayedStartTitle ?? '아직 고르지 않음'}</P>
-        {st?.type === 'place' ? <P tone="muted">직접 고른 위치라 실제 현재 위치와 다를 수 있어요.</P> : null}
-        {tone === 'confirmed' ? <StatusChip tone="confirmed" label="현재 위치 확인됨" /> : null}
+        <P tone="muted">{t(st && st.type !== 'place' ? 'startFromLocation' : st ? 'selectedStart' : 'chooseStartingPoint')}</P>
+        <P>{displayedStartTitle ?? t('notSelectedYet')}</P>
+        {st?.type === 'place' ? <P tone="muted">{t('manualLocationNotice')}</P> : null}
+        {tone === 'confirmed' ? <StatusChip tone="confirmed" label={t('locationConfirmedShort')} /> : null}
       </Card>
     </Screen>
   );

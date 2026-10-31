@@ -16,6 +16,7 @@ export type Command =
   | { type: 'focus'; x: number; y: number; z: number | null; building: string | null; floor: FloorRef }
   | { type: 'setFloor'; building: string; floor: FloorRef; explode: boolean }
   | { type: 'setMarkerImages'; ok: string; uncertain: string }
+  | { type: 'setLocalizedNames'; buildings: { id: string; name: string }[]; places: { id: string; name: string }[] }
   | { type: 'setMode'; light: boolean | null; ui: 'min' | 'full' | null };
 
 export type PageEvent =
@@ -109,6 +110,17 @@ export function parseCommand(raw: unknown): Parsed {
       case 'setMarkerImages':
         need(imageUrl(data.ok) && imageUrl(data.uncertain), 'ok, uncertain: data:image 또는 http(s) 주소');
         return { ok: true, command: { type, ok: data.ok as string, uncertain: data.uncertain as string } };
+      case 'setLocalizedNames': {
+        const list = (value: unknown, key: string) => {
+          need(Array.isArray(value) && value.length <= 2000, `${key}: 최대 2000개`);
+          return (value as unknown[]).map((item) => {
+            need(isObj(item) && text(item.id) && typeof item.name === 'string' && item.name.trim().length > 0 && item.name.length <= 160, `${key}: 유효한 id와 이름 필요`);
+            const row = item as { id: string; name: string };
+            return { id: row.id, name: row.name.trim() };
+          });
+        };
+        return { ok: true, command: { type, buildings: list(data.buildings, 'buildings'), places: list(data.places, 'places') } };
+      }
       case 'setMode':
         // light(가벼운 모드)·ui(min = 페이지 층 판 숨김) 중 하나 이상. 앱이 페이지 하나를 화면 사이에 다시 쓸 때 ui 를 바꿈.
         need(data.light === undefined || typeof data.light === 'boolean', 'light: true/false');

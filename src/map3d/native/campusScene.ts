@@ -314,6 +314,7 @@ export async function createCampusScene(o: SceneOptions) {
         if (bs.length && c.explode) { const bb = new THREE.Box3(); for (const x of bs) { bb.expandByObject(x.node); for (const f of x.floors) bb.expandByObject(f.node); } bb.getCenter(cam.target); cam.dist = Math.max(120, bb.getSize(new THREE.Vector3()).length() * 1.6 + bs.reduce((n, x) => Math.max(n, x.floors.length), 0) * EXPLODE_GAP); follow.paused = true; dirty(); }
         break;
       }
+      case 'setLocalizedNames': break; // 네이티브 이름표는 React 속성으로 갱신한다.
       case 'setMarkerImages': break; // 그림은 앱(RN)이 화면 위에 직접 그림
       case 'setMode': if (c.light !== null && c.light !== light) { light = c.light; applyLight(); dirty(); } break;
     }

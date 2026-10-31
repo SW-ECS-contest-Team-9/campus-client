@@ -6,22 +6,26 @@ import { useApp } from '../state/AppState';
 import { PressScale } from './components';
 import { color, gradient, shape } from './theme';
 import { Glass, Gradient, Pulse } from './v3';
+import { localizedEntityName } from '../map/names-i18n';
+import { translate } from '../i18n/translations';
 
 export function FloorCapsule({ buildingKey, style }: { buildingKey: string | null | undefined; style?: object }) {
   const app = useApp();
+  const t = (key: Parameters<typeof translate>[1], values?: Record<string, string>) => translate(app.settings.language, key, values);
   const pkg = app.pkg;
   if (!pkg || !buildingKey) return null;
   const floors = pkg.floors.filter((f) => f.buildingKey === buildingKey).sort((a, b) => b.sortOrder - a.sortOrder);
   if (!floors.length) return null;
-  const name = pkg.buildings.find((b) => b.key === buildingKey)?.name ?? '';
+  const building = pkg.buildings.find((b) => b.key === buildingKey);
+  const name = building ? localizedEntityName(building, app.settings.language) : '';
   const sel = app.floorSel[buildingKey] ?? 'all';
-  const items = [{ key: 'all', code: '전체' }, ...floors.map((f) => ({ key: f.key, code: f.code }))];
+  const items = [{ key: 'all', code: t('allFloors') }, ...floors.map((f) => ({ key: f.key, code: f.code }))];
   return (
     <Glass radius={shape.pill} style={[s.wrap, style]}>
       <View style={s.label} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <Layers size={14} color={color.primary} />
         <Text style={s.labelT} numberOfLines={1}>
-          {name} 보는 층
+          {t('viewingFloors', { name })}
         </Text>
       </View>
       <Pulse trigger={sel} style={{ flexShrink: 1 }}>
@@ -32,7 +36,7 @@ export function FloorCapsule({ buildingKey, style }: { buildingKey: string | nul
               <PressScale
                 key={f.key}
                 accessibilityRole="button"
-                accessibilityLabel={`${name} ${f.code === '전체' ? '건물 전체' : f.code} 보기`}
+                accessibilityLabel={t('viewFloorA11y', { name, floor: f.key === 'all' ? t('wholeBuilding') : f.code })}
                 accessibilityState={{ selected: on }}
                 onPress={() => app.setFloor(buildingKey, f.key)}
                 style={[s.item, on && s.itemOn]}

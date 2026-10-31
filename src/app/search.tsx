@@ -5,8 +5,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Building, Info, MapPin, MessageCircleQuestion, Navigation, Search, X } from 'lucide-react-native';
 import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
 import { beginRoute } from '../location/goRoute';
-import { displayName, placeSubtitle } from '../map/labels';
-import { describe as describeRequest, planFromRequest } from '../nlp/apply';
+import { placeSubtitle } from '../map/labels';
+import { localizedEntityName } from '../map/names-i18n';
+import { describe as describeRequest, describeUnsupported, planFromRequest } from '../nlp/apply';
 import { mergeWithGemma, shouldAskGemma } from '../nlp/gemma';
 import { cancelInterpret, interpretWithGemma } from '../nlp/gemmaRuntime';
 import { note3dStat } from '../map3d/diag';
@@ -20,6 +21,7 @@ import { useToast } from '../ui/feedback';
 import { Card, P, Screen, Section } from '../ui/kit';
 import { color, shape, type } from '../ui/theme';
 import { Character } from '../ui/v3';
+import { translate, type MessageKey } from '../i18n/translations';
 
 type SearchMode = 'place' | 'natural';
 const INITIAL_BUILDINGS = 4;
@@ -29,6 +31,7 @@ const INITIAL_BUILDING_PLACES = 3;
 export default function SearchScreen() {
   const params = useLocalSearchParams<{ q?: string; mode?: string }>();
   const app = useApp();
+  const t = (key: MessageKey, values?: Record<string, string>) => translate(app.settings.language, key, values);
   const toast = useToast();
   const choosingStart = params.mode === 'start';
   const [q, setQ] = useState(params.q ?? '');
@@ -94,7 +97,7 @@ export default function SearchScreen() {
       setAi({ text, state: 'failed' });
     }
   };
-  const plan = useMemo(() => (pkg && req ? planFromRequest(req, pkg) : null), [pkg, req]);
+  const plan = useMemo(() => (pkg && req ? planFromRequest(req, pkg, app.settings.language) : null), [pkg, req, app.settings.language]);
 
   const resetResults = () => {
     if (ai) stopAi();
@@ -123,7 +126,7 @@ export default function SearchScreen() {
     rememberSearch();
     app.setNlp(null);
     app.setDestKey(key);
-    beginRoute(pkg, app.graph, app.fix, { start: app.setStart });
+    beginRoute(pkg, app.graph, app.fix, { start: app.setStart }, app.settings.language);
   };
   const pick = (key: string) => {
     rememberSearch();
@@ -134,24 +137,24 @@ export default function SearchScreen() {
   const go = () => {
     if (!pkg || !req || plan?.kind !== 'go') return;
     rememberSearch();
-    app.setNlp({ text: q.trim(), chips: describeRequest(req, pkg), notes: plan.notes, mandatory: plan.mandatory });
+    app.setNlp({ text: q.trim(), request: req, mandatory: plan.mandatory });
     app.setDestKey(plan.destKey);
     app.setCondition(plan.condition);
     if (plan.origin.type === 'place') {
       app.setStart({ type: 'place', placeKey: plan.origin.placeKey });
       router.push('/preview');
-    } else beginRoute(pkg, app.graph, app.fix, { start: app.setStart });
+    } else beginRoute(pkg, app.graph, app.fix, { start: app.setStart }, app.settings.language);
   };
   const sub = (key: string, nodeKey: string | null) => {
-    const place = pkg ? placeSubtitle(pkg, key) : '';
+    const place = pkg ? placeSubtitle(pkg, key, app.settings.language) : '';
     if (choosingStart) return place;
-    return `${place}${nodeKey ? ' · 눌러서 바로 길찾기' : ' · 길에 붙지 않아 길찾기 불가'}`;
+    return `${place} · ${t(nodeKey ? 'tapForRoute' : 'notRoutable')}`;
   };
   const placeAction = (key: string, name: string, nodeKey: string | null) => ({
     onPress: choosingStart ? () => pick(key) : nodeKey ? () => beginRouteToPlace(key) : () => openDetails(key),
     icon: choosingStart || !nodeKey ? MapPin : Navigation,
     trailing:
-      !choosingStart && nodeKey ? <IconButton icon={Info} label={`${name} 상세 보기`} onPress={() => openDetails(key)} /> : undefined,
+      !choosingStart && nodeKey ? <IconButton icon={Info} label={t('viewDetails', { name })} onPress={() => openDetails(key)} /> : undefined,
   });
   const visibleBuildings = showAllResults ? results.buildingHits : results.buildingHits.slice(0, INITIAL_BUILDINGS);
   const visiblePlaces = showAllResults ? results.placeHits : results.placeHits.slice(0, INITIAL_PLACES);
@@ -159,20 +162,21 @@ export default function SearchScreen() {
     Math.max(0, results.buildingHits.length - INITIAL_BUILDINGS) + Math.max(0, results.placeHits.length - INITIAL_PLACES);
   const resultCount = results.buildingHits.length + results.placeHits.length;
   return (
-    <Screen title={choosingStart ? '출발 장소 고르기' : '장소 검색'}>
+    <Screen title={t(choosingStart ? 'chooseStartPlace' : 'searchPlaces')}>
       {!choosingStart ? (
         <Card style={s.modeCard}>
           <View style={s.modeCopy}>
-            <Text style={s.modeTitle}>자연어로 검색</Text>
-            <P tone="muted">{naturalSearch ? '목적지와 이동 조건을 문장으로 입력해 주세요.' : '장소·건물 이름으로 빠르게 찾습니다.'}</P>
+            <Text style={s.modeTitle}>{t('searchNatural')}</Text>
+            <P tone="muted">{t(naturalSearch ? 'naturalPrompt' : 'nameSearchPrompt')}</P>
+            {naturalSearch ? <P tone="muted">{t('naturalKoreanOnly')}</P> : null}
           </View>
           <Switch
             value={naturalSearch}
             onValueChange={changeSearchMode}
             trackColor={{ false: color.border, true: color.primary }}
             ios_backgroundColor={color.border}
-            accessibilityLabel="자연어 검색 모드"
-            accessibilityHint="켜면 목적지와 이동 조건을 문장으로 검색합니다"
+            accessibilityLabel={t('naturalMode')}
+            accessibilityHint={t('naturalHint')}
           />
         </Card>
       ) : null}
@@ -181,45 +185,45 @@ export default function SearchScreen() {
         onChangeText={changeQuery}
         autoFocus={!params.q}
         returnKeyType="search"
-        accessibilityLabel={naturalSearch ? '자연어 길찾기 문장' : choosingStart ? '출발 장소 검색어' : '장소 또는 건물 검색어'}
-        placeholder={choosingStart ? '출발 장소 이름' : naturalSearch ? '예: 계단 없이 북악관 편의점 가고 싶어' : '장소·건물 이름 또는 층'}
+        accessibilityLabel={t(naturalSearch ? 'naturalQuery' : choosingStart ? 'startQuery' : 'placeQuery')}
+        placeholder={t(choosingStart ? 'startName' : naturalSearch ? 'naturalExample' : 'placePlaceholder')}
         onSubmitEditing={() => (naturalSearch && plan?.kind === 'go' ? go() : canAskAi ? void runAi() : undefined)}
       />
       {naturalSearch && req && pkg && plan ? (
         <Card tone="primary" style={s.nlp}>
           <View style={s.head}>
             <MessageCircleQuestion size={18} color={color.primary} />
-            <Text style={s.headT}>이렇게 알아들었어요</Text>
+            <Text style={s.headT}>{t('recognized')}</Text>
           </View>
           <View style={s.chips}>
-            {describeRequest(req, pkg).map((c) => (
-              <View key={c} style={[s.chip, c.startsWith('필수') && s.chipMust]}>
-                <Text style={[s.chipT, c.startsWith('필수') && s.chipMustT]}>{c}</Text>
+            {describeRequest(req, pkg, app.settings.language).map((c) => (
+              <View key={c} style={[s.chip, c.startsWith(t('nlpRequired', { value: '' })) && s.chipMust]}>
+                <Text style={[s.chipT, c.startsWith(t('nlpRequired', { value: '' })) && s.chipMustT]}>{c}</Text>
               </View>
             ))}
           </View>
           {req.unsupported.length ? (
             <P tone="caution">
               {req.unsupported
-                .map((u) => `${u.text}: ${u.reason}`)
+                .map((u) => describeUnsupported(u, app.settings.language))
                 .filter((x, i, a) => a.indexOf(x) === i)
                 .join(' · ')}
             </P>
           ) : null}
           {ai?.text === q && ai.state === 'running' ? (
             <View style={s.aiRow} accessibilityLiveRegion="polite">
-              <Text style={s.aiT}>AI가 문장을 해석하는 중…</Text>
-              <Button variant="quiet" label="취소" onPress={stopAi} />
+              <Text style={s.aiT}>{t('aiWorking')}</Text>
+              <Button variant="quiet" label={t('cancel')} onPress={stopAi} />
             </View>
           ) : ai?.text === q && ai.state !== 'running' ? (
             <P tone="muted">
-              {ai.state === 'done' ? 'AI 해석을 더했어요(필수 조건은 규칙 결과를 줄이지 않아요)' : 'AI도 알아듣지 못했어요'}
+              {t(ai.state === 'done' ? 'aiAdded' : 'aiFailed')}
             </P>
           ) : null}
           {plan.kind === 'ask' ? (
             <>
               {canAskAi && ai?.state !== 'running' ? (
-                <Button variant="secondary" label="AI로 해석해 보기" style={s.choice} onPress={() => void runAi()} />
+                <Button variant="secondary" label={t('tryAI')} style={s.choice} onPress={() => void runAi()} />
               ) : null}
               <Text style={s.q} accessibilityLiveRegion="polite">
                 {plan.question}
@@ -237,42 +241,42 @@ export default function SearchScreen() {
           ) : (
             <>
               {plan.notes
-                .filter((n) => !req.unsupported.some((u) => n.startsWith(u.text)))
+                .filter((n) => !req.unsupported.some((u) => n === describeUnsupported(u, app.settings.language)))
                 .map((n) => (
                   <P key={n} tone="muted">
                     {n}
                   </P>
                 ))}
-              <Button label="이 조건으로 경로 보기" onPress={go} />
+              <Button label={t('viewRouteWithPrefs')} onPress={go} />
             </>
           )}
         </Card>
       ) : null}
-      {!naturalSearch && q && results.buildingHits.length ? <Section>건물 {results.buildingHits.length}</Section> : null}
+      {!naturalSearch && q && results.buildingHits.length ? <Section>{t('buildingsCount', { count: String(results.buildingHits.length) })}</Section> : null}
       {visibleBuildings.map((h) => {
         const expanded = expandedBuilding === h.building.key;
         const unavailable = h.places.length - h.routablePlaceCount;
         const visibleBuildingPlaces = expanded ? h.places : h.places.slice(0, INITIAL_BUILDING_PLACES);
         const hiddenBuildingPlaces = Math.max(0, h.places.length - INITIAL_BUILDING_PLACES);
         const detail = h.places.length
-          ? `세부 위치 ${h.places.length}개${unavailable ? ` · 길찾기 가능 ${h.routablePlaceCount}개` : ''}`
-          : '등록된 세부 위치 없음';
+          ? `${t('subplaces', { count: String(h.places.length) })}${unavailable ? ` · ${t('routableCount', { count: String(h.routablePlaceCount) })}` : ''}`
+          : t('noSubplaces');
         return (
           <View key={h.building.key} style={s.buildingGroup}>
-            <ResultRow icon={Building} title={h.building.name} sub={detail} />
+            <ResultRow icon={Building} title={localizedEntityName(h.building, app.settings.language)} sub={detail} />
             {visibleBuildingPlaces.map((p) => (
               <View key={p.place.key} style={s.childResult}>
                 <ResultRow
-                  title={displayName(p.place.name)}
+                  title={localizedEntityName(p.place, app.settings.language)}
                   sub={sub(p.place.key, p.place.nodeKey)}
-                  {...placeAction(p.place.key, p.place.name, p.place.nodeKey)}
+                  {...placeAction(p.place.key, localizedEntityName(p.place, app.settings.language), p.place.nodeKey)}
                 />
               </View>
             ))}
             {hiddenBuildingPlaces ? (
               <Button
                 variant="quiet"
-                label={expanded ? '세부 위치 접기' : `세부 위치 ${hiddenBuildingPlaces}개 더 보기`}
+                label={expanded ? t('collapseSubplaces') : t('moreSubplaces', { count: String(hiddenBuildingPlaces) })}
                 onPress={() => setExpandedBuilding(expanded ? null : h.building.key)}
                 style={s.childMore}
               />
@@ -280,37 +284,37 @@ export default function SearchScreen() {
           </View>
         );
       })}
-      {!naturalSearch && q && results.placeHits.length ? <Section>장소 {results.placeHits.length}</Section> : null}
+      {!naturalSearch && q && results.placeHits.length ? <Section>{t('placesCount', { count: String(results.placeHits.length) })}</Section> : null}
       {visiblePlaces.map((h) => (
         <ResultRow
           key={h.place.key}
-          title={displayName(h.place.name)}
+          title={localizedEntityName(h.place, app.settings.language)}
           sub={sub(h.place.key, h.place.nodeKey)}
-          {...placeAction(h.place.key, h.place.name, h.place.nodeKey)}
+          {...placeAction(h.place.key, localizedEntityName(h.place, app.settings.language), h.place.nodeKey)}
         />
       ))}
       {!naturalSearch && hiddenResultCount ? (
         <Button
           variant="quiet"
-          label={showAllResults ? '검색 결과 접기' : `검색 결과 ${hiddenResultCount}개 더 보기`}
+          label={showAllResults ? t('collapseResults') : t('moreResults', { count: String(hiddenResultCount) })}
           onPress={() => setShowAllResults((v) => !v)}
         />
       ) : null}
       {!q && app.recentSearches.length ? (
         <View style={s.recentHead}>
-          <Section>최근 검색</Section>
+          <Section>{t('recentSearches')}</Section>
           <Button
             variant="quiet"
-            label="전체 지우기"
+            label={t('clearAll')}
             onPress={() =>
-              Alert.alert('검색 기록을 모두 지울까요?', '되돌릴 수 없어요.', [
-                { text: '취소', style: 'cancel' },
+              Alert.alert(t('confirmClearSearch'), t('cannotUndo'), [
+                { text: t('cancel'), style: 'cancel' },
                 {
-                  text: '지우기',
+                  text: t('clear'),
                   style: 'destructive',
                   onPress: () => {
                     app.clearRecentSearches();
-                    toast('검색 기록을 모두 지웠어요');
+                    toast(t('historyCleared'));
                   },
                 },
               ])
@@ -328,10 +332,10 @@ export default function SearchScreen() {
               trailing={
                 <IconButton
                   icon={X}
-                  label={`${r} 기록 지우기`}
+                  label={t('deleteSearch', { query: r })}
                   onPress={() => {
                     app.removeRecentSearch(r);
-                    toast('기록 1개를 지웠어요', { label: '되돌리기', onPress: () => app.addRecentSearch(r) });
+                    toast(t('oneHistoryRemoved'), { label: t('undo'), onPress: () => app.addRecentSearch(r) });
                   }}
                 />
               }
@@ -342,8 +346,8 @@ export default function SearchScreen() {
         <View style={s.empty}>
           <Character name="emptySearch" size={56} />
           <View style={{ flex: 1, gap: 2 }}>
-            <P>「{q}」에 맞는 곳이 없어요</P>
-            <P tone="muted">건물 이름만(예: 북악관) 넣어 보세요.</P>
+            <P>{t('noSearchResults', { query: q })}</P>
+            <P tone="muted">{t('searchHint')}</P>
           </View>
         </View>
       ) : null}

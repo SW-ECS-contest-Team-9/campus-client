@@ -20,8 +20,13 @@
       "predictiveBackGestureEnabled": false,
       "package": "kr.ac.skuniv.campusclient",
       "versionCode": 2,
-      "permissions": ["android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION"],
-      "blockedPermissions": ["android.permission.ACCESS_BACKGROUND_LOCATION"]
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ],
+      "blockedPermissions": [
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -30,6 +35,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "QR 기준점을 스캔해 현재 위치를 보정하기 위해 카메라를 사용합니다.",
+          "recordAudioAndroid": false
+        }
+      ],
       [
         "expo-location",
         {
@@ -47,6 +59,12 @@
         }
       ]
     ],
-    "scheme": "campusclient"
+    "scheme": "campusclient",
+    "locales": {
+      "ko": "./locales/ko.json",
+      "zh-Hans": "./locales/zh-Hans.json",
+      "ja": "./locales/ja.json",
+      "en": "./locales/en.json"
+    }
   }
 }

@@ -27,3 +27,12 @@ describe('메시지: 경로', () => {
     }
   });
 });
+
+describe('localized names protocol', () => {
+  it('accepts bounded translations and rejects invalid payloads', () => {
+    expect(parseCommand({ v: 1, type: 'setLocalizedNames', buildings: [{ id: '북악관', name: ' New Hall ' }], places: [] })).toEqual({
+      ok: true, command: { type: 'setLocalizedNames', buildings: [{ id: '북악관', name: 'New Hall' }], places: [] },
+    });
+    expect(parseCommand({ v: 1, type: 'setLocalizedNames', buildings: [], places: [{ id: 'p', name: ' ' }] }).ok).toBe(false);
+  });
+});

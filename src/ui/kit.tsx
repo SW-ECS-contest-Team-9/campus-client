@@ -12,6 +12,7 @@ import { TAB_BAR_HEIGHT } from './navigation';
 import { useActiveTab } from './useActiveRoute';
 import { Banner } from './feedback';
 import { useApp } from '../state/AppState';
+import { translate } from '../i18n/translations';
 import { useState } from 'react';
 
 // 배너를 닫으면 앱을 다시 켤 때까지 숨김(화면마다 다시 뜨지 않게)
@@ -40,8 +41,8 @@ export function Screen({
     closed || !src || src === 'server'
       ? null
       : src === 'fixture'
-        ? '앱에 든 지도로 안내해요 · 인터넷이 되면 최신 지도를 받아요'
-        : '인터넷 없음 · 저장된 지도로 안내해요';
+        ? translate(app.settings.language, 'bundledBanner')
+        : translate(app.settings.language, 'offlineBanner');
   const body = scroll ? (
     <ScrollView contentContainerStyle={[s.body, { paddingBottom: footer ? 16 : inset.bottom + 16 }]} keyboardShouldPersistTaps="handled">
       {children}
@@ -58,7 +59,7 @@ export function Screen({
             {back ? (
               <IconButton
                 icon={ChevronLeft}
-                label="뒤로"
+                label={translate(app.settings.language, 'back')}
                 iconColor={color.onPrimary}
                 style={s.back}
                 onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
@@ -75,6 +76,7 @@ export function Screen({
       {bannerText ? (
         <Banner
           text={bannerText}
+          closeLabel={translate(app.settings.language, 'closeNotice')}
           onClose={() => {
             bannerClosed = true;
             setClosed(true);
@@ -130,7 +132,7 @@ export function MainTabBar() {
   if (!at || !app.pkg) return null;
   return (
     <View testID="main-tab-bar" style={s.tabs} pointerEvents="box-none">
-      <TabBarView at={at} bottomInset={inset.bottom} onSelect={(k) => router.navigate(to[k])} />
+      <TabBarView at={at} bottomInset={inset.bottom} labels={{ map: translate(app.settings.language, 'map'), saved: translate(app.settings.language, 'saved'), offline: translate(app.settings.language, 'offline') }} onSelect={(k) => router.navigate(to[k])} />
     </View>
   );
 }

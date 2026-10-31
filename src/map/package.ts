@@ -20,9 +20,13 @@ export interface Campus {
   name: string;
   crs: 5186;
 }
+export type LocalizedNames = Partial<Record<'ko' | 'zh' | 'ja' | 'en', string>>;
+
 export interface Building {
   key: string;
   name: string;
+  /** Optional publisher-provided display names, keyed by app language. */
+  localizedNames?: LocalizedNames;
   aliases: string[];
   center: XY | null;
   footprint: XY[] | null;
@@ -105,6 +109,8 @@ export interface Place {
   floorKey: string | null;
   nodeKey: string | null; // 경로가 붙는 노드. null 이면 경로 못 냄
   name: string;
+  /** Optional publisher-provided display names, keyed by app language. */
+  localizedNames?: LocalizedNames;
   aliases: string[];
   category: string;
   x: number;

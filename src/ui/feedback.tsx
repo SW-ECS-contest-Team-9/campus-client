@@ -69,7 +69,7 @@ export function ToastProvider({ children, bottomOffset = 100 }: { children: Reac
 }
 
 /** 화면 위 고정 배너: 화면 전체에 걸친 상태(인터넷 없음·새 지도 있음). 닫으면 onClose. */
-export function Banner({ text, action, onClose }: { text: string; action?: { label: string; onPress: () => void }; onClose?: () => void }) {
+export function Banner({ text, action, onClose, closeLabel }: { text: string; action?: { label: string; onPress: () => void }; onClose?: () => void; closeLabel: string }) {
   return (
     <View style={s.banner} accessibilityRole="alert">
       <CircleAlert size={18} color={color.warning} strokeWidth={2.2} />
@@ -82,7 +82,7 @@ export function Banner({ text, action, onClose }: { text: string; action?: { lab
         </Pressable>
       ) : null}
       {onClose ? (
-        <Pressable accessibilityRole="button" accessibilityLabel="알림 닫기" hitSlop={12} onPress={onClose} style={s.close}>
+        <Pressable accessibilityRole="button" accessibilityLabel={closeLabel} hitSlop={12} onPress={onClose} style={s.close}>
           <X size={18} color={color.warning} strokeWidth={2.2} />
         </Pressable>
       ) : null}

@@ -33,6 +33,7 @@
 | --------- | --------------- | ------------------------------ |
 | key       | string          | 예 `b:북악관`                  |
 | name      | string          | 표시 이름                      |
+| localizedNames | object (선택) | 화면 언어 코드 `ko`, `zh`(간체), `ja`, `en`별 표시 이름. 없는 언어는 기존 이름/내장 번역 사용 |
 | aliases   | string[]        | 검색용 다른 이름               |
 | center    | [x,y] \| null   | 이름 표시 자리                 |
 | footprint | [x,y][] \| null | 외곽선(닫힘 점 반복 없어도 됨) |
@@ -87,6 +88,7 @@
 | location, buildingKey, floorKey |                | 노드와 같은 규칙                                                                            |
 | nodeKey                         | string \| null | 경로가 붙는 노드. 같은 층(바깥이면 바깥) 25 m 안 가장 가까운 노드. 없으면 null(길찾기 불가) |
 | name                            | string         |                                                                                             |
+| localizedNames                  | object (선택)  | `ko`, `zh`, `ja`, `en`별 표시 이름. 제공한 이름은 해당 언어 화면과 검색에 사용               |
 | aliases                         | string[]       |                                                                                             |
 | category                        | string         | entrance, building_entrance, facility, landmark, parking, bus_stop, room, other             |
 | x, y, z                         | number         |                                                                                             |

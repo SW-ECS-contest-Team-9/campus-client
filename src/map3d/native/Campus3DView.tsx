@@ -9,6 +9,8 @@ import { Animated, Image, PanResponder, PixelRatio, StyleSheet, Text, View, type
 import * as THREE from 'three';
 import { createCampusScene, type CampusScene } from './campusScene';
 import type { PageEvent } from './protocol';
+import type { Language } from '../../i18n/translations';
+import { nativeBuildingLabel, type BuildingLabel } from './label-i18n';
 
 // Hermes 에 없을 수 있는 것(GLTFLoader 가 JSON 덩어리를 읽을 때 씀)
 if (typeof (globalThis as any).TextDecoder === 'undefined') {
@@ -42,6 +44,8 @@ const labelWidth = (t: string) => Math.min(150, 14 + t.length * 13);
 export interface Campus3DProps {
   onEvent?: (e: PageEvent) => void;
   places?: Campus3DPlace[];
+  buildingNames?: Readonly<Record<string, BuildingLabel>>;
+  language?: Language;
   /** 위·아래를 앱 카드가 가리는 높이(dp). 보이는 부분 가운데로 장면을 맞춤 */
   padding?: { top: number; bottom: number; left?: number; right?: number };
   /** 가벼운 모드: 선 끔 + 해상도 2/3 (tier 2) */
@@ -65,7 +69,7 @@ async function loadGlb(): Promise<ArrayBuffer> {
   }
 }
 
-export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function Campus3DView({ onEvent, places, padding, light = false, style, logFrames = false, onStats }, ref) {
+export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function Campus3DView({ onEvent, places, buildingNames, language = 'ko', padding, light = false, style, logFrames = false, onStats }, ref) {
   const sceneRef = useRef<CampusScene | null>(null);
   const renderRun = useRef<{ stop: () => void } | null>(null);
   useEffect(() => () => {
@@ -89,10 +93,13 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
   const labelKeys = useRef('');
   const labelsDirty = useRef(true);
   const placeList = useRef(places);
+  const buildingNamesRef = useRef(buildingNames);
+  const languageRef = useRef(language);
   const placeAnchors = useRef<{ pl: Campus3DPlace; p: THREE.Vector3 }[] | null>(null);
   const changes = useRef<{ at: number[]; label: string | null }[]>([]);
   const changeAnchors = useRef<{ label: string; p: THREE.Vector3 }[] | null>(null);
   const shownPlaces = useRef<{ pl: Campus3DPlace; x: number; y: number }[]>([]);
+  useEffect(() => { buildingNamesRef.current = buildingNames; languageRef.current = language; labelsDirty.current = true; }, [buildingNames, language]);
   useEffect(() => { placeList.current = places; placeAnchors.current = null; labelsDirty.current = true; }, [places]);
   const layoutLabels = useCallback((sc: CampusScene) => {
     const k = scale.current;
@@ -117,13 +124,16 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       return { x, y };
     };
     changeAnchors.current.forEach((c, i) => put({ key: `c:${i}:${c.label}`, kind: 'change', text: c.label, w: labelWidth(c.label), id: '' }, c.p, 26, 0));
-    for (const b of sc.buildingAnchors()) put({ key: `b:${b.id}`, kind: 'building', text: b.name, w: labelWidth(b.name), id: b.id }, b.p, 26, 0);
+    for (const b of sc.buildingAnchors()) {
+      const name = nativeBuildingLabel(b.name, buildingNamesRef.current?.[b.id], languageRef.current);
+      put({ key: `b:${b.id}`, kind: 'building', text: name, w: labelWidth(name), id: b.id }, b.p, 26, 0);
+    }
     const shown: { pl: Campus3DPlace; x: number; y: number }[] = [];
     // 장소 점은 가까이 볼 때만(멀면 건물 이름만)
     if (sc.cameraDistance() < 520) for (const a of placeAnchors.current) { const at = put({ key: `p:${a.pl.id}`, kind: 'place', text: a.pl.name, w: 18, id: a.pl.id, tm: a.pl }, a.p, 18, 9); if (at) shown.push({ pl: a.pl, ...at }); }
     shownPlaces.current = shown;
     for (const [key, x, y] of pos) { let v = labelXY.get(key); if (!v) { v = new Animated.ValueXY({ x, y }); labelXY.set(key, v); } else v.setValue({ x, y }); }
-    const keys = out.map((l) => l.key).join('|');
+    const keys = JSON.stringify(out.map((l) => [l.key, l.text, l.w]));
     if (keys !== labelKeys.current) { labelKeys.current = keys; setLabels(out); }
   }, [labelXY]);
 

@@ -1,0 +1,10 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "使用相机扫描二维码基准点，以校准当前位置。",
+    "NSLocationWhenInUseUsageDescription": "使用位置信息在地图上显示当前位置，并将其设为出发点。",
+    "CFBundleDisplayName": "Seokyeong 校园导航"
+  },
+  "android": {
+    "app_name": "Seokyeong 校园导航"
+  }
+}

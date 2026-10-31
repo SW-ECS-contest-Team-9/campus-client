@@ -1,0 +1,10 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "QR基準点を読み取り、現在地を補正するためにカメラを使用します。",
+    "NSLocationWhenInUseUsageDescription": "地図に現在地を表示し、出発地として使用するために位置情報を利用します。",
+    "CFBundleDisplayName": "Seokyeongキャンパス案内"
+  },
+  "android": {
+    "app_name": "Seokyeongキャンパス案内"
+  }
+}

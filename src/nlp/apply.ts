@@ -2,6 +2,8 @@
 // 원칙(campus-nlp 통합 안내): 장소를 지어내지 않음, 지원 안 하는 조건은 늘 알림, 필수 조건(계단 없이)은 하드 필터라 스스로 풀지 않음.
 // 화면·RN 에 의존하지 않음(시험 가능).
 import type { MapPackage } from '../map/package';
+import { localizedEntityName, localizedMapName } from '../map/names-i18n';
+import { translate, type Language, type MessageKey } from '../i18n/translations';
 import { modeInfo } from '../route/modes';
 import type { RouteCondition } from '../route/route';
 import { AI_STAIRS_QUESTION } from './gemma';
@@ -50,30 +52,41 @@ export function conditionOf(r: RouteRequest): RouteCondition {
 }
 
 /** 주 방식에 밀린 방식(경로에는 한 방식만 넣음). 선호로 남은 계단 피하기는 "계단 적게". */
-function secondaryLabels(r: RouteRequest): string[] {
+function secondaryLabels(r: RouteRequest, language: Language): string[] {
   const c = conditionOf(r);
-  return (r.secondaryModes ?? []).filter((m) => m !== c).map((m) => (m === 'avoidStairs' ? '계단 적게' : modeInfo(m).label));
+  return (r.secondaryModes ?? []).filter((m) => m !== c).map((m) => (m === 'avoidStairs' ? translate(language, 'nlpFewerStairs') : modeInfo(m, language).label));
+}
+
+function targetName(target: Target, pkg: MapPackage, language: Language): string {
+  if (target.placeKey) {
+    const place = pkg.places.find((p) => p.key === target.placeKey);
+    if (place) return localizedEntityName(place, language);
+    return shortName(target.text ?? '');
+  }
+  if (target.buildingKey) {
+    const building = pkg.buildings.find((b) => b.key === target.buildingKey);
+    const name = building ? localizedEntityName(building, language) : target.text ?? '';
+    const floor = target.floorKey ? pkg.floors.find((f) => f.key === target.floorKey)?.code : null;
+    return [name, floor].filter(Boolean).join(' ');
+  }
+  return target.text ?? '';
 }
 
 /** 알아들은 것(칩으로 보여 줌) */
-export function describe(r: RouteRequest, pkg: MapPackage): string[] {
-  const name = (t: Target) =>
-    t.placeKey
-      ? shortName(pkg.places.find((p) => p.key === t.placeKey)?.name ?? t.text ?? '')
-      : t.buildingKey
-        ? `${pkg.buildings.find((b) => b.key === t.buildingKey)?.name ?? t.text}${t.floorKey ? ` ${pkg.floors.find((f) => f.key === t.floorKey)?.code ?? ''}` : ''}`
-        : t.text;
+export function describe(r: RouteRequest, pkg: MapPackage, language: Language = 'ko'): string[] {
+  const t = (key: MessageKey, values?: Record<string, string>) => translate(language, key, values);
+  const name = (target: Target) => targetName(target, pkg, language);
   const out: string[] = [];
-  if (r.destination.text) out.push(`도착 · ${name(r.destination)}`);
-  out.push(`출발 · ${r.origin.useCurrentLocation ? '현재 위치' : name(r.origin)}`);
-  for (const w of r.waypoints) out.push(`경유 · ${name(w)}`);
+  if (r.destination.text) out.push(t('nlpDestination', { value: name(r.destination) }));
+  out.push(t('nlpOrigin', { value: r.origin.useCurrentLocation ? t('currentLocation') : name(r.origin) }));
+  for (const w of r.waypoints) out.push(t('nlpWaypoint', { value: name(w) }));
   const cond = conditionOf(r);
-  if (isMandatory(r)) out.push(cond === 'accessible' ? '필수 · 휠체어·유모차' : '필수 · 계단 없이');
-  else if (cond === 'preferElevator') out.push(r.mode === 'preferElevator' ? '승강기 우선' : '계단 적게(선호)');
-  else if (cond !== 'shortest') out.push(modeInfo(cond).label);
-  for (const l of secondaryLabels(r)) out.push(`함께 · ${l}`);
-  if (r.preferences.includes('indoor')) out.push('실내 선호');
-  if (r.timeLimitMin != null) out.push(`${r.timeLimitMin}분 안`);
+  if (isMandatory(r)) out.push(language === 'ko' ? (cond === 'accessible' ? '필수 · 휠체어·유모차' : '필수 · 계단 없이') : t('nlpRequired', { value: modeInfo(cond === 'accessible' ? 'accessible' : 'avoidStairs', language).label }));
+  else if (cond === 'preferElevator') out.push(r.mode === 'preferElevator' ? modeInfo('preferElevator', language).label : t('nlpFewerStairsPref'));
+  else if (cond !== 'shortest') out.push(modeInfo(cond, language).label);
+  for (const l of secondaryLabels(r, language)) out.push(t('nlpAlso', { value: l }));
+  if (r.preferences.includes('indoor')) out.push(t('nlpIndoor'));
+  if (r.timeLimitMin != null) out.push(t('nlpWithinMinutes', { minutes: String(r.timeLimitMin) }));
   return out;
 }
 
@@ -98,27 +111,48 @@ function placesIn(pkg: MapPackage, buildingKey: string, floorKey: string | null)
   };
 }
 
-export function planFromRequest(r: RouteRequest, pkg: MapPackage): Plan {
+const unsupportedLabels: Record<string, MessageKey> = {
+  '조용한 길': 'nlpQuiet', '사람 적은 길': 'nlpLessCrowded', '경치 좋은 길': 'nlpScenic',
+  '휠체어': 'nlpWheelchair', '그늘': 'nlpShade', '오르막 피하기': 'nlpAvoidUphill', '흡연 구역': 'nlpSmoking', '편의시설 경유': 'nlpFacilities',
+};
+export function describeUnsupported(u: RouteRequest['unsupported'][number], language: Language = 'ko'): string {
+  if (language === 'ko') return `${u.text}: ${u.reason}`;
+  const text = unsupportedLabels[u.text] ? translate(language, unsupportedLabels[u.text]) : localizedMapName(u.text, language);
+  const key: MessageKey = u.reason.startsWith('지도에 그 정보가 아직 없음') ? 'nlpNoData'
+    : u.reason === '지도에 그 장소가 아직 없음' ? 'nlpNoPlace'
+      : u.reason === '지도에 그 입구 번호가 없음' ? 'nlpNoEntrance'
+        : u.reason === '지도에 그 층이 없음' ? 'nlpNoFloor'
+          : u.reason === '오르막만 피하는 경로 방식이 아직 없음' ? 'nlpNoSlopeRoute'
+            : u.reason === '휠체어 통행 가능 여부가 지도에 아직 없음' ? 'nlpWheelchairUnverified' : 'nlpUnsupportedGeneric';
+  return `${text}: ${translate(language, key)}${key === 'nlpUnsupportedGeneric' && u.reason ? ` (${u.reason})` : ''}`;
+}
+
+export function planFromRequest(r: RouteRequest, pkg: MapPackage, language: Language = 'ko'): Plan {
+  const t = (key: MessageKey, values?: Record<string, string>) => translate(language, key, values);
+  const candidateName = (candidate: { name: string; placeKey: string | null; buildingKey: string | null }) => {
+    const entity = candidate.placeKey ? pkg.places.find((p) => p.key === candidate.placeKey) : pkg.buildings.find((b) => b.key === candidate.buildingKey);
+    return entity ? localizedEntityName(entity, language) : shortName(candidate.name);
+  };
   const q = r.needsClarification?.question;
   if (q) {
     // AI(Gemma)만 "계단 없이"로 알아들었을 때: 사용자가 정함(아니요면 AI 가 더한 필수 조건만 뺌 — 규칙에는 없던 것)
     if (q === AI_STAIRS_QUESTION)
       return {
         kind: 'ask',
-        question: q,
+        question: language === 'ko' ? q : t('nlpAIStairsQuestion'),
         choices: [
-          { label: '네, 계단 없이', apply: (x) => clear(x) },
-          { label: '아니요, 계단도 괜찮아요', apply: (x) => ({ ...clear(x), mandatory: [], mode: 'shortest' }) },
+          { label: t('nlpYesNoStairs'), apply: (x) => clear(x) },
+          { label: t('nlpNoStairsOk'), apply: (x) => ({ ...clear(x), mandatory: [], mode: 'shortest' }) },
         ],
       };
     if (q.startsWith('계단을 피할까요'))
       return {
         kind: 'ask',
-        question: q,
+        question: language === 'ko' ? q : t('nlpStairsQuestion'),
         choices: [
-          { label: '계단 피하기', apply: (x) => clear(x) },
+          { label: modeInfo('avoidStairs', language).label, apply: (x) => clear(x) },
           {
-            label: '계단으로 가기',
+            label: t('nlpUseStairs'),
             apply: (x) => ({ ...clear(x), mandatory: x.mandatory.filter((m) => m !== 'avoidStairs'), mode: 'shortest' }),
           },
         ],
@@ -127,9 +161,9 @@ export function planFromRequest(r: RouteRequest, pkg: MapPackage): Plan {
     if (d.text && !d.placeKey && !d.buildingKey && d.candidates.length)
       return {
         kind: 'ask',
-        question: q,
+        question: language === 'ko' ? q : t('nlpChooseDestination'),
         choices: d.candidates.map((c) => ({
-          label: shortName(c.name),
+          label: candidateName(c),
           apply: (x) => ({ ...clear(x), destination: pickTarget(x.destination, c.placeKey, c.buildingKey) }),
         })),
       };
@@ -137,39 +171,42 @@ export function planFromRequest(r: RouteRequest, pkg: MapPackage): Plan {
     if (!o.useCurrentLocation && !o.placeKey && !o.buildingKey && o.candidates.length)
       return {
         kind: 'ask',
-        question: q,
+        question: language === 'ko' ? q : t('nlpChooseOrigin'),
         choices: o.candidates.map((c) => ({
-          label: shortName(c.name),
+          label: candidateName(c),
           apply: (x) => ({ ...clear(x), origin: { ...pickTarget(x.origin, c.placeKey, c.buildingKey), useCurrentLocation: false } }),
         })),
       };
     // "말한 장소가 지도에 없습니다. X(으)로 갈까요?" → 확인 단추. 목적지가 없으면 질문만.
     if (d.placeKey || d.buildingKey)
-      return { kind: 'ask', question: q, choices: [{ label: `네, ${describe(r, pkg)[0].replace('도착 · ', '')}(으)로`, apply: clear }] };
-    return { kind: 'ask', question: q, choices: [] };
+      {
+      const name = targetName(d, pkg, language);
+      return { kind: 'ask', question: language === 'ko' ? q : t('nlpConfirmDestination', { name }), choices: [{ label: t('nlpYesDestination', { name }), apply: clear }] };
+    }
+    return { kind: 'ask', question: language === 'ko' ? q : t(q.includes('지도에 아직 없습니다') ? 'nlpMissingPlace' : 'whereTo'), choices: [] };
   }
 
-  const notes = r.unsupported.map((u) => `${u.text}: ${u.reason}`);
+  const notes = r.unsupported.map((u) => describeUnsupported(u, language));
   // 목적지: 장소 → 그대로, 건물(+층)만 → 그 건물의 길에 붙은 장소 하나로 좁히거나 되물음
   let destKey = r.destination.placeKey;
   if (!destKey && r.destination.buildingKey) {
     const b = pkg.buildings.find((x) => x.key === r.destination.buildingKey);
     const { list, floorMissed } = placesIn(pkg, r.destination.buildingKey, r.destination.floorKey);
-    if (floorMissed) notes.push('그 층 자체로는 길 안내가 아직 안 돼요(층 안 장소 자료 없음)');
+    if (floorMissed) notes.push(t('nlpFloorMissing'));
     if (list.length === 1) destKey = list[0].key;
     else if (!list.length)
-      return { kind: 'ask', question: `${b?.name ?? '그 건물'}에는 길이 이어진 곳이 아직 없어요. 다른 곳을 말해 주세요.`, choices: [] };
+      return { kind: 'ask', question: t('nlpNoBuildingRoute', { name: b ? localizedEntityName(b, language) : t('nlpThatBuilding') }), choices: [] };
     else
       return {
         kind: 'ask',
-        question: `${b?.name ?? '그 건물'}의 어디로 갈까요?`,
+        question: t('nlpWhereInBuilding', { name: b ? localizedEntityName(b, language) : t('nlpThatBuilding') }),
         choices: list.slice(0, 6).map((p) => ({
-          label: shortName(p.name),
+          label: language === 'ko' ? shortName(p.name) : localizedEntityName(p, language),
           apply: (x) => ({ ...x, destination: pickTarget(x.destination, p.key, p.buildingKey) }),
         })),
       };
   }
-  if (!destKey) return { kind: 'ask', question: '어디로 갈까요?', choices: [] };
+  if (!destKey) return { kind: 'ask', question: t('whereTo'), choices: [] };
 
   // 출발: 현재 위치 / 장소 / 건물만 → 되물음
   let origin: Extract<Plan, { kind: 'go' }>['origin'] = { type: 'current' };
@@ -182,22 +219,22 @@ export function planFromRequest(r: RouteRequest, pkg: MapPackage): Plan {
       else if (list.length)
         return {
           kind: 'ask',
-          question: `${b?.name ?? '그 건물'}의 어디에서 출발하나요?`,
+          question: t('nlpFromBuilding', { name: b ? localizedEntityName(b, language) : t('nlpThatBuilding') }),
           choices: list.slice(0, 6).map((p) => ({
-            label: shortName(p.name),
+            label: language === 'ko' ? shortName(p.name) : localizedEntityName(p, language),
             apply: (x) => ({ ...x, origin: { ...pickTarget(x.origin, p.key, p.buildingKey), useCurrentLocation: false } }),
           })),
         };
     }
   }
   // 경로 계산에 아직 못 쓰는 것은 버리지 않고 알림
-  if (r.waypoints.length) notes.push(`경유(${r.waypoints.map((w) => w.text).join(', ')})는 아직 경로에 넣지 못해요`);
+  if (r.waypoints.length) notes.push(t('nlpWaypointUnsupported', { value: r.waypoints.map((w) => w.text).join(', ') }));
   const condition = conditionOf(r);
-  if (r.preferences.includes('indoor') && condition !== 'rainProtected') notes.push('실내 선호는 아직 경로 계산에 반영하지 못해요');
-  if (r.timeLimitMin != null) notes.push(`${r.timeLimitMin}분 안: 경로 미리보기의 예상 시간을 확인해 주세요`);
-  const sec = secondaryLabels(r);
+  if (r.preferences.includes('indoor') && condition !== 'rainProtected') notes.push(t('nlpIndoorUnsupported'));
+  if (r.timeLimitMin != null) notes.push(t('nlpTimeNotice', { minutes: String(r.timeLimitMin) }));
+  const sec = secondaryLabels(r, language);
   if (sec.length)
-    notes.push(`함께 말한 조건(${sec.join(', ')})은 「${modeInfo(condition).label}」 경로에 같이 넣지 못해요(한 가지 방식으로 계산)`);
-  if (condition === 'accessible') notes.push('휠체어·유모차: 문턱·문·바닥 상태는 지도에서 아직 확인되지 않았어요');
+    notes.push(t('nlpSecondaryNotice', { conditions: sec.join(', '), mode: modeInfo(condition, language).label }));
+  if (condition === 'accessible') notes.push(t('nlpAccessibleNotice'));
   return { kind: 'go', destKey, origin, condition, mandatory: r.mandatory.slice(), notes };
 }

@@ -155,10 +155,10 @@ export function IconButton({
 export function SearchInput({
   value,
   onChangeText,
-  placeholder = '건물, 강의실, 시설 검색',
+  placeholder,
   onPress,
   ...rest
-}: { value?: string; onChangeText?: (t: string) => void; placeholder?: string; onPress?: () => void } & Omit<TextInputProps, 'style'>) {
+}: { value?: string; onChangeText?: (t: string) => void; placeholder: string; onPress?: () => void } & Omit<TextInputProps, 'style'>) {
   const [focused, setFocused] = useState(false);
   if (onPress) {
     return (
@@ -294,12 +294,12 @@ export function StatusChip({ tone, label, style }: { tone: ChipTone; label: stri
 const TAB_GAP = 4; // b.tabs.gap
 const TAB_PAD = 6; // b.tabs.padding
 const TAB_BORDER = 1; // b.tabs.borderWidth
-const TABS: { k: TabKey; label: string; icon: LucideIcon }[] = [
-  { k: 'map', label: '지도', icon: MapIcon },
-  { k: 'saved', label: '저장', icon: Bookmark },
-  { k: 'offline', label: '지도 저장', icon: Download },
+const TABS: { k: TabKey; icon: LucideIcon }[] = [
+  { k: 'map', icon: MapIcon },
+  { k: 'saved', icon: Bookmark },
+  { k: 'offline', icon: Download },
 ];
-export function TabBarView({ at, onSelect, bottomInset = 0 }: { at: TabKey; onSelect: (k: TabKey) => void; bottomInset?: number }) {
+export function TabBarView({ at, onSelect, bottomInset = 0, labels }: { at: TabKey; onSelect: (k: TabKey) => void; bottomInset?: number; labels: Record<TabKey, string> }) {
   const reduce = !useLook().moving;
   const idx = Math.max(
     0,
@@ -357,18 +357,19 @@ export function TabBarView({ at, onSelect, bottomInset = 0 }: { at: TabKey; onSe
         ) : null}
         {TABS.map((t) => {
           const on = at === t.k;
+          const label = labels[t.k];
           const c = on ? color.onPrimary : '#B9C2E8';
           return (
             <PressScale
               key={t.k}
               accessibilityRole="tab"
-              accessibilityLabel={t.label}
+              accessibilityLabel={label}
               accessibilityState={{ selected: on }}
               onPress={() => !on && onSelect(t.k)}
               style={b.tab}
             >
               <t.icon size={ICON} color={c} strokeWidth={on ? 2.4 : 2} />
-              <Text style={[b.tabT, { color: c }, on && { fontWeight: '700' }]}>{t.label}</Text>
+              <Text style={[b.tabT, { color: c }, on && { fontWeight: '700' }]}>{label}</Text>
             </PressScale>
           );
         })}

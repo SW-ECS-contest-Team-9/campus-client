@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fixture from '../map/fixture/campus-fixture.json';
 import type { MapPackage } from '../map/package';
 import { buildGraph, findRoute } from '../route/route';
-import { floorCommand, locationCommand, packagePlaceKey, pageUrl, parseEvent, routeCommand, sceneBuildingId } from './commands';
+import { floorCommand, localizedNamesCommand, locationCommand, packagePlaceKey, pageUrl, parseEvent, routeCommand, sceneBuildingId } from './commands';
 import { toFix } from '../location/fix';
 
 const pkg = fixture as unknown as MapPackage;
@@ -56,6 +56,8 @@ describe('3D 페이지 메시지', () => {
     expect(packagePlaceKey('abc')).toBe('p:abc');
     expect(pageUrl('')).toBe('http://127.0.0.1:5273/client3d.html');
     expect(pageUrl('https://x/client3d.html', true)).toBe('https://x/client3d.html?light=1&msaa=1');
+    expect(pageUrl('https://x/client3d.html?lang=ko&x=1#map', false, 'ja')).toBe('https://x/client3d.html?x=1&lang=ja#map');
+    expect(pageUrl('https://x/client3d.html#map', true, 'en')).toBe('https://x/client3d.html?light=1&msaa=1&lang=en#map');
   });
 
   it('받은 사건: v 1 과 모양만 받음', () => {
@@ -73,5 +75,15 @@ describe('3D 페이지 메시지', () => {
     expect(parseEvent({ v: 2, type: 'firstFrame' })).toBeNull();
     expect(parseEvent({ type: 'firstFrame' })).toBeNull();
     expect(parseEvent({ v: 1, type: 'ready', buildings: [] })?.type).toBe('ready');
+  });
+});
+
+
+describe('publisher names for web 3D', () => {
+  it('uses stable IDs, ignores missing translations and supports clearing', () => {
+    const pkg = { buildings: [{ key: 'b:building', localizedNames: { en: '  New Hall  ' } }], places: [{ key: 'p:place', localizedNames: { ja: '新しい場所' } }] } as any;
+    expect(localizedNamesCommand(pkg, 'en')).toEqual({ v: 1, type: 'setLocalizedNames', buildings: [{ id: 'building', name: 'New Hall' }], places: [] });
+    expect(localizedNamesCommand(pkg, 'ja')).toEqual({ v: 1, type: 'setLocalizedNames', buildings: [], places: [{ id: 'place', name: '新しい場所' }] });
+    expect(localizedNamesCommand(null, 'en')).toEqual({ v: 1, type: 'setLocalizedNames', buildings: [], places: [] });
   });
 });

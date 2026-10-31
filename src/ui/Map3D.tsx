@@ -22,12 +22,15 @@ import { BlurTargetView } from 'expo-blur';
 import { BlurTargetCtx } from './look';
 import { Character } from './v3';
 import { Button } from './components';
-import { parseEvent, type Map3dCommand, type Map3dEvent } from '../map3d/commands';
+import { localizedNamesCommand, parseEvent, sceneBuildingId, type Map3dCommand, type Map3dEvent } from '../map3d/commands';
 import { CHARACTER_OK, CHARACTER_UNCERTAIN } from './characterImages';
 import { color } from './theme';
 import { useActiveRouteKey } from './useActiveRoute';
 import { Campus3DView, type Campus3DHandle } from '../map3d/native/Campus3DView';
 import { note3dStat } from '../map3d/diag';
+import { useApp } from '../state/AppState';
+import { translate } from '../i18n/translations';
+import { localizedEntityName } from '../map/names-i18n';
 
 export type Map3dEngine = 'native' | 'web';
 /** 로딩 UI와 독립적인 준비 신호. 웹 페이지는 아직 첫 프레임을 보고하지 않음(null). */
@@ -115,6 +118,9 @@ export function Map3DHost({
   /** 초기 상태·재시도·장면 준비·첫 프레임·실패 시 앱 공통 상태로 전달. */
   onPreparationChange?: (preparation: Map3dPreparation) => void;
 }) {
+  const app = useApp();
+  const language = app.settings.language;
+  const buildingNames = useMemo(() => Object.fromEntries((app.pkg?.buildings ?? []).map((b) => [sceneBuildingId(b.key), { original: b.name, localized: localizedEntityName(b, language) }])), [app.pkg, language]);
   const [t0] = useState(() => Date.now());
   const firstReady = useRef(false);
   const blurTarget = useRef<View | null>(null);
@@ -191,6 +197,17 @@ export function Map3DHost({
     else if (native.current) native.current.post(msg);
     else web.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify(msg))}, '*'); true;`);
   }, []);
+
+  // The web scene can also receive publisher translations from the active map package.
+  const nameOverrides = useMemo(() => localizedNamesCommand(app.pkg, language), [app.pkg, language]);
+  const nameOverridesSent = useRef(false);
+  useEffect(() => {
+    if (status !== 'ready' || useNative || nameOverrides.type !== 'setLocalizedNames') return;
+    if (nameOverrides.buildings.length || nameOverrides.places.length || nameOverridesSent.current) {
+      post(nameOverrides);
+      nameOverridesSent.current = true;
+    }
+  }, [status, useNative, nameOverrides, post]);
 
   // 보이는 자리의 명령 보내기(ready 뒤). 자리 바뀜·명령 바뀜마다.
   const cmdKey = slot ? `${slot.id}|${slot.minimal}|${JSON.stringify(slot.commands)}` : '';
@@ -331,7 +348,7 @@ export function Map3DHost({
                   key={`${source}:${attempt}`}
                   ref={frame}
                   src={url}
-                  title="3D 캠퍼스 지도"
+                  title={translate(language, 'campus3dMap')}
                   style={{ border: 0, width: '100%', height: '100%', display: 'block', pointerEvents: shown ? 'auto' : 'none' }}
                 />
               ) : (
@@ -346,6 +363,8 @@ export function Map3DHost({
                           ref={native}
                           light={light}
                           places={places}
+                          buildingNames={buildingNames}
+                          language={language}
                           padding={{
                             top: r.y - origin.y + (slot?.padding?.top ?? 0),
                             bottom: root.h - (r.y - origin.y + r.h) + (slot?.padding?.bottom ?? 0),
@@ -383,7 +402,7 @@ export function Map3DHost({
                 <View style={s.loading} pointerEvents="none">
                   <View style={s.loadingPill}>
                     <Character name="loading" size={30} />
-                    <Text style={s.loadingT}>3D 지도를 불러오는 중…</Text>
+                    <Text style={s.loadingT}>{translate(language, 'loading3dMap')}</Text>
                   </View>
                 </View>
               ) : null}
@@ -435,6 +454,7 @@ export function MapSlot({
   overlay?: ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
+  const { settings: { language } } = useApp();
   const api = useContext(ApiCtx);
   const status = useContext(StatusCtx);
   const { key: routeKey } = useRoute();
@@ -477,9 +497,9 @@ export function MapSlot({
             ]}
           >
             <Text style={s.noticeT} accessibilityRole="alert">
-              3D 지도를 불러오지 못했어요
+              {translate(language, 'failed3dMap')}
             </Text>
-            <Button variant="secondary" label="지도 다시 시도" onPress={() => api?.retry()} />
+            <Button variant="secondary" label={translate(language, 'retryMap')} onPress={() => api?.retry()} />
           </View>
           {overlay}
         </>

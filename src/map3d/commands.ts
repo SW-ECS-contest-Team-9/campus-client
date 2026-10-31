@@ -6,6 +6,7 @@ import type { Fix } from '../location/fix';
 import { epsg5186ToWgs84 } from '../location/projection';
 import { DEV_HOST } from '../config/devHost';
 import type { Command, PageEvent } from './native/protocol';
+import type { Language } from '../i18n/translations';
 
 export const V = 1;
 /** 보내는 명령(v 붙임) */
@@ -16,6 +17,18 @@ export type Map3dEvent = PageEvent;
 /** 꾸러미 건물 key("b:북악관") ↔ 3D 장면 건물 id("북악관"). 장소 key("p:<id>") ↔ 장면 장소 id. */
 export const sceneBuildingId = (buildingKey: string) => buildingKey.replace(/^b:/, '');
 export const packagePlaceKey = (sceneId: string) => `p:${sceneId}`;
+
+/** Publisher-provided names for the embedded web scene; identifiers remain stable. */
+export function localizedNamesCommand(pkg: Pick<MapPackage, 'buildings' | 'places'> | null, language: Language): Map3dCommand {
+  const entries = (items: { key: string; localizedNames?: Partial<Record<Language, string>> }[], prefix: string) =>
+    items.flatMap((item) => {
+      const id = item.key.startsWith(prefix) ? item.key.slice(prefix.length) : item.key;
+      const supplied = item.localizedNames?.[language];
+      const name = typeof supplied === 'string' ? supplied.trim() : '';
+      return id.length > 0 && id.length <= 80 && name && name.length <= 160 ? [{ id, name }] : [];
+    }).slice(0, 2000);
+  return { v: 1, type: 'setLocalizedNames', buildings: entries(pkg?.buildings ?? [], 'b:'), places: entries(pkg?.places ?? [], 'p:') };
+}
 
 /** 받은 사건(객체 또는 JSON 문자열)을 확인. 모르는 것·v 가 다른 것은 null. */
 export function parseEvent(raw: unknown): Map3dEvent | null {
@@ -95,9 +108,18 @@ export function floorCommand(pkg: MapPackage, buildingKey: string, floorKey: str
 }
 
 /** 페이지 주소 + 가벼운 모드(light=1: 구조물·이름표 빼고 MSAA 끔). 층 판 숨김(ui=min)은 setMode 로 따로 보냄. */
-export function pageUrl(base: string, light = false): string {
+export function pageUrl(base: string, light = false, language?: Language): string {
   const u = base.trim() || DEFAULT_MAP3D_URL;
-  if (!light) return u;
-  return `${u}${u.includes('?') ? '&' : '?'}light=1&msaa=1`;
+  if (!light && !language) return u;
+  const hashAt = u.indexOf('#');
+  const beforeHash = hashAt < 0 ? u : u.slice(0, hashAt);
+  const hash = hashAt < 0 ? '' : u.slice(hashAt);
+  const queryAt = beforeHash.indexOf('?');
+  const path = queryAt < 0 ? beforeHash : beforeHash.slice(0, queryAt);
+  const pairs = queryAt < 0 ? [] : beforeHash.slice(queryAt + 1).split('&').filter(Boolean);
+  const filtered = language ? pairs.filter((part) => part.split('=', 1)[0] !== 'lang') : pairs;
+  if (light) filtered.push('light=1', 'msaa=1');
+  if (language) filtered.push(`lang=${language}`);
+  return `${path}${filtered.length ? `?${filtered.join('&')}` : ''}${hash}`;
 }
 export const DEFAULT_MAP3D_URL = `http://${DEV_HOST}:5273/client3d.html`;

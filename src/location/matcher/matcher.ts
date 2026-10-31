@@ -163,11 +163,10 @@ export function createMatcher(pkgOrGraph: MapPackage | Graph, options: MatcherOp
       best = Math.hypot(a.x - b.x, a.y - b.y);
       if (a.k === K.Bldg || b.k === K.Bldg) return best;
     }
-    const n = g.n;
     for (const [n1, c1] of exits(a)) {
       if (c1 >= best) continue;
       for (const [n2, c2] of entries(b)) {
-        const v = c1 + g.dist[n1 * n + n2] + c2;
+        const v = c1 + g.dist(n1, n2) + c2;
         if (v < best) best = v;
       }
     }

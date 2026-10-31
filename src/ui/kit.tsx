@@ -2,7 +2,7 @@
 // 기준 기기 Galaxy S21(360×800 dp): 누르는 곳 48 dp 이상, CTA 52.
 import { router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
-import type { ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gradient, WaveHeader } from './v3';
@@ -10,12 +10,9 @@ import { color, elevation, glass, shape, space, type } from './theme';
 import { IconButton, PressScale, TabBarView } from './components';
 import { TAB_BAR_HEIGHT } from './navigation';
 import { useActiveTab } from './useActiveRoute';
-import { Banner } from './feedback';
 import { useApp } from '../state/AppState';
-import { useState } from 'react';
 
-// 배너를 닫으면 앱을 다시 켤 때까지 숨김(화면마다 다시 뜨지 않게)
-let bannerClosed = false;
+const TabContentInset = createContext(0);
 
 /** 화면 틀: 상태 표시줄·아래 막대 여백, 머리(뒤로 + 제목), 내용 스크롤. */
 export function Screen({
@@ -34,22 +31,16 @@ export function Screen({
   headerAction?: { label: string; onPress: () => void };
 }) {
   const inset = useSafeAreaInsets();
-  const app = useApp();
-  const [closed, setClosed] = useState(bannerClosed);
-  // 서버에서 받은 지도가 아니면(인터넷 없음·아직 안 받음) 한 줄 배너. 검색·미리보기마다 따로 적지 않음.
-  const src = app.loaded?.source;
-  const bannerText =
-    closed || !src || src === 'server'
-      ? null
-      : src === 'fixture'
-        ? '앱에 든 지도로 안내해요 · 인터넷이 되면 최신 지도를 받아요'
-        : '인터넷 없음 · 저장된 지도로 안내해요';
+  const tabContentInset = useContext(TabContentInset);
   const body = scroll ? (
-    <ScrollView contentContainerStyle={[s.body, { paddingBottom: footer ? 16 : inset.bottom + 16 }]} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      contentContainerStyle={[s.body, { paddingBottom: footer ? 16 : tabContentInset + inset.bottom + 16 }]}
+      keyboardShouldPersistTaps="handled"
+    >
       {children}
     </ScrollView>
   ) : (
-    <View style={[s.body, { flex: 1, paddingBottom: footer ? 0 : inset.bottom }]}>{children}</View>
+    <View style={[s.body, { flex: 1, paddingBottom: footer ? 0 : tabContentInset + inset.bottom }]}>{children}</View>
   );
   return (
     <View style={s.root}>
@@ -83,15 +74,6 @@ export function Screen({
       ) : (
         <View style={{ height: inset.top }} />
       )}
-      {bannerText ? (
-        <Banner
-          text={bannerText}
-          onClose={() => {
-            bannerClosed = true;
-            setClosed(true);
-          }}
-        />
-      ) : null}
       <View style={{ flex: 1 }}>{body}</View>
       {footer ? <FooterPanel>{footer}</FooterPanel> : null}
     </View>
@@ -109,8 +91,9 @@ export function FooterPanel({
   onLayout?: ViewProps['onLayout'];
 }) {
   const inset = useSafeAreaInsets();
+  const tabContentInset = useContext(TabContentInset);
   return (
-    <View style={[s.footer, { paddingBottom: inset.bottom + 12 }, style]} onLayout={onLayout}>
+    <View style={[s.footer, { paddingBottom: tabContentInset + inset.bottom + 12 }, style]} onLayout={onLayout}>
       {children}
     </View>
   );
@@ -164,10 +147,9 @@ export function MainTabBar() {
   );
 }
 
-/** 고정 메뉴에 가리지 않도록 탭 콘텐츠의 아래 공간을 확보한다. */
+/** 배경은 탭바 뒤까지 채우고, 메뉴에 가리지 않을 여백은 콘텐츠 안에 둔다. */
 export function TabScreen({ children }: { children: ReactNode }) {
-  const inset = useSafeAreaInsets();
-  return <View style={{ flex: 1, paddingBottom: TAB_BAR_HEIGHT + inset.bottom }}>{children}</View>;
+  return <TabContentInset.Provider value={TAB_BAR_HEIGHT}>{children}</TabContentInset.Provider>;
 }
 
 const s = StyleSheet.create({

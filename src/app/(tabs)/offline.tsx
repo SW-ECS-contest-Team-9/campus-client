@@ -1,11 +1,11 @@
-// CT11 오프라인 지도: 기기에 저장된 지도 꾸러미(버전·크기·날짜·범위)와 갱신. 3D 지도: 기본(네이티브)은 앱에 들어 있어 인터넷 없이, 웹 엔진은 인터넷 필요.
+// CT11 오프라인 지도: 기기에 저장된 지도 꾸러미(버전·크기·날짜·범위)와 갱신.
 import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { buildingsWithFloors } from '../../map/labels';
 import { useApp } from '../../state/AppState';
 import { Button, MapPackCard } from '../../ui/components';
-import { color, type } from '../../ui/theme';
-import { Card, H, P, Screen, TabScreen } from '../../ui/kit';
+import { AdvertisementBanner } from '../../ui/AdvertisementBanner';
+import { H, P, Screen, TabScreen } from '../../ui/kit';
 import { Character } from '../../ui/v3';
 
 export default function OfflineScreen() {
@@ -40,24 +40,16 @@ export default function OfflineScreen() {
         <P tone="muted">
           장소 {pkg.places.length} · 길 {pkg.edges.length} · 층 {pkg.floors.length}
         </P>
-        <Card tone={l.source === 'fixture' ? 'caution' : undefined}>
-          <Text style={s.t}>3D 지도</Text>
-          <P tone="muted">
-            {app.settings.map3dEngine === 'web'
-              ? '웹 3D 화면은 인터넷과 지도 서버 연결이 필요해요. 연결할 수 없으면 지도가 표시되지 않아요.'
-              : '3D 지도는 앱에 들어 있어 인터넷 없이도 보여요(건물 모양은 앱을 받을 때 기준).'}
-          </P>
-        </Card>
         <Button label="지도 갱신 확인" onPress={app.checkUpdate} />
         {app.updateStatus ? <P tone="caution">{app.updateStatus}</P> : null}
         <P tone="muted">오프라인에서는 통행 변경과 시설 운영 정보를 확인할 수 없어요.</P>
+        <AdvertisementBanner serverUrl={app.settings.serverUrl} />
       </Screen>
     </TabScreen>
   );
 }
 
 const s = StyleSheet.create({
-  t: { fontSize: type.body, fontWeight: '800', color: color.text },
   hero: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   char: { marginVertical: -12 },
 });

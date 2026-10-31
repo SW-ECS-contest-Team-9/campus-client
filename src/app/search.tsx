@@ -181,13 +181,15 @@ export default function SearchScreen() {
   const sub = (key: string, nodeKey: string | null) => {
     const place = pkg ? placeSubtitle(pkg, key, app.settings.language) : '';
     if (choosingStart) return place;
-    return `${place} · ${t(nodeKey ? 'tapForRoute' : 'notRoutable')}`;
+    return `${place}, ${t(nodeKey ? 'tapForRoute' : 'notRoutable')}`;
   };
   const placeAction = (key: string, name: string, nodeKey: string | null) => ({
     onPress: choosingStart ? () => pick(key) : nodeKey ? () => beginRouteToPlace(key) : () => openDetails(key),
     icon: choosingStart || !nodeKey ? MapPin : Navigation,
     trailing:
-      !choosingStart && nodeKey ? <IconButton icon={Info} label={t('viewDetails', { name })} onPress={() => openDetails(key)} /> : undefined,
+      !choosingStart && nodeKey ? (
+        <IconButton icon={Info} label={t('viewDetails', { name })} onPress={() => openDetails(key)} />
+      ) : undefined,
   });
   const visibleBuildings = showAllResults ? results.buildingHits : results.buildingHits.slice(0, INITIAL_BUILDINGS);
   const visiblePlaces = showAllResults ? results.placeHits : results.placeHits.slice(0, INITIAL_PLACES);
@@ -251,7 +253,7 @@ export default function SearchScreen() {
               {req.unsupported
                 .map((u) => describeUnsupported(u, app.settings.language))
                 .filter((x, i, a) => a.indexOf(x) === i)
-                .join(' · ')}
+                .join(', ')}
             </P>
           ) : null}
           {ai?.text === q && ai.state === 'running' ? (
@@ -260,9 +262,7 @@ export default function SearchScreen() {
               <Button variant="quiet" label={t('cancel')} onPress={stopAi} />
             </View>
           ) : ai?.text === q && ai.state !== 'running' ? (
-            <P tone="muted">
-              {t(ai.state === 'done' ? 'aiAdded' : 'aiFailed')}
-            </P>
+            <P tone="muted">{t(ai.state === 'done' ? 'aiAdded' : 'aiFailed')}</P>
           ) : null}
           {plan.kind === 'ask' ? (
             <>
@@ -296,14 +296,16 @@ export default function SearchScreen() {
           )}
         </Card>
       ) : null}
-      {!naturalSearch && q && results.buildingHits.length ? <Section>{t('buildingsCount', { count: String(results.buildingHits.length) })}</Section> : null}
+      {!naturalSearch && q && results.buildingHits.length ? (
+        <Section>{t('buildingsCount', { count: String(results.buildingHits.length) })}</Section>
+      ) : null}
       {visibleBuildings.map((h) => {
         const expanded = expandedBuilding === h.building.key;
         const unavailable = h.places.length - h.routablePlaceCount;
         const visibleBuildingPlaces = expanded ? h.places : h.places.slice(0, INITIAL_BUILDING_PLACES);
         const hiddenBuildingPlaces = Math.max(0, h.places.length - INITIAL_BUILDING_PLACES);
         const detail = h.places.length
-          ? `${t('subplaces', { count: String(h.places.length) })}${unavailable ? ` · ${t('routableCount', { count: String(h.routablePlaceCount) })}` : ''}`
+          ? `${t('subplaces', { count: String(h.places.length) })}${unavailable ? `, ${t('routableCount', { count: String(h.routablePlaceCount) })}` : ''}`
           : t('noSubplaces');
         return (
           <View key={h.building.key} style={s.buildingGroup}>
@@ -328,7 +330,9 @@ export default function SearchScreen() {
           </View>
         );
       })}
-      {!naturalSearch && q && results.placeHits.length ? <Section>{t('placesCount', { count: String(results.placeHits.length) })}</Section> : null}
+      {!naturalSearch && q && results.placeHits.length ? (
+        <Section>{t('placesCount', { count: String(results.placeHits.length) })}</Section>
+      ) : null}
       {visiblePlaces.map((h) => (
         <ResultRow
           key={h.place.key}

@@ -13,7 +13,7 @@ describe('noRouteCopy', () => {
   it('휠체어·유모차에서 길 없음 → 그 조건 문구, 자연어로 조건 변경', () => {
     const c = noRouteCopy({ ...base, reason: 'no_route', condition: 'accessible' });
     expect(c.cause).toBe('stairs');
-    expect(c.title).toContain('휠체어·유모차');
+    expect(c.title).toContain('휠체어, 유모차');
     expect(c.secondary).toEqual({ action: 'change_condition', label: '자연어로 조건 변경' });
   });
   it('최단에서 길 없음 → 끊김, 출발점·목적지 변경 안내', () => {

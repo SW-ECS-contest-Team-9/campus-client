@@ -30,7 +30,6 @@ export default function SettingsScreen() {
         <Card style={s.row}>
           <View style={{ flex: 1 }}>
             <P>{t('naturalDefault')}</P>
-            <P tone="muted">{t('naturalDescription')}</P>
           </View>
           <Switch
             value={app.settings.naturalSearchDefault}
@@ -43,8 +42,7 @@ export default function SettingsScreen() {
         <Card style={s.row}>
           <View style={{ flex: 1 }}>
             <P>{t('aiAssist')}</P>
-            <P tone="muted">{t('aiDescription')}</P>
-            <P tone="muted">{app.aiModel ? t('modelReady', { state: t(aiOn ? 'enabled' : 'disabled') }) : t('modelMissing')}</P>
+            {app.aiModel ? null : <P tone="muted">{t('modelMissing')}</P>}
           </View>
           <Switch
             value={aiOn}
@@ -58,7 +56,6 @@ export default function SettingsScreen() {
         <Card style={s.row}>
           <View style={{ flex: 1 }}>
             <P>{t('lightMode')}</P>
-            <P tone="muted">{t('lightDescription')}</P>
           </View>
           <Switch
             value={app.settings.light}

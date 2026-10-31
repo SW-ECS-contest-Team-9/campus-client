@@ -2,7 +2,8 @@
 import type { Building, MapPackage, Place } from '../map/package';
 import { localizedEntityName } from '../map/names-i18n';
 
-const translatedNames = (entity: Pick<Building, 'name' | 'localizedNames'>) => (['ko', 'zh', 'ja', 'en'] as const).map((lang) => normalize(localizedEntityName(entity, lang)));
+const translatedNames = (entity: Pick<Building, 'name' | 'localizedNames'>) =>
+  (['ko', 'zh', 'ja', 'en'] as const).map((lang) => normalize(localizedEntityName(entity, lang)));
 
 /** 소문자, 공백·기호 제거. */
 export function normalize(s: string): string {

@@ -31,11 +31,17 @@ export interface FixMatch {
 
 /** Stable fields used to re-render an estimated position in another language. */
 export type LocationLabelSource = Pick<FixMatch, 'floorKey' | 'buildingKey' | 'onNetwork'>;
-export function locationLabelFromSource(pkg: Pick<MapPackage, 'buildings' | 'floors'>, source: LocationLabelSource | null, language: Language = 'ko'): string {
+export function locationLabelFromSource(
+  pkg: Pick<MapPackage, 'buildings' | 'floors'>,
+  source: LocationLabelSource | null,
+  language: Language = 'ko',
+): string {
   const floor = source?.floorKey ? pkg.floors.find((x) => x.key === source.floorKey) : null;
   if (floor) {
     const building = pkg.buildings.find((x) => x.key === floor.buildingKey);
-    return translate(language, 'estimatedPlace', { place: `${building ? localizedEntityName(building, language) : translate(language, 'indoorUnknown')} ${floor.code}` });
+    return translate(language, 'estimatedPlace', {
+      place: `${building ? localizedEntityName(building, language) : translate(language, 'indoorUnknown')} ${floor.code}`,
+    });
   }
   const building = source?.buildingKey ? pkg.buildings.find((x) => x.key === source.buildingKey) : null;
   if (building) return translate(language, 'estimatedPlace', { place: localizedEntityName(building, language) });

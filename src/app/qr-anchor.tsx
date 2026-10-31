@@ -15,7 +15,12 @@ export default function QrAnchorScreen() {
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const [focused, setFocused] = useState(false);
-  useFocusEffect(useCallback(() => { setFocused(true); return () => setFocused(false); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => setFocused(false);
+    }, []),
+  );
   const [message, setMessage] = useState<QrMessage | null>(null);
   const onScan = async (data: string) => {
     if (inFlight.current) return;
@@ -29,13 +34,39 @@ export default function QrAnchorScreen() {
       setMessage({ kind: reason === 'INVALID_QR' ? 'invalid' : reason === 'ANCHOR_NOT_FOUND' ? 'missing' : 'error' });
     }
   };
-  return <Screen title={t('qrTitle')}>
-    <P tone="muted">{t('qrHint')}</P>
-    {!permission?.granted ? <Card><P>{t('qrPermission')}</P><Button label={t('allowCamera')} onPress={() => void requestPermission()} /></Card> : focused ?
-      <View style={styles.camera}><CameraView style={StyleSheet.absoluteFill} barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        onBarcodeScanned={busy ? undefined : ({ data }) => void onScan(data)} /></View> : null}
-    {message ? <Card><P>{localizedQrMessage(message, app.settings.language, app.pkg)}</P><Button variant="secondary" label={t('scanAgain')} onPress={() => { setMessage(null); inFlight.current = false; setBusy(false); }} />
-      <Button label={t('showMap')} onPress={() => router.back()} /></Card> : null}
-  </Screen>;
+  return (
+    <Screen title={t('qrTitle')}>
+      <P tone="muted">{t('qrHint')}</P>
+      {!permission?.granted ? (
+        <Card>
+          <P>{t('qrPermission')}</P>
+          <Button label={t('allowCamera')} onPress={() => void requestPermission()} />
+        </Card>
+      ) : focused ? (
+        <View style={styles.camera}>
+          <CameraView
+            style={StyleSheet.absoluteFill}
+            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+            onBarcodeScanned={busy ? undefined : ({ data }) => void onScan(data)}
+          />
+        </View>
+      ) : null}
+      {message ? (
+        <Card>
+          <P>{localizedQrMessage(message, app.settings.language, app.pkg)}</P>
+          <Button
+            variant="secondary"
+            label={t('scanAgain')}
+            onPress={() => {
+              setMessage(null);
+              inFlight.current = false;
+              setBusy(false);
+            }}
+          />
+          <Button label={t('showMap')} onPress={() => router.back()} />
+        </Card>
+      ) : null}
+    </Screen>
+  );
 }
 const styles = StyleSheet.create({ camera: { height: 320, borderRadius: 16, overflow: 'hidden' } });

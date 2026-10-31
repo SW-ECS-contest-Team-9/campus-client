@@ -32,7 +32,9 @@ describe('localized natural-language results', () => {
     if (plan.kind === 'ask') expect(plan.choices[0].label).toContain('Convenience store');
   });
   it('translates known unsupported facility names', () => {
-    expect(describeUnsupported({ text: '도서관', reason: '지도에 그 장소가 아직 없음' }, 'en')).toBe('Library: That place is not yet on the map');
+    expect(describeUnsupported({ text: '도서관', reason: '지도에 그 장소가 아직 없음' }, 'en')).toBe(
+      'Library: That place is not yet on the map',
+    );
     expect(describeUnsupported({ text: '북악관 화장실', reason: '지도에 그 장소가 아직 없음' }, 'ja')).toContain('Bukak館 トイレ');
   });
 
@@ -40,7 +42,7 @@ describe('localized natural-language results', () => {
     const request = parseRouteRequest('북악관 편의점', pkg);
     const place = pkg.places.find((p) => p.key === request.destination.placeKey);
     expect(place).toBeDefined();
-    const named = { ...pkg, places: pkg.places.map((p) => p.key === place!.key ? { ...p, name: '쉼터 (동쪽)' } : p) };
+    const named = { ...pkg, places: pkg.places.map((p) => (p.key === place!.key ? { ...p, name: '쉼터 (동쪽)' } : p)) };
     expect(describeRequest(request, named, 'ko').join(' ')).toContain('쉼터 (동쪽)');
     request.needsClarification = { question: '목적지를 선택하세요' };
     request.destination.placeKey = null;

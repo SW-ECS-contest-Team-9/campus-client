@@ -8,7 +8,6 @@ describe('translated labels', () => {
   });
 });
 
-
 describe('translation completeness', () => {
   it('provides non-empty text and the same interpolation fields in all four languages', () => {
     for (const [key, variants] of Object.entries(messages)) {

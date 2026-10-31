@@ -14,3 +14,6 @@ src/nlp/types.ts
 src/nlp/lexicon.ts
 src/nlp/parse.ts
 src/map3d/native
+
+# 사용자 3D 편집 복사본(형식 정리 대상 아님)
+*.gltf

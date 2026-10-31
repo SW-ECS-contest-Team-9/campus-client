@@ -161,7 +161,17 @@ export function MainTabBar() {
   if (!at || !app.pkg) return null;
   return (
     <View testID="main-tab-bar" style={s.tabs} pointerEvents="box-none">
-      <TabBarView at={at} bottomInset={inset.bottom} labels={{ map: translate(app.settings.language, 'map'), saved: translate(app.settings.language, 'saved'), offline: translate(app.settings.language, 'offline'), settings: translate(app.settings.language, 'settings') }} onSelect={(k) => router.navigate(to[k])} />
+      <TabBarView
+        at={at}
+        bottomInset={inset.bottom}
+        labels={{
+          map: translate(app.settings.language, 'map'),
+          saved: translate(app.settings.language, 'saved'),
+          offline: translate(app.settings.language, 'offline'),
+          settings: translate(app.settings.language, 'settings'),
+        }}
+        onSelect={(k) => router.navigate(to[k])}
+      />
     </View>
   );
 }

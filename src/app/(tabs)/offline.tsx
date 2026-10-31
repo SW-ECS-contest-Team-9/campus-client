@@ -18,8 +18,7 @@ export default function OfflineScreen() {
   const kb = useMemo(() => (pkg ? Math.round(JSON.stringify(pkg).length / 1024) : 0), [pkg]); // 지도 전체 직렬화: 렌더마다 하지 않음
   if (!l || !pkg) return null;
   const indoor = buildingsWithFloors(pkg);
-  const src =
-    t(l.source === 'server' ? 'justDownloaded' : l.source === 'stored' ? 'storedOnDevice' : 'bundledMap');
+  const src = t(l.source === 'server' ? 'justDownloaded' : l.source === 'stored' ? 'storedOnDevice' : 'bundledMap');
   return (
     <TabScreen>
       <Screen title={t('offline')} back={false}>
@@ -37,7 +36,10 @@ export default function OfflineScreen() {
           action={
             l.source === 'fixture'
               ? t('getLatestMap')
-              : t('mapCoverage', { count: String(indoor.length), names: indoor.map((b) => localizedEntityName(b, app.settings.language)).join(', ') || t('none') })
+              : t('mapCoverage', {
+                  count: String(indoor.length),
+                  names: indoor.map((b) => localizedEntityName(b, app.settings.language)).join(', ') || t('none'),
+                })
           }
         />
         <P tone="muted">
@@ -45,11 +47,7 @@ export default function OfflineScreen() {
         </P>
         <Card tone={l.source === 'fixture' ? 'caution' : undefined}>
           <Text style={s.t}>{t('map3d')}</Text>
-          <P tone="muted">
-            {Platform.OS === 'web' || app.settings.map3dEngine === 'web'
-              ? t('web3dOffline')
-              : t('native3dOffline')}
-          </P>
+          <P tone="muted">{Platform.OS === 'web' || app.settings.map3dEngine === 'web' ? t('web3dOffline') : t('native3dOffline')}</P>
         </Card>
         <Button label={t('checkMapUpdate')} onPress={app.checkUpdate} />
         {app.updateStatus ? <P tone="caution">{app.updateStatus}</P> : null}

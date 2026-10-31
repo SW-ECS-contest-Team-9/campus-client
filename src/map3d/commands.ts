@@ -21,12 +21,14 @@ export const packagePlaceKey = (sceneId: string) => `p:${sceneId}`;
 /** Publisher-provided names for the embedded web scene; identifiers remain stable. */
 export function localizedNamesCommand(pkg: Pick<MapPackage, 'buildings' | 'places'> | null, language: Language): Map3dCommand {
   const entries = (items: { key: string; localizedNames?: Partial<Record<Language, string>> }[], prefix: string) =>
-    items.flatMap((item) => {
-      const id = item.key.startsWith(prefix) ? item.key.slice(prefix.length) : item.key;
-      const supplied = item.localizedNames?.[language];
-      const name = typeof supplied === 'string' ? supplied.trim() : '';
-      return id.length > 0 && id.length <= 80 && name && name.length <= 160 ? [{ id, name }] : [];
-    }).slice(0, 2000);
+    items
+      .flatMap((item) => {
+        const id = item.key.startsWith(prefix) ? item.key.slice(prefix.length) : item.key;
+        const supplied = item.localizedNames?.[language];
+        const name = typeof supplied === 'string' ? supplied.trim() : '';
+        return id.length > 0 && id.length <= 80 && name && name.length <= 160 ? [{ id, name }] : [];
+      })
+      .slice(0, 2000);
   return { v: 1, type: 'setLocalizedNames', buildings: entries(pkg?.buildings ?? [], 'b:'), places: entries(pkg?.places ?? [], 'p:') };
 }
 
@@ -116,7 +118,13 @@ export function pageUrl(base: string, light = false, language?: Language): strin
   const hash = hashAt < 0 ? '' : u.slice(hashAt);
   const queryAt = beforeHash.indexOf('?');
   const path = queryAt < 0 ? beforeHash : beforeHash.slice(0, queryAt);
-  const pairs = queryAt < 0 ? [] : beforeHash.slice(queryAt + 1).split('&').filter(Boolean);
+  const pairs =
+    queryAt < 0
+      ? []
+      : beforeHash
+          .slice(queryAt + 1)
+          .split('&')
+          .filter(Boolean);
   const filtered = language ? pairs.filter((part) => part.split('=', 1)[0] !== 'lang') : pairs;
   if (light) filtered.push('light=1', 'msaa=1');
   if (language) filtered.push(`lang=${language}`);

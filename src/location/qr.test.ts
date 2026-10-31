@@ -9,10 +9,21 @@ describe('QR anchors', () => {
     expect(qrNodeId(`campustracker:node:${id}?x=1`)).toBeNull();
   });
   it('uses coordinates returned by the configured server', async () => {
-    const fetcher = (async () => ({ ok: true, json: async () => ({ nodeId: id, latitude: 37.61, longitude: 127.0,
-      heightM: 130, buildingId: 'outdoor', floor: null, label: '정문' }) })) as unknown as typeof fetch;
+    const fetcher = (async () => ({
+      ok: true,
+      json: async () => ({
+        nodeId: id,
+        latitude: 37.61,
+        longitude: 127.0,
+        heightM: 130,
+        buildingId: 'outdoor',
+        floor: null,
+        label: '정문',
+      }),
+    })) as unknown as typeof fetch;
     const result = await resolveQrAnchor('https://example.test/', `campustracker:node:${id}`, fetcher);
-    expect(result.x).toBeGreaterThan(190000); expect(result.z).toBe(130);
+    expect(result.x).toBeGreaterThan(190000);
+    expect(result.z).toBe(130);
   });
   it('rejects missing or invalid positions', async () => {
     const fetcher = (async () => ({ ok: true, json: async () => ({ nodeId: id, latitude: null }) })) as unknown as typeof fetch;

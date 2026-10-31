@@ -20,13 +20,8 @@
       "predictiveBackGestureEnabled": false,
       "package": "kr.ac.skuniv.campusclient",
       "versionCode": 2,
-      "permissions": [
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION"
-      ],
-      "blockedPermissions": [
-        "android.permission.ACCESS_BACKGROUND_LOCATION"
-      ]
+      "permissions": ["android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION"],
+      "blockedPermissions": ["android.permission.ACCESS_BACKGROUND_LOCATION"]
     },
     "web": {
       "favicon": "./assets/favicon.png",

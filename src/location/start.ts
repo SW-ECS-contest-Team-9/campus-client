@@ -12,7 +12,11 @@ export type StartPoint =
 
 /** 현재 위치에서 출발: 걷는 면·열린 면 위면 그 점(면을 가로질러 출발), 아니면 맞춘 길의 가까운 끝 노드(50 m 안 바깥 노드). */
 export function startFromFix(pkg: MapPackage, graph: Graph | null, fix: Fix, label: string): StartPoint | null {
-  const labelSource = { floorKey: fix.match?.floorKey ?? null, buildingKey: fix.match?.buildingKey ?? null, onNetwork: fix.match?.onNetwork ?? false };
+  const labelSource = {
+    floorKey: fix.match?.floorKey ?? null,
+    buildingKey: fix.match?.buildingKey ?? null,
+    onNetwork: fix.match?.onNetwork ?? false,
+  };
   const p = graph ? pointStart(graph, fix.x, fix.y, fix.match?.z ?? null) : null;
   if (p) return { type: 'point', x: p[0], y: p[1], z: p[2], label, labelSource };
   const n = startNodeForFix(pkg, fix);

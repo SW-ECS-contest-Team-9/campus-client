@@ -16,9 +16,21 @@ describe('start labels in the selected language', () => {
     expect(buildingName({ buildings: [building as never] }, 'b', 'ja')).toBe('新しい館');
   });
   it('re-renders saved current positions using the latest map translations', () => {
-    const building = { key: 'b', name: '새 건물', localizedNames: { en: 'New Hall', ja: '新館' }, aliases: [], center: null, footprint: null };
+    const building = {
+      key: 'b',
+      name: '새 건물',
+      localizedNames: { en: 'New Hall', ja: '新館' },
+      aliases: [],
+      center: null,
+      footprint: null,
+    };
     const floor = { key: 'f', buildingKey: 'b', code: '2F', sortOrder: 2, floorZ: null, zEstimated: false };
-    const start = { type: 'node', nodeKey: 'n', label: '새 건물 2F (추정)', labelSource: { buildingKey: 'b', floorKey: 'f', onNetwork: true } } as const;
+    const start = {
+      type: 'node',
+      nodeKey: 'n',
+      label: '새 건물 2F (추정)',
+      labelSource: { buildingKey: 'b', floorKey: 'f', onNetwork: true },
+    } as const;
     const pkg = { places: [], buildings: [building], floors: [floor] };
     expect(startLabel(pkg, start, 'en')).toBe('New Hall 2F (estimated)');
     expect(startLabel(pkg, start, 'ja')).toBe('新館 2F（推定）');

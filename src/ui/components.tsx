@@ -300,7 +300,17 @@ const TABS: { k: TabKey; icon: LucideIcon }[] = [
   { k: 'offline', icon: Download },
   { k: 'settings', icon: Settings },
 ];
-export function TabBarView({ at, onSelect, bottomInset = 0, labels }: { at: TabKey; onSelect: (k: TabKey) => void; bottomInset?: number; labels: Record<TabKey, string> }) {
+export function TabBarView({
+  at,
+  onSelect,
+  bottomInset = 0,
+  labels,
+}: {
+  at: TabKey;
+  onSelect: (k: TabKey) => void;
+  bottomInset?: number;
+  labels: Record<TabKey, string>;
+}) {
   const reduce = !useLook().moving;
   const idx = Math.max(
     0,

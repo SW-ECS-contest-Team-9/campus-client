@@ -196,7 +196,9 @@ export function createTracker(pkg: MapPackage, platform: 'ios' | 'android' = 'an
       if (![point.x, point.y, point.z, t].every(Number.isFinite)) throw new Error('Invalid anchor');
       const floor = pkg.floors.find((f) => f.buildingKey === `b:${point.buildingId}` && f.code === point.floor);
       matcher = createDefaultMatcher(pkg, platform, trustJson as TrustModelJson, {
-        floorPrior: priorRec, floorPriorMarginM: FLOOR_PRIOR_MARGIN_M, start: { x: point.x, y: point.y, z: point.z },
+        floorPrior: priorRec,
+        floorPriorMarginM: FLOOR_PRIOR_MARGIN_M,
+        start: { x: point.x, y: point.y, z: point.z },
       });
       raw = null;
       acc = 2;
@@ -208,9 +210,23 @@ export function createTracker(pkg: MapPackage, platform: 'ios' | 'android' = 'an
       if (baroH != null) matcher.push({ type: 'baro', t, h: baroH });
       shownUnsure = false;
       differSince = null;
-      cur = { x: point.x, y: point.y, accuracyM: 2, timestamp: t * 1000, uncertain: false, reason: null, raw: null,
-        match: { floorKey: floor?.key ?? null, buildingKey: floor?.buildingKey ?? (point.buildingId === 'outdoor' ? null : `b:${point.buildingId}`),
-          edgeKey: m?.edgeKey ?? null, areaKey: m?.areaKey ?? null, z: point.z, onNetwork: !!(m?.edgeKey || m?.areaKey) } };
+      cur = {
+        x: point.x,
+        y: point.y,
+        accuracyM: 2,
+        timestamp: t * 1000,
+        uncertain: false,
+        reason: null,
+        raw: null,
+        match: {
+          floorKey: floor?.key ?? null,
+          buildingKey: floor?.buildingKey ?? (point.buildingId === 'outdoor' ? null : `b:${point.buildingId}`),
+          edgeKey: m?.edgeKey ?? null,
+          areaKey: m?.areaKey ?? null,
+          z: point.z,
+          onNetwork: !!(m?.edgeKey || m?.areaKey),
+        },
+      };
       return cur;
     },
     position(p, t) {

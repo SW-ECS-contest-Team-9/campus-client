@@ -2,7 +2,7 @@
 // 경로는 서버가 닿으면 고른 방식의 서버 계산, 아니면 기기 계산(AppState.route).
 import { Redirect, router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
-import { displayName, startLabel as startLabelOf } from '../map/labels';
+import { startLabel as startLabelOf } from '../map/labels';
 import { modeInfo } from '../route/modes';
 import { hasRouteIndicators } from '../route/route';
 import { minutesOf } from '../route/time';
@@ -34,7 +34,6 @@ export default function PreviewScreen() {
   const stairs = r.steps.filter((s) => s.kind === 'stairs').length;
   const changes = r.steps.filter((s) => s.floorChange);
   const startLabel = startLabelOf(pkg, st);
-  const path = [startLabel, ...changes.map((c) => c.toFloor), dest && displayName(dest.name)].filter(Boolean).join(' → ');
   const fromServer = r.source === 'server';
   // 기기 계산인데 꾸러미에 지붕·조명 지표가 없으면 이 방식은 일부만 반영됨
   const partial = !fromServer && !hasRouteIndicators(pkg) ? modeInfo(app.condition).device : null;
@@ -44,7 +43,12 @@ export default function PreviewScreen() {
       scroll={false}
       footer={
         <View style={s.two}>
-          <Button variant="secondary" label="출발지" onPress={() => router.push('/start')} style={{ flex: 1 }} />
+          <Button
+            variant="secondary"
+            label="출발지"
+            onPress={() => router.push({ pathname: '/search', params: { mode: 'start' } })}
+            style={{ flex: 1 }}
+          />
           <Button
             label="안내 시작"
             onPress={() => {
@@ -71,6 +75,7 @@ export default function PreviewScreen() {
                 <View style={s.sumHead}>
                   <Footprints size={18} color={color.primary} />
                   <Text style={s.kind}>{modeInfo(app.condition).title}</Text>
+                  <Text style={s.note}>{modeInfo(app.condition).note}</Text>
                 </View>
                 <Text style={s.t}>
                   약 {minutesOf(r.durationS)}분 <Text style={s.len}>· {Math.round(r.totalLengthM)} m</Text>
@@ -79,20 +84,18 @@ export default function PreviewScreen() {
                 <P tone="muted">
                   계단 {stairs}곳 · 층 이동 {changes.length}번
                 </P>
-                <Text style={s.path} numberOfLines={2}>
-                  {path}
-                </Text>
               </Glass>
             </>
           }
         />
       </View>
-      <View style={s.below}>
-        <P tone="muted">{modeInfo(app.condition).note}</P>
-        {fromServer ? <StatusChip tone="confirmed" label="서버에서 이 방식으로 계산" /> : null}
-        {partial ? <P tone="muted">{partial}</P> : null}
-        {server && !server.ok && server.code === 'no_route' ? <P tone="muted">서버는 같은 조건의 경로가 없다고 해요</P> : null}
-      </View>
+      {fromServer || partial || (server && !server.ok && server.code === 'no_route') ? (
+        <View style={s.below}>
+          {fromServer ? <StatusChip tone="confirmed" label="서버에서 이 방식으로 계산" /> : null}
+          {partial ? <P tone="muted">{partial}</P> : null}
+          {server && !server.ok && server.code === 'no_route' ? <P tone="muted">서버는 같은 조건의 경로가 없다고 해요</P> : null}
+        </View>
+      ) : null}
     </Screen>
   );
 }
@@ -102,10 +105,10 @@ const s = StyleSheet.create({
   map: { flex: 1, marginHorizontal: -space[20] },
   sum: { position: 'absolute', left: 16, right: 16, bottom: 16, padding: 18, gap: 8 },
   sumHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  kind: { fontSize: type.small, fontWeight: '800', color: color.primary },
+  kind: { flexShrink: 0, fontSize: type.small, fontWeight: '800', color: color.primary },
+  note: { flex: 1, minWidth: 0, marginLeft: 4, fontSize: type.caption, lineHeight: 20, color: color.secondary },
   t: { fontSize: type.display - 2, fontWeight: '800', color: color.text, letterSpacing: -0.5 },
   len: { fontSize: type.body, fontWeight: '700', color: color.secondary },
-  path: { fontSize: type.small, color: color.primary, fontWeight: '600' },
   below: { gap: 6, paddingTop: 10 },
   two: { flexDirection: 'row', gap: 8 },
 });

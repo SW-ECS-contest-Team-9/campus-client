@@ -1,6 +1,7 @@
 // 캠퍼스 3D 장면(three.js, expo-gl). 이 저장소가 관리한다(campus-3d-lab 에서 가져온 뒤 앱에 맞게 고쳤고, 다시 복사하지 않음).
 // 자료: export/build-glb.mjs 가 만든 campus.glb(웹 모델링을 그대로 구운 것). 명령·사건은 client3d 메시지 형식 v1 과 같음.
 import * as THREE from 'three';
+import { createLocationHeightMemory } from './locationHeight';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { makeFrame, tmForward } from './geo';
 import { matchFloor, parseCommand, PROTOCOL_VERSION, type Command, type PageEvent } from './protocol';
@@ -247,9 +248,11 @@ export async function createCampusScene(o: SceneOptions) {
     if (b && floorState?.building === b.id && floorState.index !== null && loc.state === 'ok') p.y = b.floors[floorState.index].m + floorOffset(b, floorState.index) + 0.1;
     here.position.copy(p);
   }
+  const locationHeight = createLocationHeightMemory();
   function setLocation(c: Extract<Command, { type: 'setLocation' }>) {
-    const v = new THREE.Vector3(...frame.fromLonLat(c.lon, c.lat, c.z ?? 0));
-    if (c.z === null || c.state === 'uncertain') v.y = groundAt(v.x, v.z) + 0.2;
+    const z = locationHeight.resolve(c.z, c.state);
+    if (z === null) { loc = null; here.visible = false; dirty(); return; }
+    const v = new THREE.Vector3(...frame.fromLonLat(c.lon, c.lat, z));
     loc = { ...c, p: v };
     here.visible = true;
     here.scale.setScalar(Math.max(2, c.accuracyM));
@@ -300,7 +303,7 @@ export async function createCampusScene(o: SceneOptions) {
     const c = parsed.command;
     switch (c.type) {
       case 'setLocation': setLocation(c); break;
-      case 'clearLocation': loc = null; here.visible = false; dirty(); break;
+      case 'clearLocation': locationHeight.clear(); loc = null; here.visible = false; dirty(); break;
       case 'setRoute': setRoute(c.points, c.floorChanges); break;
       case 'clearRoute': clearRoute(); break;
       case 'focus': { const v = fromTm(c.x, c.y, c.z ?? 0); if (c.z === null) v.y = groundAt(v.x, v.z); cam.target.copy(v); cam.dist = 140; follow.paused = true; if (c.building) setFloorView(c.building, c.floor, true); dirty(); break; }

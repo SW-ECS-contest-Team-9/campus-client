@@ -1,7 +1,7 @@
 // CT01 캠퍼스 지도(V3): 지도가 화면 전체(V3-1), 위에 검색 알약, 아래 끄는 시트("어디로 갈까요?", 지도를 만지면 접힘), 떠 있는 탭 캡슐.
 // 지도 위 부품은 모두 overlay 로 공용 3D 지도와 함께 그림(3D 가 화면 위에 겹쳐 있어서).
 import { router, useFocusEffect } from 'expo-router';
-import { Bookmark, Clock, House, Layers, MapPin, Navigation, Search, Settings, type LucideIcon } from 'lucide-react-native';
+import { Bookmark, Clock, House, Layers, MapPin, Navigation, Search, type LucideIcon } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { BackHandler, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -159,14 +159,11 @@ export default function Home() {
               bottomOffset={bottom}
               header={<Text style={s.sheetT}>어디로 갈까요?</Text>}
               headerActions={
-                <>
-                  <IconButton icon={Settings} label="설정" onPress={() => router.navigate('/settings')} style={s.settings} />
-                  <PressScale accessibilityLabel="장소 찾기" onPress={() => router.navigate('/search')} style={s.findBtn}>
-                    <Gradient angle="right" />
-                    <Search size={18} color={color.onPrimary} strokeWidth={2.4} />
-                    <Text style={s.findT}>장소 찾기</Text>
-                  </PressScale>
-                </>
+                <PressScale accessibilityLabel="장소 찾기" onPress={() => router.navigate('/search')} style={s.findBtn}>
+                  <Gradient angle="right" />
+                  <Search size={18} color={color.onPrimary} strokeWidth={2.4} />
+                  <Text style={s.findT}>장소 찾기</Text>
+                </PressScale>
               }
             >
               <View style={s.sheet}>
@@ -220,7 +217,6 @@ const s = StyleSheet.create({
   ctlT: { fontSize: 11, fontWeight: '700', color: color.text },
   sheet: { paddingHorizontal: 20, paddingTop: 14 },
   sheetT: { fontSize: type.title - 2, fontWeight: '800', color: color.text, letterSpacing: -0.5 },
-  settings: { shadowOpacity: 0, elevation: 0, borderColor: 'rgba(49,46,129,0.10)' },
   findBtn: {
     flexDirection: 'row',
     alignItems: 'center',

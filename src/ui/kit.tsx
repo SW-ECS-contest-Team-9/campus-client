@@ -126,7 +126,7 @@ export function MainTabBar() {
   const inset = useSafeAreaInsets();
   const at = useActiveTab();
   const app = useApp();
-  const to = { map: '/', saved: '/saved', offline: '/offline' } as const;
+  const to = { map: '/', saved: '/saved', offline: '/offline', settings: '/settings' } as const;
   if (!at || !app.pkg) return null;
   return (
     <View testID="main-tab-bar" style={s.tabs} pointerEvents="box-none">

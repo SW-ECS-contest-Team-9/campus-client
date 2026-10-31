@@ -2,7 +2,7 @@
 // 기준 기기 Galaxy S21(360×800 dp): 누르는 곳 48 dp 이상, CTA 52.
 import { router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
-import type { ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gradient, WaveHeader } from './v3';
@@ -13,6 +13,8 @@ import { useActiveTab } from './useActiveRoute';
 
 import { useApp } from '../state/AppState';
 import { translate } from '../i18n/translations';
+
+const TabContentInset = createContext(0);
 
 /** 화면 틀: 상태 표시줄·아래 막대 여백, 머리(뒤로 + 제목), 내용 스크롤. */
 export function Screen({
@@ -32,12 +34,16 @@ export function Screen({
 }) {
   const inset = useSafeAreaInsets();
   const app = useApp();
+  const tabContentInset = useContext(TabContentInset);
   const body = scroll ? (
-    <ScrollView contentContainerStyle={[s.body, { paddingBottom: footer ? 16 : inset.bottom + 16 }]} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      contentContainerStyle={[s.body, { paddingBottom: footer ? 16 : tabContentInset + inset.bottom + 16 }]}
+      keyboardShouldPersistTaps="handled"
+    >
       {children}
     </ScrollView>
   ) : (
-    <View style={[s.body, { flex: 1, paddingBottom: footer ? 0 : inset.bottom }]}>{children}</View>
+    <View style={[s.body, { flex: 1, paddingBottom: footer ? 0 : tabContentInset + inset.bottom }]}>{children}</View>
   );
   return (
     <View style={s.root}>
@@ -88,8 +94,9 @@ export function FooterPanel({
   onLayout?: ViewProps['onLayout'];
 }) {
   const inset = useSafeAreaInsets();
+  const tabContentInset = useContext(TabContentInset);
   return (
-    <View style={[s.footer, { paddingBottom: inset.bottom + 12 }, style]} onLayout={onLayout}>
+    <View style={[s.footer, { paddingBottom: tabContentInset + inset.bottom + 12 }, style]} onLayout={onLayout}>
       {children}
     </View>
   );
@@ -155,8 +162,7 @@ export function MainTabBar() {
 
 /** 고정 메뉴에 가리지 않도록 탭 콘텐츠의 아래 공간을 확보한다. */
 export function TabScreen({ children }: { children: ReactNode }) {
-  const inset = useSafeAreaInsets();
-  return <View style={{ flex: 1, paddingBottom: TAB_BAR_HEIGHT + inset.bottom }}>{children}</View>;
+  return <TabContentInset.Provider value={TAB_BAR_HEIGHT}>{children}</TabContentInset.Provider>;
 }
 
 const s = StyleSheet.create({

@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useApp } from '../../state/AppState';
 import { Button, MapPackCard } from '../../ui/components';
+import { AdvertisementBanner } from '../../ui/AdvertisementBanner';
 import { Screen, TabScreen } from '../../ui/kit';
 import { Character } from '../../ui/v3';
 import { translate, type MessageKey } from '../../i18n/translations';
@@ -27,6 +28,7 @@ export default function OfflineScreen() {
           detail={t('mapDetail', { source: src, date: pkg.release.createdAt.slice(0, 10), size: String(kb) })}
         />
         <Button label={t('checkMapUpdate')} onPress={app.checkUpdate} />
+        <AdvertisementBanner serverUrl={app.settings.serverUrl} />
       </Screen>
     </TabScreen>
   );

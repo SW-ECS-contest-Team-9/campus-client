@@ -15,12 +15,11 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurTargetView } from 'expo-blur';
 import { BlurTargetCtx } from './look';
-import { Character } from './v3';
 import { Button } from './components';
 import { localizedNamesCommand, parseEvent, sceneBuildingId, type Map3dCommand, type Map3dEvent } from '../map3d/commands';
 import { CHARACTER_OK, CHARACTER_UNCERTAIN } from './characterImages';
@@ -407,7 +406,12 @@ export function Map3DHost({
               {status === 'loading' ? (
                 <View style={s.loading} pointerEvents="none">
                   <View style={s.loadingPill}>
-                    <Character name="loading" size={30} />
+                    <Image
+                      source={require('../../assets/characters/loading.png')}
+                      style={{ width: 30, height: 30 }}
+                      resizeMode="contain"
+                      accessible={false}
+                    />
                     <Text style={s.loadingT}>{translate(language, 'loading3dMap')}</Text>
                   </View>
                 </View>

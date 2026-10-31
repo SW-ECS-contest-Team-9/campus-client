@@ -1,7 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import type { AppPreparation } from '../state/AppState';
 import { color, type } from './theme';
-import { Character } from './v3';
 import { translate, type Language } from '../i18n/translations';
 
 /** 병렬로 준비되는 항목 중 아직 끝나지 않은 첫 단계를 안내. */
@@ -21,7 +20,12 @@ export function AppLoading({ message }: { message: string | null }) {
   if (message === null) return null;
   return (
     <View style={s.loading} accessibilityViewIsModal>
-      <Character name="loading" size={88} />
+      <Image
+        source={require('../../assets/characters/loading.png')}
+        style={{ width: 88, height: 88 }}
+        resizeMode="contain"
+        accessible={false}
+      />
       <Text style={s.loadingT} accessibilityLiveRegion="polite">
         {message}
       </Text>

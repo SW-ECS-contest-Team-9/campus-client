@@ -1,7 +1,7 @@
 // CT07 3D 지도 안내: 남은 시간·거리, 지금 할 일(단계), 3D 지도(경로 + 위치 따라가기), 도착 확인 / 안내 종료.
 // 위치가 불확실하면 단계 안내 대신 위치 확인으로 보냄(제품 규칙 02). AR 은 넣지 않음.
 import { Redirect, router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRouteFollower, distrustZones } from '../route/follow';
 import { DEFAULT_GPS_DISTRUST } from '../location/matcher';
 import { StyleSheet, Text, View } from 'react-native';
@@ -18,6 +18,13 @@ import { color, gradient, shape, space, type } from '../ui/theme';
 import { translate, type MessageKey } from '../i18n/translations';
 import { localizedEntityName } from '../map/names-i18n';
 import { localizedStep } from '../route/step-i18n';
+import { startFromCurrentFix } from '../location/start';
+
+/** 경로 다시 찾기: 확실한 위치가 경로에서 약 5 보폭(0.7 m × 5) 넘게 벗어난 것이 연속 REROUTE_N 번이면(사용자 지시 2026-11-01) */
+const REROUTE_DIST_M = 3.5;
+const REROUTE_N = 2;
+/** 다시 찾기 사이 최소 간격(ms): 위치가 튀어 경로가 계속 바뀌지 않게 */
+const REROUTE_COOLDOWN_MS = 10_000;
 
 export default function GuideScreen() {
   const app = useApp();
@@ -41,6 +48,10 @@ export default function GuideScreen() {
         : null,
     [r, app.pkg],
   );
+  const lastReroute = useRef(0);
+  const offN = useRef(0);
+  const { graph, setStart } = app;
+  const language = app.settings.language;
   const stepEnds = useMemo(() => {
     const out: number[] = [];
     let acc = 0;
@@ -53,11 +64,25 @@ export default function GuideScreen() {
     const fk = app.confirmedFloor?.floorKey ?? f.match?.floorKey ?? null;
     const floorZ = fk ? (app.pkg.floors.find((x) => x.key === fk)?.floorZ ?? null) : null;
     const st = follower.update({ x: f.x, y: f.y, z: floorZ ?? f.match?.z ?? null, uncertain: f.uncertain, raw: null });
+    // 경로 이탈(확실한 위치가 경로에서 약 5 보폭 넘게, 연속 2번): 지금 위치에서 같은 목적지로 다시 찾음 → 경로가 바뀌면 단계·추종기도 새로
+    const off = st.status === 'offRoute' || (st.distM != null && st.distM > REROUTE_DIST_M);
+    offN.current = off ? offN.current + 1 : 0;
+    if (off && offN.current >= REROUTE_N) {
+      const now = Date.now();
+      if (now - lastReroute.current < REROUTE_COOLDOWN_MS) return;
+      const next = startFromCurrentFix(app.pkg, graph, f, language);
+      if (next) {
+        lastReroute.current = now;
+        offN.current = 0;
+        setStart(next);
+      }
+      return;
+    }
     if (st.status !== 'following' || st.m == null) return;
     const at = stepEnds.findIndex((end) => st.m! < end - 2); // 단계 끝 2 m 전부터 다음 단계
     const next = at < 0 ? stepEnds.length - 1 : at;
     setStep0((cur) => (next > cur ? next : cur)); // eslint-disable-line react-hooks/set-state-in-effect -- 위치가 올 때마다 단계 맞춤
-  }, [app.fix, app.confirmedFloor, app.pkg, follower, stepEnds]);
+  }, [app.fix, app.confirmedFloor, app.pkg, graph, setStart, language, follower, stepEnds]);
   if (!app.pkg || !r?.ok) return <Redirect href="/" />;
   const pkg = app.pkg;
   const i = Math.min(step0, r.steps.length - 1);

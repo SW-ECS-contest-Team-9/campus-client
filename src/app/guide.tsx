@@ -6,7 +6,7 @@ import { createRouteFollower, distrustZones } from '../route/follow';
 import { DEFAULT_GPS_DISTRUST } from '../location/matcher';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { displayName, floorCode } from '../map/labels';
+import { floorCode } from '../map/labels';
 import { minutesOf } from '../route/time';
 import { useApp } from '../state/AppState';
 import { Button } from '../ui/components';
@@ -15,9 +15,13 @@ import { FooterPanel, P, Screen } from '../ui/kit';
 import { useRouteCommand } from '../ui/useRouteCommand';
 import { Character, Gradient, Pulse, RouteDrawBar, WaveEdge } from '../ui/v3';
 import { color, gradient, shape, space, type } from '../ui/theme';
+import { translate, type MessageKey } from '../i18n/translations';
+import { localizedEntityName } from '../map/names-i18n';
+import { localizedStep } from '../route/step-i18n';
 
 export default function GuideScreen() {
   const app = useApp();
+  const t = (key: MessageKey, values?: Record<string, string>) => translate(app.settings.language, key, values);
   const r = app.route;
   const cmd = useRouteCommand();
   const inset = useSafeAreaInsets();
@@ -66,39 +70,39 @@ export default function GuideScreen() {
   const footer = (
     <FooterPanel style={s.controls} onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}>
       <View style={s.two}>
-        <Button variant="secondary" label="이전" disabled={i === 0} onPress={() => setStep0(i - 1)} style={{ flex: 1 }} />
+        <Button variant="secondary" label={t('previous')} disabled={i === 0} onPress={() => setStep0(i - 1)} style={{ flex: 1 }} />
         {i < r.steps.length - 1 ? (
-          <Button label="다음 단계" onPress={() => setStep0(i + 1)} style={{ flex: 2 }} />
+          <Button label={t('nextStep')} onPress={() => setStep0(i + 1)} style={{ flex: 2 }} />
         ) : (
-          <Button label="도착 확인" onPress={() => router.navigate('/arrive')} style={{ flex: 2 }} />
+          <Button label={t('confirmArrival')} onPress={() => router.navigate('/arrive')} style={{ flex: 2 }} />
         )}
       </View>
     </FooterPanel>
   );
   return (
-    <Screen title="안내 중" scroll={false} headerAction={{ label: '안내 종료', onPress: () => router.dismissTo('/') }}>
+    <Screen title={t('guiding')} scroll={false} headerAction={{ label: t('endGuidance'), onPress: () => router.dismissTo('/') }}>
       <View style={s.summary}>
-        <Text style={s.min}>약 {minutesOf(leftS)}분</Text>
+        <Text style={s.min}>{t('approxMinutes', { minutes: String(minutesOf(leftS)) })}</Text>
         <P tone="muted">
-          {Math.round(left)} m 남음{dest?.floorKey ? ` · 목적지 ${floorCode(pkg, dest.floorKey)}` : ''}
+          {t('distanceLeft', { distance: String(Math.round(left)) })}{dest?.floorKey ? ` · ${t('destinationFloor', { floor: floorCode(pkg, dest.floorKey) ?? '' })}` : ''}
         </P>
       </View>
       {unsure && app.fix ? (
         <View style={[s.now, s.nowWarn]}>
           <View style={s.warnHead}>
             <Character name="uncertain" size={56} />
-            <Text style={[s.nowT, { color: color.warning, flex: 1 }]}>현재 위치를 확인해 주세요</Text>
+            <Text style={[s.nowT, { color: color.warning, flex: 1 }]}>{t('verifyLocation')}</Text>
           </View>
-          <Text style={[s.nowS, { color: color.warning }]}>방향 안내를 잠시 멈췄어요 · 건물과 층을 확인하면 이어서 안내해요</Text>
-          <Button label="위치 다시 확인" onPress={() => router.push('/recheck')} />
+          <Text style={[s.nowS, { color: color.warning }]}>{t('guidancePaused')}</Text>
+          <Button label={t('recheckLocation')} onPress={() => router.push('/recheck')} />
         </View>
       ) : (
         <Pulse trigger={i} style={s.now}>
           <Gradient colors={gradient.deep} />
-          <Text style={s.nowT}>{step.text}</Text>
+          <Text style={s.nowT}>{localizedStep(step, app.settings.language, pkg)}</Text>
           <RouteDrawBar progress={(i + 1) / r.steps.length} height={5} />
           <Text style={s.nowS}>
-            {i + 1}/{r.steps.length}단계 · {dest ? displayName(dest.name) : ''}
+            {t('guideProgress', { step: String(i + 1), total: String(r.steps.length), destination: dest ? localizedEntityName(dest, app.settings.language) : '', minutes: String(minutesOf(leftS)) })}
           </Text>
         </Pulse>
       )}

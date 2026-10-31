@@ -2,15 +2,18 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { buildingsWithFloors, floorLabel, floorsOf } from '../map/labels';
+import { localizedEntityName } from '../map/names-i18n';
+import { buildingName, buildingsWithFloors, floorLabel, floorsOf } from '../map/labels';
 import { useApp } from '../state/AppState';
 import { Button, FloorItem } from '../ui/components';
 import { color, type } from '../ui/theme';
 import { Card, P, Screen, Section } from '../ui/kit';
 import { Character } from '../ui/v3';
+import { translate, type MessageKey } from '../i18n/translations';
 
 export default function RecheckScreen() {
   const app = useApp();
+  const t = (key: MessageKey, values?: Record<string, string>) => translate(app.settings.language, key, values);
   const pkg = app.pkg;
   const withFloors = pkg ? buildingsWithFloors(pkg) : [];
   const dest = pkg?.places.find((p) => p.key === app.destKey);
@@ -18,48 +21,45 @@ export default function RecheckScreen() {
   if (!pkg) return null;
   const floors = floorsOf(pkg, building);
   const last = app.confirmedFloor;
-  const lastText = last ? floorLabel(pkg, last.floorKey) : '없음';
+  const lastText = last ? floorLabel(pkg, last.floorKey, app.settings.language) : t('none');
   return (
     <Screen
-      title="위치 다시 확인"
+      title={t('recheckLocation')}
       footer={
         <>
-          <Button label="출발점 직접 지정" onPress={() => router.push({ pathname: '/search', params: { mode: 'start' } })} />
-          <Button variant="quiet" label="경로 지도로 돌아가기" onPress={() => router.back()} />
+          <Button label={t('specifyStart')} onPress={() => router.push({ pathname: '/search', params: { mode: 'start' } })} />
+          <Button variant="quiet" label={t('returnRouteMap')} onPress={() => router.back()} />
         </>
       }
     >
       <Card tone="caution" style={s.warn}>
         <Character name="uncertain" size={72} />
         <View style={{ flex: 1, gap: 4 }}>
-          <Text style={s.t}>현재 위치를 확인하고 있어요</Text>
-          <P tone="caution">방향 안내를 잠시 멈췄어요 · 주변 표지와 층을 확인해 주세요</P>
+          <Text style={s.t}>{t('checkingLocation')}</Text>
+          <P tone="caution">{t('verifySigns')}</P>
         </View>
       </Card>
-      <Text style={s.last}>마지막 확인: {lastText}</Text>
-      <P>
-        {app.fix?.uncertain ? `휴대폰 위치가 정확하지 않아요(${app.fix.reason}).` : '건물 안에서는 휴대폰 위치로 층을 알 수 없어요.'} 지금
-        있는 건물과 층을 골라 주세요.
-      </P>
+      <Text style={s.last}>{t('lastConfirmed', { place: lastText })}</Text>
+      <P>{t(app.fix?.uncertain ? 'inaccurateChooseFloor' : 'indoorChooseFloor')}</P>
       {withFloors.length > 1 ? (
         <>
-          <Section>건물</Section>
+          <Section>{t('building')}</Section>
           <View style={s.chips}>
             {withFloors.map((b) => (
-              <FloorItem key={b.key} label={b.name} state={building === b.key ? 'selected' : 'idle'} onPress={() => setBuilding(b.key)} />
+              <FloorItem key={b.key} label={localizedEntityName(b, app.settings.language)} state={building === b.key ? 'selected' : 'idle'} onPress={() => setBuilding(b.key)} />
             ))}
           </View>
         </>
       ) : null}
       <Card>
-        <Text style={s.q}>{withFloors.find((b) => b.key === building)?.name ?? ''} 몇 층에 있나요?</Text>
+        <Text style={s.q}>{t('whichFloor', { building: buildingName(pkg, building, app.settings.language) })}</Text>
         <View style={s.chips}>
           {floors.map((f) => (
             <FloorItem
               key={f.key}
               label={f.code}
               state={last?.floorKey === f.key ? 'current' : 'idle'}
-              a11yLabel={last?.floorKey === f.key ? `${f.code}, 마지막으로 확인한 층` : f.code}
+              a11yLabel={last?.floorKey === f.key ? t('lastFloorA11y', { floor: f.code }) : f.code}
               onPress={() => {
                 app.setConfirmedFloor({ buildingKey: f.buildingKey, floorKey: f.key });
                 app.setFloor(f.buildingKey, f.key); // 보는 층도 그 층으로 옮김(사용자가 바꿀 수 있음)
@@ -68,7 +68,7 @@ export default function RecheckScreen() {
             />
           ))}
         </View>
-        {!floors.length ? <P tone="muted">이 지도에는 층 자료가 있는 건물이 없어요.</P> : null}
+        {!floors.length ? <P tone="muted">{t('noFloorData')}</P> : null}
       </Card>
     </Screen>
   );

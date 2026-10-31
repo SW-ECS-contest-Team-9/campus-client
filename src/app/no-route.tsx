@@ -1,3 +1,4 @@
+import { localizedEntityName } from '../map/names-i18n';
 // ST02 조건에 맞는 경로 없음. 원인별(계단 피하기 / 길 끊김 / 길에 안 붙음 / 같은 곳) 문구와 다음 행동.
 // 이동 조건은 유지하고, 바꾸려면 자연어 검색에서 새 요청을 입력한다.
 import { router } from 'expo-router';
@@ -11,17 +12,21 @@ import { Button } from '../ui/components';
 import { H, P, Screen } from '../ui/kit';
 import { color } from '../ui/theme';
 import { Character } from '../ui/v3';
+import { translate, type MessageKey } from '../i18n/translations';
+import { localizedNoRoute } from '../route/noRouteCopy-i18n';
 
 export default function NoRouteScreen() {
   const app = useApp();
+  const t = (key: MessageKey, values?: Record<string, string>) => translate(app.settings.language, key, values);
   const r = app.route;
   const dest = app.pkg?.places.find((p) => p.key === app.destKey) ?? null;
-  const copy = noRouteCopy({
+  const rawCopy = noRouteCopy({
     reason: r && !r.ok ? r.reason : 'no_route',
     condition: app.condition,
     destName: dest ? displayName(dest.name) : null,
     destAttached: !!dest?.nodeKey,
   });
+  const copy = localizedNoRoute(rawCopy, app.condition, dest ? localizedEntityName(dest, app.settings.language) : null, app.settings.language);
   const building = dest?.buildingKey ? app.pkg?.buildings.find((b) => b.key === dest.buildingKey)?.name : undefined;
   const run = (a: NoRouteAction) => {
     if (a === 'change_start') router.replace('/start');
@@ -38,7 +43,7 @@ export default function NoRouteScreen() {
     copy.cause === 'stairs' || copy.cause === 'disconnected' ? ArrowUpDown : copy.cause === 'same_place' ? CircleAlert : MapPinOff;
   return (
     <Screen
-      title="경로를 찾지 못했어요"
+      title={t('routeNotFound')}
       footer={
         <>
           <Button label={copy.primary.label} onPress={() => run(copy.primary.action)} />
@@ -54,9 +59,9 @@ export default function NoRouteScreen() {
       </View>
       <H>{copy.title}</H>
       <P>{copy.body}</P>
-      <P tone="muted">지금 조건: {modeInfo(app.condition).label}</P>
+      <P tone="muted">{t('currentPreference', { condition: modeInfo(app.condition, app.settings.language).label })}</P>
       {app.condition === 'avoidStairs' ? (
-        <P tone="muted">계단 없는 경로가 있어도 휠체어 통행을 보장하지는 않아요. 폭·경사·시설 운영 확인이 필요해요.</P>
+        <P tone="muted">{t('stairsAccessibilityCaution')}</P>
       ) : null}
     </Screen>
   );

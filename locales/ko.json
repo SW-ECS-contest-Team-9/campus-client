@@ -1,0 +1,10 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "QR 기준점을 스캔해 현재 위치를 보정하기 위해 카메라를 사용합니다.",
+    "NSLocationWhenInUseUsageDescription": "현재 위치를 지도에 표시하고 출발점으로 쓰기 위해 위치를 사용합니다.",
+    "CFBundleDisplayName": "서경 캠퍼스 길찾기"
+  },
+  "android": {
+    "app_name": "서경 캠퍼스 길찾기"
+  }
+}

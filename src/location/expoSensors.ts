@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 import { Barometer, Pedometer } from 'expo-sensors';
 import { Alert, Platform } from 'react-native';
 import type { SensorSources } from './sensors';
+import { translate, type Language } from '../i18n/translations';
 
 const safe = async <T>(f: () => Promise<T>): Promise<T | null> => {
   try {
@@ -21,22 +22,22 @@ export async function requestLocationPermission(): Promise<boolean> {
 }
 
 /** 걸음(신체 활동) 권한: 처음 물을 때 왜 쓰는지 짧게 알린 뒤 시스템 창. 거부해도 길찾기는 됨. */
-async function stepsPermission(): Promise<boolean> {
+async function stepsPermission(language: Language): Promise<boolean> {
   const cur = await Pedometer.getPermissionsAsync();
   if (cur.status === 'granted') return true;
   if (!cur.canAskAgain) return false;
   await new Promise<void>((done) =>
     Alert.alert(
-      '걸음 수를 써도 될까요?',
-      '건물 안처럼 GPS 가 약한 곳에서 걸음 수로 내 위치를 길 위에 더 정확히 맞춰요. 걸음 기록은 기기 밖으로 보내지 않아요. 허용하지 않아도 길찾기는 돼요.',
-      [{ text: '계속', onPress: () => done() }],
+      translate(language, 'stepPermissionTitle'),
+      translate(language, 'stepPermissionBody'),
+      [{ text: translate(language, 'continue'), onPress: () => done() }],
       { cancelable: true, onDismiss: () => done() },
     ),
   );
   return (await Pedometer.requestPermissionsAsync()).status === 'granted';
 }
 
-export const expoSensors: SensorSources = {
+export const createExpoSensors = (getLanguage: () => Language): SensorSources => ({
   now: () => Date.now() / 1000,
   position: (cb) =>
     safe(async () => {
@@ -65,7 +66,7 @@ export const expoSensors: SensorSources = {
   steps: (cb) =>
     safe(async () => {
       if (!(await Pedometer.isAvailableAsync())) return null;
-      if (!(await stepsPermission())) return null; // 거부하면 걸음 없이(위치·기압만)
+      if (!(await stepsPermission(getLanguage()))) return null; // 거부하면 걸음 없이(위치·기압만)
       const sub = Pedometer.watchStepCount((r) => cb(r.steps));
       return () => sub.remove();
     }),
@@ -76,4 +77,4 @@ export const expoSensors: SensorSources = {
       const sub = Barometer.addListener((r) => cb(r.pressure));
       return () => sub.remove();
     }),
-};
+});

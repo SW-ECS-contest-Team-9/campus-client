@@ -294,3 +294,15 @@ describe('floorPrior 수명(앱 쪽 상태, 맞춤기는 campus-model 그대로)
     expect(s.tracker.floorPrior()!.weight).toBeCloseTo(w0 / 2, 6);
   });
 });
+
+describe('QR anchor', () => {
+  it('initializes without GPS and replaces an old position', () => {
+    const tracker = createTracker(pkg);
+    const node = pkg.nodes.find((n) => n.location === 'outdoor')!;
+    const fix = tracker.anchor({ x: node.x, y: node.y, z: node.z, buildingId: 'outdoor', floor: null }, 100);
+    expect(fix.uncertain).toBe(false);
+    expect(fix.x).toBe(node.x);
+    expect(tracker.current()).toEqual(fix);
+    expect(tracker.pressure(1000, 101)).not.toBeNull();
+  });
+});

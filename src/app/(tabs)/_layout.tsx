@@ -1,8 +1,11 @@
 import { Tabs } from 'expo-router';
 import { renderActiveScreen } from '../../ui/useActiveRoute';
+import { useApp } from '../../state/AppState';
+import { translate } from '../../i18n/translations';
 
 /** 메뉴와 3D는 앱 루트에서 유지하고, 탭 콘텐츠만 즉시 바꾼다. */
 export default function TabLayout() {
+  const { settings: { language } } = useApp();
   return (
     <Tabs
       initialRouteName="index"
@@ -17,10 +20,10 @@ export default function TabLayout() {
         animation: 'none',
       }}
     >
-      <Tabs.Screen name="index" options={{ title: '지도' }} />
-      <Tabs.Screen name="saved" options={{ title: '내 장소' }} />
-      <Tabs.Screen name="offline" options={{ title: '오프라인 지도' }} />
-      <Tabs.Screen name="settings" options={{ title: '설정' }} />
+      <Tabs.Screen name="index" options={{ title: translate(language, 'map') }} />
+      <Tabs.Screen name="saved" options={{ title: translate(language, 'saved') }} />
+      <Tabs.Screen name="offline" options={{ title: translate(language, 'offline') }} />
+      <Tabs.Screen name="settings" options={{ title: translate(language, 'settings') }} />
     </Tabs>
   );
 }

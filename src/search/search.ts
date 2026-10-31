@@ -1,5 +1,8 @@
 // 장소·건물 검색: 이름·별칭·건물·층. 띄어쓰기·괄호·"관/동" 끝말 차이를 봐준다.
 import type { Building, MapPackage, Place } from '../map/package';
+import { localizedEntityName } from '../map/names-i18n';
+
+const translatedNames = (entity: Pick<Building, 'name' | 'localizedNames'>) => (['ko', 'zh', 'ja', 'en'] as const).map((lang) => normalize(localizedEntityName(entity, lang)));
 
 /** 소문자, 공백·기호 제거. */
 export function normalize(s: string): string {
@@ -44,8 +47,9 @@ export function searchPlaces(pkg: MapPackage, query: string, limit = 30): Search
     const name = normalize(place.name);
     const fields = [
       name,
+      ...translatedNames(place),
       ...place.aliases.map(normalize),
-      ...(b ? [normalize(b.name), ...b.aliases.map(normalize)] : []),
+      ...(b ? [normalize(b.name), ...translatedNames(b), ...b.aliases.map(normalize)] : []),
       ...(f ? [normalize(f.code)] : []),
     ];
     const hay = fields.join('|');
@@ -89,7 +93,7 @@ export function searchBuildings(pkg: MapPackage, query: string): BuildingSearchH
   const hits: BuildingSearchHit[] = [];
   for (const building of pkg.buildings) {
     const name = normalize(building.name);
-    const aliases = building.aliases.map(normalize);
+    const aliases = [...building.aliases.map(normalize), ...translatedNames(building)];
     const fields = [name, ...aliases];
     let score = name === full ? 100 : aliases.includes(full) ? 80 : 0;
     let all = true;
@@ -135,10 +139,10 @@ export function searchResults(pkg: MapPackage, query: string, placeLimit = 30): 
   return { buildingHits, placeHits };
 }
 
-/** "5층" ↔ "5F", "지하1층" ↔ "B1" */
+/** Korean, Chinese and Japanese floor expressions match package floor codes. */
 function floorMatch(t: string, code: string | undefined): boolean {
   if (!code) return false;
-  const m = /^(지하)?(\d+)층?$/.exec(t);
+  const m = /^(지하|地下)?(\d+)(?:층|层|樓|楼|階|阶)?$/.exec(t);
   if (!m) return false;
   return (m[1] ? `b${m[2]}` : `${m[2]}f`) === code.toLowerCase();
 }

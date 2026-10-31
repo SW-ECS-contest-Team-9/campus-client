@@ -1,16 +1,19 @@
+import { localizedEntityName } from '../map/names-i18n';
 // CT10 도착 확인.
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
-import { displayName, placeSubtitle } from '../map/labels';
+import { placeSubtitle } from '../map/labels';
 import { useApp } from '../state/AppState';
 import { useToast } from '../ui/feedback';
 import { Button } from '../ui/components';
 import { Card, H, P, Screen } from '../ui/kit';
 import { Character, Gradient } from '../ui/v3';
 import { color, gradient, type } from '../ui/theme';
+import { translate, type MessageKey } from '../i18n/translations';
 
 export default function ArriveScreen() {
   const app = useApp();
+  const t = (key: MessageKey, values?: Record<string, string>) => translate(app.settings.language, key, values);
   const toast = useToast();
   const pkg = app.pkg;
   const dest = pkg?.places.find((p) => p.key === app.destKey);
@@ -18,26 +21,26 @@ export default function ArriveScreen() {
   if (!pkg) return null;
   return (
     <Screen
-      title="도착 확인"
+      title={t('confirmArrival')}
       footer={
         <>
           <Button
-            label="도착했어요 · 안내 종료"
+            label={t('arrivedEnd')}
             onPress={() => {
               app.setStart(null);
               app.setDestKey(null);
               router.dismissTo('/');
             }}
           />
-          <Button variant="secondary" label="아직이에요 · 위치 확인" onPress={() => router.push('/recheck')} />
+          <Button variant="secondary" label={t('notThereYet')} onPress={() => router.push('/recheck')} />
           {dest ? (
             <Button
               variant="quiet"
-              label={fav ? '저장한 장소예요' : '이 장소 저장'}
+              label={t(fav ? 'alreadySaved' : 'saveThisPlace')}
               onPress={() => {
                 if (fav) return;
                 void app.toggleFavorite(dest.key);
-                toast('저장했어요');
+                toast(t('addedFavorite'));
               }}
             />
           ) : null}
@@ -50,14 +53,14 @@ export default function ArriveScreen() {
         <Character name="arrive" size={132} />
       </View>
       <H>
-        {dest ? displayName(dest.name) : '목적지'}에{'\n'}도착하셨나요?
+        {t('arrivedQuestion', { destination: dest ? localizedEntityName(dest, app.settings.language) : t('destination') })}
       </H>
-      <P>목적지 근처예요. 건물·층·입구 표지를 확인해 주세요.</P>
+      <P>{t('nearDestination')}</P>
       {dest ? (
         <Card>
-          <Text style={s.k}>{placeSubtitle(pkg, dest.key)}</Text>
-          <Text style={s.v}>{displayName(dest.name)}</Text>
-          <P tone="muted">같은 건물이라도 다른 층일 수 있어요.</P>
+          <Text style={s.k}>{placeSubtitle(pkg, dest.key, app.settings.language)}</Text>
+          <Text style={s.v}>{localizedEntityName(dest, app.settings.language)}</Text>
+          <P tone="muted">{t('floorMayDiffer')}</P>
         </Card>
       ) : null}
     </Screen>

@@ -10,24 +10,26 @@ import { CampusMap } from '../ui/CampusMap';
 import { Button } from '../ui/components';
 import { Card, P, Screen } from '../ui/kit';
 import { color, elevation, shape, type } from '../ui/theme';
+import { translate } from '../i18n/translations';
 
 export default function StartScreen() {
   const app = useApp();
+  const t = (key: Parameters<typeof translate>[1]) => translate(app.settings.language, key);
   const [startCardHeight, setStartCardHeight] = useState(0);
   if (!app.pkg) return null;
   const pkg = app.pkg;
 
   const st = app.start;
-  const startTitle = startLabel(pkg, st) || null;
-  const displayedStartTitle = st && st.type !== 'place' && app.fix ? currentLocationLabel(pkg, app.fix) : startTitle;
-  const destinationTitle = app.destKey ? placeName(pkg, app.destKey) : '아직 고르지 않음';
+  const startTitle = startLabel(pkg, st, app.settings.language) || null;
+  const displayedStartTitle = st && st.type !== 'place' && app.fix ? currentLocationLabel(pkg, app.fix, app.settings.language) : startTitle;
+  const destinationTitle = app.destKey ? placeName(pkg, app.destKey, app.settings.language) : t('notSelectedYet');
   return (
     <Screen
-      title="출발점 확인"
+      title={t('startCheck')}
       scroll={false}
-      footer={<Button label="경로 보기" disabled={!st} onPress={() => router.navigate('/preview')} />}
+      footer={<Button label={t('viewRoute')} disabled={!st} onPress={() => router.navigate('/preview')} />}
     >
-      <P tone="muted">내 위치를 아직 정확히 모르면 출발할 곳을 골라 주세요.</P>
+      <P tone="muted">{t('chooseIfUnsure')}</P>
       <View style={s.map}>
         <CampusMap
           pickPlaces={false}
@@ -41,24 +43,24 @@ export default function StartScreen() {
                   onPress={() => router.push({ pathname: '/search', params: { mode: 'start' } })}
                   hitSlop={{ top: 10, bottom: 10 }}
                   accessibilityRole="button"
-                  accessibilityLabel={`출발: ${displayedStartTitle ?? '아직 고르지 않음'}`}
-                  accessibilityHint="출발할 장소를 검색하고 선택합니다"
+                  accessibilityLabel={`${t('origin')}: ${displayedStartTitle ?? t('notSelectedYet')}`}
+                  accessibilityHint={t('chooseStartingPoint')}
                 >
                   <View style={[s.locationIcon, s.originIcon]}>
                     <CircleDot size={16} color={color.success} />
                   </View>
-                  <Text style={[s.locationLabel, s.originLabel]}>출발</Text>
+                  <Text style={[s.locationLabel, s.originLabel]}>{t('origin')}</Text>
                   <Text style={s.locationTitle} numberOfLines={1}>
-                    {displayedStartTitle ?? '아직 고르지 않음'}
+                    {displayedStartTitle ?? t('notSelectedYet')}
                   </Text>
                   <ChevronRight size={16} color={color.secondary} />
                 </Pressable>
                 <View style={s.locationDivider} />
-                <View style={s.locationRow} accessible accessibilityLabel={`도착: ${destinationTitle}`}>
+                <View style={s.locationRow} accessible accessibilityLabel={`${t('destination')}: ${destinationTitle}`}>
                   <View style={[s.locationIcon, s.destinationIcon]}>
                     <MapPin size={16} color={color.primary} />
                   </View>
-                  <Text style={[s.locationLabel, s.destinationLabel]}>도착</Text>
+                  <Text style={[s.locationLabel, s.destinationLabel]}>{t('destination')}</Text>
                   <Text style={s.locationTitle} numberOfLines={1}>
                     {destinationTitle}
                   </Text>

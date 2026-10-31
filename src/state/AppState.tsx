@@ -11,7 +11,7 @@ import type { Fix } from '../location/fix';
 import type { StartPoint } from '../location/start';
 import { createTracker, type Tracker } from '../location/tracker';
 import { startTracking, type SensorStatus } from '../location/sensors';
-import { expoSensors, hasLocationPermission, requestLocationPermission } from '../location/expoSensors';
+import { createExpoSensors, hasLocationPermission, requestLocationPermission } from '../location/expoSensors';
 import { DEV_HOST } from '../config/devHost';
 import * as Device from 'expo-device';
 import { Alert, AppState as RNAppState, InteractionManager, Platform } from 'react-native';
@@ -19,12 +19,17 @@ import { adjustForFirst3d, chooseTier, type DeviceTier } from '../ui/tier';
 import type { Map3dEngine, Map3dPreparation } from '../ui/Map3D';
 import { effectiveCondition } from '../nlp/apply';
 import { checkModel } from '../nlp/gemmaRuntime';
-import type { Mandatory } from '../nlp/types';
+import type { Mandatory, RouteRequest } from '../nlp/types';
+import { resolveQrAnchor } from '../location/qr';
+import { createSerializedWriter } from './serializedWrite';
+import { translate, type Language } from '../i18n/translations';
 
 const fixture = fixtureJson as unknown as MapPackage;
 
 export interface Settings {
+  language: Language;
   serverUrl: string;
+  trackerUrl: string;
   /** 3D 지도 페이지 주소(campus-tracker client3d.html). 빈 값 = 개발 기본값 */
   map3dUrl: string;
   /** 저사양 모드(R22): 3D 를 낮은 해상도·Lambert 재질·구조물 없이. 등급 3 이면 자동 */
@@ -53,7 +58,9 @@ export interface Settings {
 /** 개발 기본값. 운영 주소는 나중에 정함. */
 export const DEFAULT_SERVER_URL = `http://${DEV_HOST}:8010`;
 const DEFAULT_SETTINGS: Settings = {
+  language: 'ko',
   serverUrl: DEFAULT_SERVER_URL,
+  trackerUrl: process.env.EXPO_PUBLIC_TRACKER_URL || `http://${DEV_HOST}:3000`,
   map3dUrl: '',
   light: false,
   deviceTier: null,
@@ -65,14 +72,14 @@ const DEFAULT_SETTINGS: Settings = {
   naturalSearchDefault: false,
   aiParse: false,
 };
-/** 갱신 실패 문구: 개발용 오류 글(TypeError 등)을 그대로 보이지 않음(카카오 디자인: 진단 정보 분리). */
-const failText = (e: string) =>
-  /fetch|network|서버 연결/i.test(e) ? '서버에 연결하지 못했어요(인터넷·서버 주소 확인)' : `갱신 안 됨: ${e}`;
+type MapUpdateStatus = { kind: 'checking' } | { kind: 'current' } | { kind: 'updated'; version: number } | { kind: 'error'; network: boolean };
+const updateError = (e: string): MapUpdateStatus => ({ kind: 'error', network: /fetch|network|서버 연결/i.test(e) });
 const AUTO_TIER_RULE = 2;
 const detectTier = (): DeviceTier =>
   chooseTier({ os: Platform.OS, apiLevel: Device.platformApiLevel ?? null, totalMemory: Device.totalMemory ?? null });
 export interface RecentRoute {
   startLabel: string;
+  start?: StartPoint;
   destKey: string;
   condition: RouteCondition;
   at: string;
@@ -84,8 +91,7 @@ export interface ConfirmedFloor {
 }
 export interface NlpState {
   text: string;
-  chips: string[];
-  notes: string[];
+  request: RouteRequest;
   mandatory: Mandatory[];
 }
 export type { StartPoint };
@@ -151,6 +157,7 @@ interface AppCtx {
   fix: Fix | null;
   /** 위치 권한을 받고 위치·걸음·기압 읽기를 켬. 권한이 없으면 false. */
   enableLocation: () => Promise<boolean>;
+  applyQrAnchor: (value: string) => Promise<string>;
   /** 지금 위치(있으면 바로, 없으면 다음 위치)를 기다림. 시간 넘으면 null. */
   waitFix: (ms: number) => Promise<Fix | null>;
   /** 켜진 센서(null = 아직 안 켬). 기압계가 없으면 층은 사용자가 고른 층(위치 다시 확인)으로. */
@@ -166,6 +173,7 @@ const Ctx = createContext<AppCtx | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState<LoadedPackage | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [persistSettings] = useState(() => createSerializedWriter((value: Settings) => AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(value))));
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [mapPreparation, note3dPreparation] = useState<Map3dPreparation>({
     sceneReady: false,
@@ -175,7 +183,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [recent, setRecent] = useState<{ searches: string[]; routes: RecentRoute[] }>({ searches: [], routes: [] });
   const [confirmedFloor, setConfirmedFloor] = useState<ConfirmedFloor | null>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
-  const [updateStatus, setUpdateStatus] = useState<string | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<MapUpdateStatus | null>(null);
   const [start, setStart] = useState<StartPoint | null>(null);
   const [destKey, setDestKey] = useState<string | null>(null);
   const [baseCondition, setCondition] = useState<RouteCondition>('shortest');
@@ -220,12 +228,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         AsyncStorage.getItem(RECENT_KEY),
       ]);
       const st: Settings = { ...DEFAULT_SETTINGS, ...(s ? (JSON.parse(s) as Partial<Settings>) : {}) };
+      if (!['ko', 'zh', 'ja', 'en'].includes(st.language)) st.language = 'ko';
       if (st.autoTier == null || st.autoTierRule !== AUTO_TIER_RULE) {
         // 처음이거나 등급 규칙이 바뀌었으면(2: RAM 기준 7.5 → 6.5 GiB) 다시 고르고 3D 첫 화면 확인도 다시
         st.autoTier = detectTier();
         st.autoTierRule = AUTO_TIER_RULE;
         st.autoTier3dChecked = false;
-        void AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(st));
+        void persistSettings(st).catch((error) => console.warn('Could not save settings', error));
       }
       setSettings(st);
       setSettingsLoaded(true);
@@ -237,11 +246,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (st.serverUrl) {
         const u = await checkForUpdate(st.serverUrl, local, deps);
         setLoaded(u);
-        if (u.updated) setUpdateStatus(`새 지도 v${u.pkg.release.version} 받음`);
-        else if (u.error) setUpdateStatus(failText(u.error));
+        if (u.updated) setUpdateStatus({ kind: 'updated', version: u.pkg.release.version });
+        else if (u.error) setUpdateStatus(updateError(u.error));
       }
     })();
-  }, []);
+  }, [persistSettings]);
 
   // 저장되는 상태(설정·즐겨찾기·최근)는 함수형 갱신: 연달아 불러도 앞 변경이 사라지지 않음
   const settingsRef = useRef(settings);
@@ -251,10 +260,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateSettings = useCallback(async (patch: Partial<Settings>) => {
     setSettings((cur) => {
       const next = { ...cur, ...patch };
-      void AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+      void persistSettings(next).catch((error) => console.warn('Could not save settings', error));
       return next;
     });
-  }, []);
+  }, [persistSettings]);
   /** 3D 첫 화면까지 걸린 시간(앱 켠 뒤 한 번). 자동 등급이면 느릴 때 한 단계 낮춤. */
   const noteFirst3dReady = useCallback((ms: number, engine: Map3dEngine) => {
     setSettings((cur) => {
@@ -264,10 +273,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // 엔진이 바뀌었으면(웹 3D 가 느려 낮췄던 등급) 처음 등급부터 다시
       const base = cur.autoTier3dChecked ? detectTier() : cur.autoTier;
       const next = { ...cur, autoTier: adjustForFirst3d(base, ms), autoTier3dChecked: true, autoTier3dEngine: engine };
-      void AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+      void persistSettings(next).catch((error) => console.warn('Could not save settings', error));
       return next;
     });
-  }, []);
+  }, [persistSettings]);
   const saveRecent = useCallback((f: (cur: typeof recent) => typeof recent) => {
     setRecent((cur) => {
       const next = f(cur);
@@ -295,10 +304,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const checkUpdate = useCallback(async () => {
     if (!loaded) return;
-    setUpdateStatus('확인 중…');
+    setUpdateStatus({ kind: 'checking' });
     const r = await checkForUpdate(settings.serverUrl, loaded, deps);
     setLoaded(r);
-    setUpdateStatus(r.updated ? `새 지도 v${r.pkg.release.version} 받음` : r.error ? failText(r.error) : '최신 지도임');
+    setUpdateStatus(r.updated ? { kind: 'updated', version: r.pkg.release.version } : r.error ? updateError(r.error) : { kind: 'current' });
   }, [loaded, settings.serverUrl]);
 
   const toggleFavorite = useCallback(async (key: string) => {
@@ -333,7 +342,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!tracker || !wantLoc || !active) return;
     let stop: (() => void) | null = null;
     let dead = false;
-    void startTracking(expoSensors, tracker, onFix).then((r) => {
+    void startTracking(createExpoSensors(() => settingsRef.current.language), tracker, onFix).then((r) => {
       if (dead) return r.stop();
       stop = r.stop;
       setSensors(r.status);
@@ -350,11 +359,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // OS 대화상자 전에 왜 필요한지 한 번(한 문장 + 다음 행동). 거절하면 OS 대화상자도 띄우지 않음
       const go = await new Promise<boolean>((done) =>
         Alert.alert(
-          '내 위치를 지도에 표시할까요?',
-          '앱을 보는 동안만 위치를 읽어 길 위에 맞춰 보여 줘요. 위치는 기기 밖으로 보내지 않아요.',
+          translate(settingsRef.current.language, 'locationRequestTitle'),
+          translate(settingsRef.current.language, 'locationRequestBody'),
           [
-            { text: '나중에', style: 'cancel', onPress: () => done(false) },
-            { text: '허용하러 가기', onPress: () => done(true) },
+            { text: translate(settingsRef.current.language, 'later'), style: 'cancel', onPress: () => done(false) },
+            { text: translate(settingsRef.current.language, 'allowLocation'), onPress: () => done(true) },
           ],
         ),
       );
@@ -365,6 +374,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (ok) setWantLoc(true);
     return ok;
   }, [updateSettings]);
+  const applyQrAnchor = useCallback(async (value: string) => {
+    if (!tracker) throw new Error('MAP_NOT_READY');
+    const a = await resolveQrAnchor(settings.trackerUrl, value);
+    const f = tracker.anchor(a, Date.now() / 1000);
+    setConfirmedFloor(f.match?.floorKey && f.match.buildingKey ? { floorKey: f.match.floorKey, buildingKey: f.match.buildingKey } : null);
+    onFix(f);
+    return a.label;
+  }, [tracker, settings.trackerUrl, onFix]);
 
   const startNodeKey = useMemo(() => {
     if (!pkg || !start) return null;
@@ -426,7 +443,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateSettings,
     tier: settings.deviceTier ?? settings.autoTier ?? 2,
     noteFirst3dReady,
-    updateStatus,
+    updateStatus: updateStatus === null ? null : updateStatus.kind === 'checking' ? translate(settings.language, 'checkingUpdate')
+      : updateStatus.kind === 'current' ? translate(settings.language, 'mapUpToDate')
+        : updateStatus.kind === 'updated' ? translate(settings.language, 'newMapDownloaded', { version: String(updateStatus.version) })
+          : translate(settings.language, updateStatus.network ? 'serverConnectionFailed' : 'updateFailed'),
     recentSearches: recent.searches,
     addRecentSearch,
     removeRecentSearch,
@@ -450,6 +470,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     serverRoute,
     fix,
     enableLocation,
+    applyQrAnchor,
     waitFix,
     aiModel,
     sensors,

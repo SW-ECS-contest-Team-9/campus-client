@@ -15,9 +15,11 @@ import { P, Screen } from '../ui/kit';
 import { useRouteCommand } from '../ui/useRouteCommand';
 import { Glass, RouteDrawBar, WaveEdge } from '../ui/v3';
 import { Footprints } from 'lucide-react-native';
+import { translate, type MessageKey } from '../i18n/translations';
 
 export default function PreviewScreen() {
   const app = useApp();
+  const t = (key: MessageKey, values?: Record<string, string>) => translate(app.settings.language, key, values);
   const r = app.route;
   const server = app.serverRoute;
   const cmd = useRouteCommand();
@@ -26,34 +28,34 @@ export default function PreviewScreen() {
   const st = app.start;
   if (!pkg || !r)
     return (
-      <Screen title="경로 미리보기">
-        <P>출발과 도착을 먼저 골라 주세요.</P>
+      <Screen title={t('routePreview')}>
+        <P>{t('selectEndpoints')}</P>
       </Screen>
     );
   if (!r.ok) return <Redirect href="/no-route" />;
   const stairs = r.steps.filter((s) => s.kind === 'stairs').length;
   const changes = r.steps.filter((s) => s.floorChange);
-  const startLabel = startLabelOf(pkg, st);
+  const startLabel = startLabelOf(pkg, st, app.settings.language);
   const fromServer = r.source === 'server';
   // 기기 계산인데 꾸러미에 지붕·조명 지표가 없으면 이 방식은 일부만 반영됨
-  const partial = !fromServer && !hasRouteIndicators(pkg) ? modeInfo(app.condition).device : null;
+  const partial = !fromServer && !hasRouteIndicators(pkg) ? modeInfo(app.condition, app.settings.language).device : null;
   return (
     <Screen
-      title="경로 미리보기"
+      title={t('routePreview')}
       scroll={false}
       footer={
         <View style={s.two}>
           <Button
             variant="secondary"
-            label="출발지"
+            label={t('origin')}
             onPress={() => router.push({ pathname: '/search', params: { mode: 'start' } })}
             style={{ flex: 1 }}
           />
           <Button
-            label="안내 시작"
+            label={t('startGuidance')}
             onPress={() => {
               if (dest && startLabel)
-                app.addRecentRoute({ startLabel, destKey: dest.key, condition: app.condition, at: new Date().toISOString() });
+                app.addRecentRoute({ startLabel, start: st ?? undefined, destKey: dest.key, condition: app.condition, at: new Date().toISOString() });
               router.navigate('/guide');
             }}
             style={{ flex: 2 }}
@@ -74,15 +76,15 @@ export default function PreviewScreen() {
               <Glass style={s.sum}>
                 <View style={s.sumHead}>
                   <Footprints size={18} color={color.primary} />
-                  <Text style={s.kind}>{modeInfo(app.condition).title}</Text>
-                  <Text style={s.note}>{modeInfo(app.condition).note}</Text>
+                  <Text style={s.kind}>{modeInfo(app.condition, app.settings.language).title}</Text>
+                  <Text style={s.note}>{modeInfo(app.condition, app.settings.language).note}</Text>
                 </View>
                 <Text style={s.t}>
-                  약 {minutesOf(r.durationS)}분 <Text style={s.len}>· {Math.round(r.totalLengthM)} m</Text>
+                  {t('approxMinutes', { minutes: String(minutesOf(r.durationS)) })} <Text style={s.len}>· {Math.round(r.totalLengthM)} m</Text>
                 </Text>
                 <RouteDrawBar />
                 <P tone="muted">
-                  계단 {stairs}곳 · 층 이동 {changes.length}번
+                  {t('routeCounts', { stairs: String(stairs), floors: String(changes.length) })}
                 </P>
               </Glass>
             </>
@@ -91,9 +93,9 @@ export default function PreviewScreen() {
       </View>
       {fromServer || partial || (server && !server.ok && server.code === 'no_route') ? (
         <View style={s.below}>
-          {fromServer ? <StatusChip tone="confirmed" label="서버에서 이 방식으로 계산" /> : null}
+          {fromServer ? <StatusChip tone="confirmed" label={t('calculatedOnServer')} /> : null}
           {partial ? <P tone="muted">{partial}</P> : null}
-          {server && !server.ok && server.code === 'no_route' ? <P tone="muted">서버는 같은 조건의 경로가 없다고 해요</P> : null}
+          {server && !server.ok && server.code === 'no_route' ? <P tone="muted">{t('serverNoRoute')}</P> : null}
         </View>
       ) : null}
     </Screen>

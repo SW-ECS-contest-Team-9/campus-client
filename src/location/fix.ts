@@ -1,6 +1,8 @@
 // 위치 점 판단(불확실 여부). 길 맞춤(통로로 끌어당기기)은 tracker.ts(위치 보정 v2). expo 에 의존하지 않음(시험 가능).
 import type { MapPackage } from '../map/package';
 import { wgs84To5186 } from './projection';
+import { localizedEntityName } from '../map/names-i18n';
+import { translate, type Language } from '../i18n/translations';
 
 export const UNCERTAIN_ACCURACY_M = 20;
 
@@ -27,18 +29,23 @@ export interface FixMatch {
   onNetwork: boolean;
 }
 
-/** 위치 보정 결과를 사용자가 알아볼 수 있는 캠퍼스 내 위치 이름으로 표시한다. */
-export function currentLocationLabel(pkg: Pick<MapPackage, 'buildings' | 'floors'>, fix: Fix): string {
-  const floor = fix.match?.floorKey ? pkg.floors.find((x) => x.key === fix.match?.floorKey) : null;
+/** Stable fields used to re-render an estimated position in another language. */
+export type LocationLabelSource = Pick<FixMatch, 'floorKey' | 'buildingKey' | 'onNetwork'>;
+export function locationLabelFromSource(pkg: Pick<MapPackage, 'buildings' | 'floors'>, source: LocationLabelSource | null, language: Language = 'ko'): string {
+  const floor = source?.floorKey ? pkg.floors.find((x) => x.key === source.floorKey) : null;
   if (floor) {
-    const building = pkg.buildings.find((x) => x.key === floor.buildingKey)?.name ?? '건물 안';
-    return `${building} ${floor.code} (추정)`;
+    const building = pkg.buildings.find((x) => x.key === floor.buildingKey);
+    return translate(language, 'estimatedPlace', { place: `${building ? localizedEntityName(building, language) : translate(language, 'indoorUnknown')} ${floor.code}` });
   }
+  const building = source?.buildingKey ? pkg.buildings.find((x) => x.key === source.buildingKey) : null;
+  if (building) return translate(language, 'estimatedPlace', { place: localizedEntityName(building, language) });
+  if (source?.onNetwork) return translate(language, 'campusOutdoorPath');
+  return translate(language, 'currentLocation');
+}
 
-  const building = fix.match?.buildingKey ? pkg.buildings.find((x) => x.key === fix.match?.buildingKey)?.name : null;
-  if (building) return `${building} (추정)`;
-  if (fix.match?.onNetwork) return '캠퍼스 바깥 길';
-  return '현재 위치';
+/** 위치 보정 결과를 사용자가 알아볼 수 있는 캠퍼스 내 위치 이름으로 표시한다. */
+export function currentLocationLabel(pkg: Pick<MapPackage, 'buildings' | 'floors'>, fix: Fix, language: Language = 'ko'): string {
+  return locationLabelFromSource(pkg, fix.match ?? null, language);
 }
 
 export function toFix(lon: number, lat: number, accuracyM: number | null, timestamp: number, indoor: boolean): Fix {

@@ -3,14 +3,15 @@ import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from './components';
 import { color, elevation, shape, space, type } from './theme';
+import { translate, type Language } from '../i18n/translations';
 
 const STEPS = [
-  { title: '지도를 끌어 보세요', body: '한 손가락으로 끌면 움직이고, 두 손가락으로 돌리거나 키울 수 있어요.' },
-  { title: '아래 칸을 올려 보세요', body: '"어디로 갈까요?" 칸을 위로 끌면 저장한 곳과 최근 간 곳이 나와요.' },
-  { title: '장소 찾기를 누르세요', body: '건물·강의실·편의점 이름으로 찾고, 바로 길 안내를 받을 수 있어요.' },
-];
+  { title: 'coachDragTitle', body: 'coachDragBody' },
+  { title: 'coachSheetTitle', body: 'coachSheetBody' },
+  { title: 'coachSearchTitle', body: 'coachSearchBody' },
+] as const;
 
-export function CoachMarks({ visible, onDone }: { visible: boolean; onDone: () => void }) {
+export function CoachMarks({ visible, onDone, language = 'ko' }: { visible: boolean; onDone: () => void; language?: Language }) {
   const [i, setI] = useState(0);
   if (!visible) return null;
   const last = i === STEPS.length - 1;
@@ -18,8 +19,8 @@ export function CoachMarks({ visible, onDone }: { visible: boolean; onDone: () =
   return (
     <Modal transparent animationType="fade" visible onRequestClose={onDone}>
       <View style={s.dim}>
-        <Pressable accessibilityRole="button" accessibilityLabel="설명 건너뛰기" onPress={onDone} style={s.skip} hitSlop={12}>
-          <Text style={s.skipT}>건너뛰기</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={translate(language, 'skipIntro')} onPress={onDone} style={s.skip} hitSlop={12}>
+          <Text style={s.skipT}>{translate(language, 'skip')}</Text>
         </Pressable>
         <View style={s.card} accessibilityLiveRegion="polite">
           <View style={s.dots} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -28,10 +29,10 @@ export function CoachMarks({ visible, onDone }: { visible: boolean; onDone: () =
             ))}
           </View>
           <Text style={s.title} accessibilityRole="header">
-            {step.title}
+            {translate(language, step.title)}
           </Text>
-          <Text style={s.body}>{step.body}</Text>
-          <Button label={last ? '시작하기' : '다음'} onPress={() => (last ? onDone() : setI(i + 1))} />
+          <Text style={s.body}>{translate(language, step.body)}</Text>
+          <Button label={translate(language, last ? 'getStarted' : 'next')} onPress={() => (last ? onDone() : setI(i + 1))} />
         </View>
       </View>
     </Modal>

@@ -2,6 +2,8 @@
 // 이름은 서버 MODE_SPEC(label)과 맞춤. 기기 계산은 서버와 같은 규칙이지만, 꾸러미에 지붕·조명 지표가 없으면
 // (옛 꾸러미·내장 fixture) 그 방식은 일부만 반영됨: device 에 그때 보일 알림을 적음.
 import type { RouteCondition } from './route';
+import type { Language } from '../i18n/translations';
+import { localizedMode } from './modes-i18n';
 
 export interface ModeInfo {
   key: RouteCondition;
@@ -61,4 +63,7 @@ export const MODES: ModeInfo[] = [
   },
 ];
 
-export const modeInfo = (k: RouteCondition): ModeInfo => MODES.find((m) => m.key === k) ?? MODES[0];
+export const modeInfo = (k: RouteCondition, language: Language = 'ko'): ModeInfo => {
+  const base = MODES.find((m) => m.key === k) ?? MODES[0];
+  return { ...base, ...(localizedMode(base.key, language) ?? {}) };
+};

@@ -1,0 +1,10 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "The camera is used to scan a QR reference point and calibrate your location.",
+    "NSLocationWhenInUseUsageDescription": "Your location is used to show your position on the map and set a starting point.",
+    "CFBundleDisplayName": "Seokyeong Campus"
+  },
+  "android": {
+    "app_name": "Seokyeong Campus"
+  }
+}

@@ -10,6 +10,8 @@ import { BlurView } from 'expo-blur';
 import { useContext } from 'react';
 import { BlurTargetCtx, useLook } from './look';
 import { elevation, glass, gradient, motion, shape } from './theme';
+import { useApp } from '../state/AppState';
+import { translate } from '../i18n/translations';
 
 /** 칸을 채우는 선형 그라데이션(SVG). 모서리는 부모 overflow/borderRadius 로. */
 export function Gradient({
@@ -244,6 +246,7 @@ export function Sheet({
   collapseSignal?: number;
 }) {
   const reduce = !useLook().moving;
+  const { settings: { language } } = useApp();
   const max = snaps[snaps.length - 1];
   const toY = (i: number) => max - snaps[i];
   const y = useSharedValue(toY(initial));
@@ -299,7 +302,7 @@ export function Sheet({
             style={s.grab}
             accessible
             accessibilityRole="button"
-            accessibilityLabel={at === snaps.length - 1 ? '시트 접기' : '시트 펼치기'}
+            accessibilityLabel={translate(language, at === snaps.length - 1 ? 'collapseSheet' : 'expandSheet')}
             accessibilityActions={[{ name: 'activate' }]}
             onAccessibilityAction={next}
           >
@@ -314,7 +317,7 @@ export function Sheet({
                 accessible
                 accessibilityRole="button"
                 accessibilityState={{ expanded: at === snaps.length - 1 }}
-                accessibilityHint={at === snaps.length - 1 ? '시트 접기' : '시트 펼치기'}
+                accessibilityHint={translate(language, at === snaps.length - 1 ? 'collapseSheet' : 'expandSheet')}
                 accessibilityActions={[{ name: 'activate' }]}
                 onAccessibilityAction={next}
               >

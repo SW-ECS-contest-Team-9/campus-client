@@ -1,75 +1,90 @@
 // CT04 출발점 확인: 현재 위치(확실할 때만) 또는 사용자가 고른 장소. 위치가 불확실하면 직접 고르게 함(제품 규칙 02).
 import { router } from 'expo-router';
+import { ChevronRight, CircleDot, MapPin } from 'lucide-react-native';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { currentLocationLabel } from '../location/fix';
-import { startFromFix } from '../location/start';
-import { startLabel } from '../map/labels';
+import { placeName, startLabel } from '../map/labels';
 import { useApp } from '../state/AppState';
 import { CampusMap } from '../ui/CampusMap';
-import { Button, StatusChip } from '../ui/components';
-import { Card, H, P, Screen } from '../ui/kit';
+import { Button } from '../ui/components';
+import { Card, P, Screen } from '../ui/kit';
+import { color, elevation, shape, type } from '../ui/theme';
 
 export default function StartScreen() {
   const app = useApp();
-  const [msg, setMsg] = useState<string | null>(null);
+  const [startCardHeight, setStartCardHeight] = useState(0);
   if (!app.pkg) return null;
   const pkg = app.pkg;
 
-  // 위치 보정(통로 위로 끌린 점)의 그 길 가까운 끝 노드에서 출발. 불확실하면 직접 고르게 함(제품 규칙 02).
-  const useHere = async () => {
-    setMsg('위치 읽는 중…');
-    if (!(await app.enableLocation())) return setMsg('위치 권한이 없어요 · 장소로 골라 주세요');
-    const fix = await app.waitFix(15000);
-    if (!fix) return setMsg('현재 위치를 확인하지 못했어요');
-    if (fix.uncertain) return setMsg(`현재 위치가 정확하지 않아요 (${fix.reason})`);
-    // 걷는 면·광장 위면 그 자리에서, 아니면 가까운 길 끝에서
-    const st = startFromFix(pkg, app.graph, fix, currentLocationLabel(pkg, fix));
-    if (!st) return setMsg('가까운 길이 50 m 안에 없어요');
-    app.setStart(st);
-    setMsg(null);
-    router.replace('/preview');
-  };
   const st = app.start;
   const startTitle = startLabel(pkg, st) || null;
   const displayedStartTitle = st && st.type !== 'place' && app.fix ? currentLocationLabel(pkg, app.fix) : startTitle;
-  const tone = msg ? 'caution' : st && st.type !== 'place' ? 'confirmed' : 'primary';
+  const destinationTitle = app.destKey ? placeName(pkg, app.destKey) : '아직 고르지 않음';
   return (
     <Screen
       title="출발점 확인"
       scroll={false}
-      footer={
-        <>
-          <Button label="경로 보기" disabled={!st} onPress={() => router.navigate('/preview')} />
-          <View style={s.two}>
-            <Button variant="secondary" label="위치 다시 읽기" onPress={useHere} style={{ flex: 1 }} />
-            <Button
-              variant="secondary"
-              label="장소로 고르기"
-              onPress={() => router.push({ pathname: '/search', params: { mode: 'start' } })}
-              style={{ flex: 1 }}
-            />
-          </View>
-        </>
-      }
+      footer={<Button label="경로 보기" disabled={!st} onPress={() => router.navigate('/preview')} />}
     >
-      <H>어디에서 출발하나요?</H>
       <P tone="muted">내 위치를 아직 정확히 모르면 출발할 곳을 골라 주세요.</P>
-      {msg ? <StatusChip tone="warning" label={msg} /> : null}
       <View style={s.map}>
-        <CampusMap pickPlaces={false} minimal />
+        <CampusMap
+          pickPlaces={false}
+          minimal
+          padding={{ top: startCardHeight + 24, bottom: 0 }}
+          overlay={
+            <View style={s.startOverlay} pointerEvents="box-none" onLayout={(event) => setStartCardHeight(event.nativeEvent.layout.height)}>
+              <Card style={s.startCard}>
+                <Pressable
+                  style={({ pressed }) => [s.locationRow, s.originRow, pressed && s.originPressed]}
+                  onPress={() => router.push({ pathname: '/search', params: { mode: 'start' } })}
+                  hitSlop={{ top: 10, bottom: 10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`출발: ${displayedStartTitle ?? '아직 고르지 않음'}`}
+                  accessibilityHint="출발할 장소를 검색하고 선택합니다"
+                >
+                  <View style={[s.locationIcon, s.originIcon]}>
+                    <CircleDot size={16} color={color.success} />
+                  </View>
+                  <Text style={[s.locationLabel, s.originLabel]}>출발</Text>
+                  <Text style={s.locationTitle} numberOfLines={1}>
+                    {displayedStartTitle ?? '아직 고르지 않음'}
+                  </Text>
+                  <ChevronRight size={16} color={color.secondary} />
+                </Pressable>
+                <View style={s.locationDivider} />
+                <View style={s.locationRow} accessible accessibilityLabel={`도착: ${destinationTitle}`}>
+                  <View style={[s.locationIcon, s.destinationIcon]}>
+                    <MapPin size={16} color={color.primary} />
+                  </View>
+                  <Text style={[s.locationLabel, s.destinationLabel]}>도착</Text>
+                  <Text style={s.locationTitle} numberOfLines={1}>
+                    {destinationTitle}
+                  </Text>
+                </View>
+              </Card>
+            </View>
+          }
+        />
       </View>
-      <Card>
-        <P tone="muted">{st && st.type !== 'place' ? '현재 위치에서 출발' : st ? '사용자가 지정한 출발점' : '출발점을 골라 주세요'}</P>
-        <P>{displayedStartTitle ?? '아직 고르지 않음'}</P>
-        {st?.type === 'place' ? <P tone="muted">직접 고른 위치라 실제 현재 위치와 다를 수 있어요.</P> : null}
-        {tone === 'confirmed' ? <StatusChip tone="confirmed" label="현재 위치 확인됨" /> : null}
-      </Card>
     </Screen>
   );
 }
 
 const s = StyleSheet.create({
-  map: { flex: 1, minHeight: 200, borderRadius: 28, borderBottomLeftRadius: 10, overflow: 'hidden' },
-  two: { flexDirection: 'row', gap: 8 },
+  map: { flex: 1, minHeight: 200, borderRadius: 28, overflow: 'hidden' },
+  startOverlay: { position: 'absolute', top: 12, left: 12, right: 12 },
+  startCard: { ...elevation.low, paddingVertical: 10, paddingHorizontal: 16, gap: 0, borderBottomLeftRadius: shape.card },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 28 },
+  originRow: { marginHorizontal: -6, paddingHorizontal: 6, borderRadius: 12 },
+  originPressed: { backgroundColor: color.successSoft },
+  locationIcon: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  originIcon: { backgroundColor: color.successSoft },
+  destinationIcon: { backgroundColor: color.primarySoft },
+  locationLabel: { fontSize: type.caption, lineHeight: 22, fontWeight: '700' },
+  originLabel: { color: color.success },
+  destinationLabel: { color: color.primary },
+  locationTitle: { flex: 1, minWidth: 0, fontSize: type.small, lineHeight: 22, fontWeight: '600', color: color.text },
+  locationDivider: { marginLeft: 32, marginVertical: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.border },
 });

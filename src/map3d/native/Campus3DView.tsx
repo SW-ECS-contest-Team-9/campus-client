@@ -210,9 +210,12 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
           if (logFrames) frames.push(Date.now());
         }
         if (drew || labelsDirty.current) { labelsDirty.current = false; layoutLabels(scene); }
-        const p = scene.markerScreen();
-        if (p) { markerPos.setValue({ x: p.x / scale.current, y: p.y / scale.current }); setMarkerState((s) => (s === p.state ? s : p.state)); }
-        else setMarkerState((s) => (s === null ? s : null));
+        // 위치 표시는 장면이 다시 그려질 때만 바뀜(위치·카메라 변경은 모두 dirty) → 유휴 프레임에는 계산·갱신 안 함
+        if (drew) {
+          const p = scene.markerScreen();
+          if (p) { markerPos.setValue({ x: p.x / scale.current, y: p.y / scale.current }); setMarkerState((s) => (s === p.state ? s : p.state)); }
+          else setMarkerState((s) => (s === null ? s : null));
+        }
         if (logFrames && Date.now() - lastLog > 3000 && frames.length > 10) {
           const d = frames.slice(1).map((t, i) => t - frames[i]).sort((a, b) => a - b);
           const q = (x: number) => d[Math.min(d.length - 1, Math.floor(d.length * x))];

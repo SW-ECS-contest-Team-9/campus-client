@@ -3,11 +3,11 @@
 import { router } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gradient, WaveHeader } from './v3';
 import { color, elevation, glass, shape, space, type } from './theme';
-import { IconButton, TabBarView } from './components';
+import { IconButton, PressScale, TabBarView } from './components';
 import { TAB_BAR_HEIGHT } from './navigation';
 import { useActiveTab } from './useActiveRoute';
 import { Banner } from './feedback';
@@ -25,12 +25,14 @@ export function Screen({
   children,
   scroll = true,
   footer,
+  headerAction,
 }: {
   title?: string;
   back?: boolean;
   children: ReactNode;
   scroll?: boolean;
   footer?: ReactNode;
+  headerAction?: { label: string; onPress: () => void };
 }) {
   const inset = useSafeAreaInsets();
   const app = useApp();
@@ -68,6 +70,15 @@ export function Screen({
             <Text style={s.title} numberOfLines={2} accessibilityRole="header">
               {title}
             </Text>
+            {headerAction ? (
+              <PressScale
+                accessibilityLabel={headerAction.label}
+                onPress={headerAction.onPress}
+                style={(pressed) => [s.headerAction, s.back, pressed && { backgroundColor: 'rgba(255,255,255,0.28)' }]}
+              >
+                <Text style={s.headerActionText}>{headerAction.label}</Text>
+              </PressScale>
+            ) : null}
           </View>
         </WaveHeader>
       ) : (
@@ -84,7 +95,25 @@ export function Screen({
         />
       ) : null}
       <View style={{ flex: 1 }}>{body}</View>
-      {footer ? <View style={[s.footer, { paddingBottom: inset.bottom + 12 }]}>{footer}</View> : null}
+      {footer ? <FooterPanel>{footer}</FooterPanel> : null}
+    </View>
+  );
+}
+
+/** 화면 아래 또는 지도 위에 놓는 공통 버튼 패널. */
+export function FooterPanel({
+  children,
+  style,
+  onLayout,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  onLayout?: ViewProps['onLayout'];
+}) {
+  const inset = useSafeAreaInsets();
+  return (
+    <View style={[s.footer, { paddingBottom: inset.bottom + 12 }, style]} onLayout={onLayout}>
+      {children}
     </View>
   );
 }
@@ -128,11 +157,11 @@ export function MainTabBar() {
   const inset = useSafeAreaInsets();
   const at = useActiveTab();
   const app = useApp();
-  const to = { map: '/', saved: '/saved', offline: '/offline' } as const;
+  const to = { map: '/', saved: '/saved', offline: '/offline', settings: '/settings' } as const;
   if (!at || !app.pkg) return null;
   return (
     <View testID="main-tab-bar" style={s.tabs} pointerEvents="box-none">
-      <TabBarView at={at} bottomInset={inset.bottom} labels={{ map: translate(app.settings.language, 'map'), saved: translate(app.settings.language, 'saved'), offline: translate(app.settings.language, 'offline') }} onSelect={(k) => router.navigate(to[k])} />
+      <TabBarView at={at} bottomInset={inset.bottom} labels={{ map: translate(app.settings.language, 'map'), saved: translate(app.settings.language, 'saved'), offline: translate(app.settings.language, 'offline'), settings: translate(app.settings.language, 'settings') }} onSelect={(k) => router.navigate(to[k])} />
     </View>
   );
 }
@@ -148,6 +177,16 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.canvas },
   head: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
   back: { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: 'rgba(255,255,255,0.35)', shadowOpacity: 0, elevation: 0 },
+  headerAction: {
+    minHeight: space[48],
+    paddingHorizontal: 16,
+    borderRadius: shape.pill,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  headerActionText: { color: color.onPrimary, fontSize: type.small, fontWeight: '700' },
   title: { flex: 1, fontSize: type.title, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
   body: { paddingHorizontal: space[20], gap: 12, paddingTop: 4 },
   footer: {

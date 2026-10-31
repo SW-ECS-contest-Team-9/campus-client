@@ -23,6 +23,7 @@ export default function TabLayout() {
       <Tabs.Screen name="index" options={{ title: translate(language, 'map') }} />
       <Tabs.Screen name="saved" options={{ title: translate(language, 'saved') }} />
       <Tabs.Screen name="offline" options={{ title: translate(language, 'offline') }} />
+      <Tabs.Screen name="settings" options={{ title: translate(language, 'settings') }} />
     </Tabs>
   );
 }

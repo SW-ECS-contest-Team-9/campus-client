@@ -13,6 +13,7 @@ const tabs = (index: number) => ({
           { key: 'map-screen', name: 'index' },
           { key: 'saved-screen', name: 'saved' },
           { key: 'offline-screen', name: 'offline' },
+          { key: 'settings-screen', name: 'settings' },
         ],
       },
     },
@@ -20,6 +21,15 @@ const tabs = (index: number) => ({
 });
 
 describe('지도와 메뉴의 라우트 소유권', () => {
+  it('설정 탭을 열고 화면이 커밋된 뒤에도 메뉴 선택을 유지한다', () => {
+    const state = tabs(3);
+    expect(focusedTab(state)).toBe('settings');
+    const settings = { key: 'settings-screen', name: 'settings' };
+    const committed = committedRoute(state, settings, true);
+    expect(focusedTab(committed)).toBe('settings');
+    expect(focusedTab(committedRoute(committed, { key: 'map-screen', name: 'index' }, true))).toBe('map');
+  });
+
   it('화면 커밋 뒤 도착한 이전 화면의 blur를 무시한다', () => {
     const saved = { key: 'saved-screen', name: 'saved' };
     const state = committedRoute(tabs(0), saved, true);

@@ -2,7 +2,6 @@
 // 경로는 서버가 닿으면 고른 방식의 서버 계산, 아니면 기기 계산(AppState.route).
 import { Redirect, router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
-import { localizedEntityName, localizedPackageFloor } from '../map/names-i18n';
 import { startLabel as startLabelOf } from '../map/labels';
 import { modeInfo } from '../route/modes';
 import { hasRouteIndicators } from '../route/route';
@@ -37,7 +36,6 @@ export default function PreviewScreen() {
   const stairs = r.steps.filter((s) => s.kind === 'stairs').length;
   const changes = r.steps.filter((s) => s.floorChange);
   const startLabel = startLabelOf(pkg, st, app.settings.language);
-  const path = [startLabel, ...changes.map((c) => c.toFloor ? localizedPackageFloor(c.toFloor, pkg, app.settings.language) : null), dest && localizedEntityName(dest, app.settings.language)].filter(Boolean).join(' → ');
   const fromServer = r.source === 'server';
   // 기기 계산인데 꾸러미에 지붕·조명 지표가 없으면 이 방식은 일부만 반영됨
   const partial = !fromServer && !hasRouteIndicators(pkg) ? modeInfo(app.condition, app.settings.language).device : null;
@@ -47,7 +45,12 @@ export default function PreviewScreen() {
       scroll={false}
       footer={
         <View style={s.two}>
-          <Button variant="secondary" label={t('origin')} onPress={() => router.push('/start')} style={{ flex: 1 }} />
+          <Button
+            variant="secondary"
+            label={t('origin')}
+            onPress={() => router.push({ pathname: '/search', params: { mode: 'start' } })}
+            style={{ flex: 1 }}
+          />
           <Button
             label={t('startGuidance')}
             onPress={() => {
@@ -74,6 +77,7 @@ export default function PreviewScreen() {
                 <View style={s.sumHead}>
                   <Footprints size={18} color={color.primary} />
                   <Text style={s.kind}>{modeInfo(app.condition, app.settings.language).title}</Text>
+                  <Text style={s.note}>{modeInfo(app.condition, app.settings.language).note}</Text>
                 </View>
                 <Text style={s.t}>
                   {t('approxMinutes', { minutes: String(minutesOf(r.durationS)) })} <Text style={s.len}>· {Math.round(r.totalLengthM)} m</Text>
@@ -82,20 +86,18 @@ export default function PreviewScreen() {
                 <P tone="muted">
                   {t('routeCounts', { stairs: String(stairs), floors: String(changes.length) })}
                 </P>
-                <Text style={s.path} numberOfLines={2}>
-                  {path}
-                </Text>
               </Glass>
             </>
           }
         />
       </View>
-      <View style={s.below}>
-        <P tone="muted">{modeInfo(app.condition, app.settings.language).note}</P>
-        {fromServer ? <StatusChip tone="confirmed" label={t('calculatedOnServer')} /> : null}
-        {partial ? <P tone="muted">{partial}</P> : null}
-        {server && !server.ok && server.code === 'no_route' ? <P tone="muted">{t('serverNoRoute')}</P> : null}
-      </View>
+      {fromServer || partial || (server && !server.ok && server.code === 'no_route') ? (
+        <View style={s.below}>
+          {fromServer ? <StatusChip tone="confirmed" label={t('calculatedOnServer')} /> : null}
+          {partial ? <P tone="muted">{partial}</P> : null}
+          {server && !server.ok && server.code === 'no_route' ? <P tone="muted">{t('serverNoRoute')}</P> : null}
+        </View>
+      ) : null}
     </Screen>
   );
 }
@@ -105,10 +107,10 @@ const s = StyleSheet.create({
   map: { flex: 1, marginHorizontal: -space[20] },
   sum: { position: 'absolute', left: 16, right: 16, bottom: 16, padding: 18, gap: 8 },
   sumHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  kind: { fontSize: type.small, fontWeight: '800', color: color.primary },
+  kind: { flexShrink: 0, fontSize: type.small, fontWeight: '800', color: color.primary },
+  note: { flex: 1, minWidth: 0, marginLeft: 4, fontSize: type.caption, lineHeight: 20, color: color.secondary },
   t: { fontSize: type.display - 2, fontWeight: '800', color: color.text, letterSpacing: -0.5 },
   len: { fontSize: type.body, fontWeight: '700', color: color.secondary },
-  path: { fontSize: type.small, color: color.primary, fontWeight: '600' },
   below: { gap: 6, paddingTop: 10 },
   two: { flexDirection: 'row', gap: 8 },
 });

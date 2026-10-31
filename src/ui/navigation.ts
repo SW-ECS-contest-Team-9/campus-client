@@ -1,4 +1,4 @@
-export type TabKey = 'map' | 'saved' | 'offline';
+export type TabKey = 'map' | 'saved' | 'offline' | 'settings';
 
 interface NavigationRoute {
   key?: string;
@@ -19,7 +19,7 @@ export function focusedRoute(state: NavigationBranch | undefined): NavigationRou
 
 export function focusedTab(state: NavigationBranch | undefined): TabKey | null {
   const name = focusedRoute(state)?.name;
-  return name === 'index' ? 'map' : name === 'saved' ? 'saved' : name === 'offline' ? 'offline' : null;
+  return name === 'index' ? 'map' : name === 'saved' || name === 'offline' || name === 'settings' ? name : null;
 }
 
 /** 늦은 blur와 부모 탭 컨테이너가 이미 표시된 자식 화면을 덮어쓰지 않도록 한다. */

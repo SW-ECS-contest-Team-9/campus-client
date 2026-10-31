@@ -1,13 +1,13 @@
 // CT13 설정: 자연어 검색, 화면 표시(가벼운 3D), 위치 권한 안내, 개인정보. 기기 등급·3D 엔진·서버 주소·측정은 개발 빌드에서만.
 import { useState } from 'react';
 import { StyleSheet, Switch, TextInput, View } from 'react-native';
-import { DEFAULT_MAP3D_URL } from '../map3d/commands';
-import { get3dStats } from '../map3d/diag';
-import { DEFAULT_SERVER_URL, useApp } from '../state/AppState';
-import { Button, FloorItem } from '../ui/components';
-import { color, type } from '../ui/theme';
-import { Card, H, P, Screen, Section } from '../ui/kit';
-import { languageNames, translate, type Language } from '../i18n/translations';
+import { DEFAULT_MAP3D_URL } from '../../map3d/commands';
+import { get3dStats } from '../../map3d/diag';
+import { DEFAULT_SERVER_URL, useApp } from '../../state/AppState';
+import { Button, FloorItem } from '../../ui/components';
+import { color, type } from '../../ui/theme';
+import { Card, H, P, Screen, Section, TabScreen } from '../../ui/kit';
+import { languageNames, translate, type Language } from '../../i18n/translations';
 
 export default function SettingsScreen() {
   const app = useApp();
@@ -18,7 +18,7 @@ export default function SettingsScreen() {
   const aiOn = app.settings.aiParse;
   const t = (key: Parameters<typeof translate>[1], values?: Record<string, string>) => translate(app.settings.language, key, values);
   return (
-    <Screen title={t('settings')}>
+    <TabScreen><Screen title={t('settings')} back={false}>
       <Section>{t('language')}</Section>
       <View style={s.chips}>
         {(Object.keys(languageNames) as Language[]).map((lang) => <FloorItem key={lang} label={languageNames[lang]}
@@ -170,7 +170,7 @@ export default function SettingsScreen() {
           ) : null}
         </>
       ) : null}
-    </Screen>
+    </Screen></TabScreen>
   );
 }
 

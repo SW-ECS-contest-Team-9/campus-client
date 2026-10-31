@@ -67,24 +67,30 @@ export default function GuideScreen() {
   const leftS = r.totalLengthM > 0 ? (r.durationS * left) / r.totalLengthM : 0;
   const dest = pkg.places.find((p) => p.key === app.destKey);
   const unsure = !app.fix || app.fix.uncertain;
-  const footer = (
-    <FooterPanel style={s.controls} onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}>
-      <View style={s.two}>
-        <Button variant="secondary" label={t('previous')} disabled={i === 0} onPress={() => setStep0(i - 1)} style={{ flex: 1 }} />
-        {i < r.steps.length - 1 ? (
-          <Button label={t('nextStep')} onPress={() => setStep0(i + 1)} style={{ flex: 2 }} />
-        ) : (
-          <Button label={t('confirmArrival')} onPress={() => router.navigate('/arrive')} style={{ flex: 2 }} />
-        )}
-      </View>
-    </FooterPanel>
-  );
+  const showStepControls = app.settings.guideStepControls;
+  const isLastStep = i === r.steps.length - 1;
+  const footer =
+    showStepControls || isLastStep ? (
+      <FooterPanel style={s.controls} onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}>
+        <View style={s.two}>
+          {showStepControls ? (
+            <Button variant="secondary" label={t('previous')} disabled={i === 0} onPress={() => setStep0(i - 1)} style={{ flex: 1 }} />
+          ) : null}
+          {!isLastStep ? (
+            <Button label={t('nextStep')} onPress={() => setStep0(i + 1)} style={{ flex: 2 }} />
+          ) : (
+            <Button label={t('confirmArrival')} onPress={() => router.navigate('/arrive')} style={{ flex: 2 }} />
+          )}
+        </View>
+      </FooterPanel>
+    ) : null;
   return (
     <Screen title={t('guiding')} scroll={false} headerAction={{ label: t('endGuidance'), onPress: () => router.dismissTo('/') }}>
       <View style={s.summary}>
         <Text style={s.min}>{t('approxMinutes', { minutes: String(minutesOf(leftS)) })}</Text>
         <P tone="muted">
-          {t('distanceLeft', { distance: String(Math.round(left)) })}{dest?.floorKey ? ` · ${t('destinationFloor', { floor: floorCode(pkg, dest.floorKey) ?? '' })}` : ''}
+          {t('distanceLeft', { distance: String(Math.round(left)) })}
+          {dest?.floorKey ? ` · ${t('destinationFloor', { floor: floorCode(pkg, dest.floorKey) ?? '' })}` : ''}
         </P>
       </View>
       {unsure && app.fix ? (
@@ -102,7 +108,12 @@ export default function GuideScreen() {
           <Text style={s.nowT}>{localizedStep(step, app.settings.language, pkg)}</Text>
           <RouteDrawBar progress={(i + 1) / r.steps.length} height={5} />
           <Text style={s.nowS}>
-            {t('guideProgress', { step: String(i + 1), total: String(r.steps.length), destination: dest ? localizedEntityName(dest, app.settings.language) : '', minutes: String(minutesOf(leftS)) })}
+            {t('guideProgress', {
+              step: String(i + 1),
+              total: String(r.steps.length),
+              destination: dest ? localizedEntityName(dest, app.settings.language) : '',
+              minutes: String(minutesOf(leftS)),
+            })}
           </Text>
         </Pulse>
       )}
@@ -111,7 +122,7 @@ export default function GuideScreen() {
           commands={[cmd]}
           pickPlaces={false}
           minimal
-          padding={{ top: 20, bottom: footerHeight + 20 }}
+          padding={{ top: 20, bottom: (footer ? footerHeight : 0) + 20 }}
           overlay={
             <>
               <WaveEdge color="#F0F2FE" flip height={16} />

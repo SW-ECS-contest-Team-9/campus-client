@@ -54,6 +54,8 @@ export interface Settings {
   naturalSearchDefault: boolean;
   /** AI 문장 해석(실험, 기기 안 Gemma). 기본 꺼짐: S21 실측 한 번 6~8 s, 불러오면 메모리 +0.56 GB */
   aiParse: boolean;
+  /** 개발용: 경로 안내의 이전·다음 단계 버튼 표시. 기본 꺼짐 */
+  guideStepControls: boolean;
 }
 /** 개발 기본값. 운영 주소는 나중에 정함. */
 export const DEFAULT_SERVER_URL = `http://${DEV_HOST}:8010`;
@@ -71,8 +73,10 @@ const DEFAULT_SETTINGS: Settings = {
   locationExplained: false,
   naturalSearchDefault: false,
   aiParse: false,
+  guideStepControls: false,
 };
-type MapUpdateStatus = { kind: 'checking' } | { kind: 'current' } | { kind: 'updated'; version: number } | { kind: 'error'; network: boolean };
+type MapUpdateStatus =
+  { kind: 'checking' } | { kind: 'current' } | { kind: 'updated'; version: number } | { kind: 'error'; network: boolean };
 const updateError = (e: string): MapUpdateStatus => ({ kind: 'error', network: /fetch|network|서버 연결/i.test(e) });
 const AUTO_TIER_RULE = 2;
 const detectTier = (): DeviceTier =>
@@ -173,7 +177,9 @@ const Ctx = createContext<AppCtx | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState<LoadedPackage | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const [persistSettings] = useState(() => createSerializedWriter((value: Settings) => AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(value))));
+  const [persistSettings] = useState(() =>
+    createSerializedWriter((value: Settings) => AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(value))),
+  );
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [mapPreparation, note3dPreparation] = useState<Map3dPreparation>({
     sceneReady: false,
@@ -257,26 +263,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     settingsRef.current = settings;
   });
-  const updateSettings = useCallback(async (patch: Partial<Settings>) => {
-    setSettings((cur) => {
-      const next = { ...cur, ...patch };
-      void persistSettings(next).catch((error) => console.warn('Could not save settings', error));
-      return next;
-    });
-  }, [persistSettings]);
+  const updateSettings = useCallback(
+    async (patch: Partial<Settings>) => {
+      setSettings((cur) => {
+        const next = { ...cur, ...patch };
+        void persistSettings(next).catch((error) => console.warn('Could not save settings', error));
+        return next;
+      });
+    },
+    [persistSettings],
+  );
   /** 3D 첫 화면까지 걸린 시간(앱 켠 뒤 한 번). 자동 등급이면 느릴 때 한 단계 낮춤. */
-  const noteFirst3dReady = useCallback((ms: number, engine: Map3dEngine) => {
-    setSettings((cur) => {
-      // 웹은 첫 화면 시간이 망·타일 받기에 좌우되어 기기 성능을 뜻하지 않음 → Android 만
-      if (Platform.OS !== 'android' || cur.autoTier == null) return cur;
-      if (cur.autoTier3dChecked && (cur.autoTier3dEngine ?? 'web') === engine) return cur;
-      // 엔진이 바뀌었으면(웹 3D 가 느려 낮췄던 등급) 처음 등급부터 다시
-      const base = cur.autoTier3dChecked ? detectTier() : cur.autoTier;
-      const next = { ...cur, autoTier: adjustForFirst3d(base, ms), autoTier3dChecked: true, autoTier3dEngine: engine };
-      void persistSettings(next).catch((error) => console.warn('Could not save settings', error));
-      return next;
-    });
-  }, [persistSettings]);
+  const noteFirst3dReady = useCallback(
+    (ms: number, engine: Map3dEngine) => {
+      setSettings((cur) => {
+        // 웹은 첫 화면 시간이 망·타일 받기에 좌우되어 기기 성능을 뜻하지 않음 → Android 만
+        if (Platform.OS !== 'android' || cur.autoTier == null) return cur;
+        if (cur.autoTier3dChecked && (cur.autoTier3dEngine ?? 'web') === engine) return cur;
+        // 엔진이 바뀌었으면(웹 3D 가 느려 낮췄던 등급) 처음 등급부터 다시
+        const base = cur.autoTier3dChecked ? detectTier() : cur.autoTier;
+        const next = { ...cur, autoTier: adjustForFirst3d(base, ms), autoTier3dChecked: true, autoTier3dEngine: engine };
+        void persistSettings(next).catch((error) => console.warn('Could not save settings', error));
+        return next;
+      });
+    },
+    [persistSettings],
+  );
   const saveRecent = useCallback((f: (cur: typeof recent) => typeof recent) => {
     setRecent((cur) => {
       const next = f(cur);
@@ -342,7 +354,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!tracker || !wantLoc || !active) return;
     let stop: (() => void) | null = null;
     let dead = false;
-    void startTracking(createExpoSensors(() => settingsRef.current.language), tracker, onFix).then((r) => {
+    void startTracking(
+      createExpoSensors(() => settingsRef.current.language),
+      tracker,
+      onFix,
+    ).then((r) => {
       if (dead) return r.stop();
       stop = r.stop;
       setSensors(r.status);
@@ -374,14 +390,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (ok) setWantLoc(true);
     return ok;
   }, [updateSettings]);
-  const applyQrAnchor = useCallback(async (value: string) => {
-    if (!tracker) throw new Error('MAP_NOT_READY');
-    const a = await resolveQrAnchor(settings.trackerUrl, value);
-    const f = tracker.anchor(a, Date.now() / 1000);
-    setConfirmedFloor(f.match?.floorKey && f.match.buildingKey ? { floorKey: f.match.floorKey, buildingKey: f.match.buildingKey } : null);
-    onFix(f);
-    return a.label;
-  }, [tracker, settings.trackerUrl, onFix]);
+  const applyQrAnchor = useCallback(
+    async (value: string) => {
+      if (!tracker) throw new Error('MAP_NOT_READY');
+      const a = await resolveQrAnchor(settings.trackerUrl, value);
+      const f = tracker.anchor(a, Date.now() / 1000);
+      setConfirmedFloor(f.match?.floorKey && f.match.buildingKey ? { floorKey: f.match.floorKey, buildingKey: f.match.buildingKey } : null);
+      onFix(f);
+      return a.label;
+    },
+    [tracker, settings.trackerUrl, onFix],
+  );
 
   const startNodeKey = useMemo(() => {
     if (!pkg || !start) return null;
@@ -443,10 +462,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateSettings,
     tier: settings.deviceTier ?? settings.autoTier ?? 2,
     noteFirst3dReady,
-    updateStatus: updateStatus === null ? null : updateStatus.kind === 'checking' ? translate(settings.language, 'checkingUpdate')
-      : updateStatus.kind === 'current' ? translate(settings.language, 'mapUpToDate')
-        : updateStatus.kind === 'updated' ? translate(settings.language, 'newMapDownloaded', { version: String(updateStatus.version) })
-          : translate(settings.language, updateStatus.network ? 'serverConnectionFailed' : 'updateFailed'),
+    updateStatus:
+      updateStatus === null
+        ? null
+        : updateStatus.kind === 'checking'
+          ? translate(settings.language, 'checkingUpdate')
+          : updateStatus.kind === 'current'
+            ? translate(settings.language, 'mapUpToDate')
+            : updateStatus.kind === 'updated'
+              ? translate(settings.language, 'newMapDownloaded', { version: String(updateStatus.version) })
+              : translate(settings.language, updateStatus.network ? 'serverConnectionFailed' : 'updateFailed'),
     recentSearches: recent.searches,
     addRecentSearch,
     removeRecentSearch,

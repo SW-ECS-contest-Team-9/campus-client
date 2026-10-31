@@ -140,7 +140,11 @@ export function IconButton({
         b.iconBtn,
         primary
           ? { backgroundColor: p ? color.primaryPressed : color.primary, borderColor: 'transparent' }
-          : { backgroundColor: p ? glass.fillStrong : glass.fill, borderColor: glass.edge },
+          : // 안드로이드는 반투명 배경 밑 그림자(elevation)가 다각형으로 비쳐 보임 → 불투명 흰색
+            {
+              backgroundColor: Platform.OS === 'android' ? (p ? '#F6F6FA' : '#FFFFFF') : p ? glass.fillStrong : glass.fill,
+              borderColor: glass.edge,
+            },
         !primary && elevation.low,
         style,
       ]}
@@ -300,7 +304,17 @@ const TABS: { k: TabKey; icon: LucideIcon }[] = [
   { k: 'offline', icon: Download },
   { k: 'settings', icon: Settings },
 ];
-export function TabBarView({ at, onSelect, bottomInset = 0, labels }: { at: TabKey; onSelect: (k: TabKey) => void; bottomInset?: number; labels: Record<TabKey, string> }) {
+export function TabBarView({
+  at,
+  onSelect,
+  bottomInset = 0,
+  labels,
+}: {
+  at: TabKey;
+  onSelect: (k: TabKey) => void;
+  bottomInset?: number;
+  labels: Record<TabKey, string>;
+}) {
   const reduce = !useLook().moving;
   const idx = Math.max(
     0,

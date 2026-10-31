@@ -14,8 +14,9 @@ export default function SavedScreen() {
   if (!pkg) return null;
   return (
     <TabScreen>
-      <Screen title="저장한 장소" back={false}>
+      <Screen title="내 장소" back={false}>
         <H>자주 가는 곳,{'\n'}한 번에 찾아가요.</H>
+        <Section>저장한 장소</Section>
         {app.favorites.length ? (
           app.favorites.map((k) => {
             const p = pkg.places.find((x) => x.key === k);

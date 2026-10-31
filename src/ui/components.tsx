@@ -296,8 +296,8 @@ const TAB_PAD = 6; // b.tabs.padding
 const TAB_BORDER = 1; // b.tabs.borderWidth
 const TABS: { k: TabKey; label: string; icon: LucideIcon }[] = [
   { k: 'map', label: '지도', icon: MapIcon },
-  { k: 'saved', label: '저장', icon: Bookmark },
-  { k: 'offline', label: '지도 저장', icon: Download },
+  { k: 'saved', label: '내 장소', icon: Bookmark },
+  { k: 'offline', label: '오프라인', icon: Download },
   { k: 'settings', label: '설정', icon: Settings },
 ];
 export function TabBarView({ at, onSelect, bottomInset = 0 }: { at: TabKey; onSelect: (k: TabKey) => void; bottomInset?: number }) {

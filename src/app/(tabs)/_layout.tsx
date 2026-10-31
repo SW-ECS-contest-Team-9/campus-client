@@ -18,8 +18,8 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: '지도' }} />
-      <Tabs.Screen name="saved" options={{ title: '저장' }} />
-      <Tabs.Screen name="offline" options={{ title: '지도 저장' }} />
+      <Tabs.Screen name="saved" options={{ title: '내 장소' }} />
+      <Tabs.Screen name="offline" options={{ title: '오프라인 지도' }} />
       <Tabs.Screen name="settings" options={{ title: '설정' }} />
     </Tabs>
   );

@@ -52,8 +52,6 @@ export interface Settings {
   locationExplained: boolean;
   /** 검색 화면을 열 때 자연어 검색으로 시작할지 */
   naturalSearchDefault: boolean;
-  /** AI 문장 해석(실험, 기기 안 Gemma). 기본 꺼짐: S21 실측 한 번 6~8 s, 불러오면 메모리 +0.56 GB */
-  aiParse: boolean;
   /** 개발용: 경로 안내의 이전·다음 단계 버튼 표시. 기본 꺼짐 */
   guideStepControls: boolean;
 }
@@ -72,7 +70,6 @@ const DEFAULT_SETTINGS: Settings = {
   coachDone: false,
   locationExplained: false,
   naturalSearchDefault: false,
-  aiParse: false,
   guideStepControls: false,
 };
 type MapUpdateStatus =

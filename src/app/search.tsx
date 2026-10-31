@@ -10,12 +10,14 @@ import { startFromFix } from '../location/start';
 import { placeSubtitle } from '../map/labels';
 import { localizedEntityName } from '../map/names-i18n';
 import { describe as describeRequest, describeUnsupported, planFromRequest } from '../nlp/apply';
-import { mergeWithGemma, shouldAskGemma } from '../nlp/gemma';
+import { mergeWithGemma } from '../nlp/gemma';
 import { cancelInterpret, interpretWithGemma } from '../nlp/gemmaRuntime';
 import { note3dStat } from '../map3d/diag';
 import { buildLexicon } from '../nlp/lexicon';
 import { parseRouteRequest } from '../nlp/parse';
 import type { RouteRequest } from '../nlp/types';
+import directory from '../data/facility-directory.draft.json';
+import { searchFacilities } from '../search/facilities';
 import { searchResults } from '../search/search';
 import { useApp } from '../state/AppState';
 import { Button, IconButton, ResultRow, SearchInput, StatusChip } from '../ui/components';
@@ -24,6 +26,8 @@ import { Card, P, Screen, Section } from '../ui/kit';
 import { color, shape, type } from '../ui/theme';
 import { Character } from '../ui/v3';
 import { translate, type MessageKey } from '../i18n/translations';
+
+const directorySources: Record<string, string> = Object.fromEntries(directory.sourceDocuments.map((source) => [source.id, source.label]));
 
 type SearchMode = 'place' | 'natural';
 const INITIAL_BUILDINGS = 4;
@@ -61,12 +65,13 @@ export default function SearchScreen() {
     () => (pkg && !naturalSearch ? searchResults(pkg, q) : { buildingHits: [], placeHits: [] }),
     [pkg, q, naturalSearch],
   );
+  const facilityHits = useMemo(() => (!choosingStart ? searchFacilities(q) : []), [q, choosingStart]);
   const lex = useMemo(() => (pkg && naturalSearch ? buildLexicon(pkg) : null), [pkg, naturalSearch]);
   const parsed = useMemo(() => (pkg && lex && q.trim().length >= 2 ? parseRouteRequest(q, pkg, lex) : null), [pkg, lex, q]);
   const req = naturalSearch ? (picked && picked.text === q ? picked.req : parsed) : null;
-  // AI 문장 해석(실험): 규칙이 목적지를 못 찾았거나 후보 없이 되물을 때만, 누르거나 검색 키로
-  const aiOn = app.settings.aiParse && app.aiModel;
-  const canAskAi = naturalSearch && aiOn && !!parsed && shouldAskGemma(parsed) && !(picked && picked.text === q);
+  // 자연어 검색은 기기 안 LLM 해석과 한 세트다. 입력 중에는 실행하지 않는다.
+  const aiDone = ai?.text === q && ai.state === 'done';
+  const canAskAi = naturalSearch && app.aiModel && !!parsed && !aiDone && ai?.state !== 'running';
   const stopAi = () => {
     aiRun.current += 1;
     setAi(null);
@@ -81,7 +86,7 @@ export default function SearchScreen() {
     [],
   );
   const runAi = async () => {
-    if (!naturalSearch || !pkg || !parsed || ai?.state === 'running') return;
+    if (!canAskAi || !pkg || !parsed) return;
     const text = q;
     const run = ++aiRun.current;
     setAi({ text, state: 'running' });
@@ -168,7 +173,7 @@ export default function SearchScreen() {
   };
   // 알아들은 조건과 출발점을 채운 뒤 출발점 확인으로. 필수 조건은 앱 상태에 남아 경로 계산의 하드 필터가 됨.
   const go = () => {
-    if (!pkg || !req || plan?.kind !== 'go') return;
+    if (!aiDone || !pkg || !req || plan?.kind !== 'go') return;
     rememberSearch();
     app.setNlp({ text: q.trim(), request: req, mandatory: plan.mandatory });
     app.setDestKey(plan.destKey);
@@ -222,8 +227,9 @@ export default function SearchScreen() {
         returnKeyType="search"
         accessibilityLabel={t(naturalSearch ? 'naturalQuery' : choosingStart ? 'startQuery' : 'placeQuery')}
         placeholder={t(choosingStart ? 'startName' : naturalSearch ? 'naturalExample' : 'placePlaceholder')}
-        onSubmitEditing={() => (naturalSearch && plan?.kind === 'go' ? go() : canAskAi ? void runAi() : undefined)}
+        onSubmitEditing={() => (canAskAi ? void runAi() : naturalSearch && aiDone && plan?.kind === 'go' ? go() : undefined)}
       />
+      {canAskAi ? <Button label={t('naturalInterpret')} onPress={() => void runAi()} /> : null}
       {choosingStart ? (
         <View style={s.locationAction} accessibilityLiveRegion="polite">
           <Button
@@ -266,9 +272,6 @@ export default function SearchScreen() {
           ) : null}
           {plan.kind === 'ask' ? (
             <>
-              {canAskAi && ai?.state !== 'running' ? (
-                <Button variant="secondary" label={t('tryAI')} style={s.choice} onPress={() => void runAi()} />
-              ) : null}
               <Text style={s.q} accessibilityLiveRegion="polite">
                 {plan.question}
               </Text>
@@ -291,7 +294,7 @@ export default function SearchScreen() {
                     {n}
                   </P>
                 ))}
-              <Button label={t('viewRouteWithPrefs')} onPress={go} />
+              <Button label={t('viewRouteWithPrefs')} disabled={!aiDone} onPress={go} />
             </>
           )}
         </Card>
@@ -339,6 +342,20 @@ export default function SearchScreen() {
           title={localizedEntityName(h.place, app.settings.language)}
           sub={sub(h.place.key, h.place.nodeKey)}
           {...placeAction(h.place.key, localizedEntityName(h.place, app.settings.language), h.place.nodeKey)}
+        />
+      ))}
+      {facilityHits.map((facility) => (
+        <ResultRow
+          key={facility.id}
+          icon={Info}
+          title={facility.displayName}
+          sub={[facility.buildingName, facility.floorCode, facility.room, facility.notice].filter(Boolean).join(' · ')}
+          onPress={() =>
+            Alert.alert(
+              facility.displayName,
+              [facility.notice, ...facility.evidence.map((e) => directorySources[e.sourceId] ?? e.sourceId)].join('\n'),
+            )
+          }
         />
       ))}
       {!naturalSearch && hiddenResultCount ? (
@@ -390,7 +407,7 @@ export default function SearchScreen() {
             />
           ))
         : null}
-      {!naturalSearch && q && !resultCount ? (
+      {!naturalSearch && q && !resultCount && !facilityHits.length ? (
         <View style={s.empty}>
           <Character name="emptySearch" size={56} />
           <View style={{ flex: 1, gap: 2 }}>

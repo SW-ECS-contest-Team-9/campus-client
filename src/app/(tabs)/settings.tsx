@@ -9,7 +9,6 @@ import { languageNames, translate, type Language } from '../../i18n/translations
 
 export default function SettingsScreen() {
   const app = useApp();
-  const aiOn = app.settings.aiParse;
   const t = (key: Parameters<typeof translate>[1], values?: Record<string, string>) => translate(app.settings.language, key, values);
   return (
     <TabScreen>
@@ -37,19 +36,6 @@ export default function SettingsScreen() {
             trackColor={{ false: color.border, true: color.primary }}
             ios_backgroundColor={color.border}
             accessibilityLabel={t('naturalDefault')}
-          />
-        </Card>
-        <Card style={s.row}>
-          <View style={{ flex: 1 }}>
-            <P>{t('aiAssist')}</P>
-            {app.aiModel ? null : <P tone="muted">{t('modelMissing')}</P>}
-          </View>
-          <Switch
-            value={aiOn}
-            onValueChange={(v) => app.updateSettings({ aiParse: v })}
-            trackColor={{ false: color.border, true: color.primary }}
-            ios_backgroundColor={color.border}
-            accessibilityLabel={t('aiAssist')}
           />
         </Card>
         <Section>{t('displaySettings')}</Section>

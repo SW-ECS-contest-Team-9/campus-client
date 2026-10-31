@@ -10,13 +10,9 @@ import { color, elevation, glass, shape, space, type } from './theme';
 import { IconButton, PressScale, TabBarView } from './components';
 import { TAB_BAR_HEIGHT } from './navigation';
 import { useActiveTab } from './useActiveRoute';
-import { Banner } from './feedback';
+
 import { useApp } from '../state/AppState';
 import { translate } from '../i18n/translations';
-import { useState } from 'react';
-
-// 배너를 닫으면 앱을 다시 켤 때까지 숨김(화면마다 다시 뜨지 않게)
-let bannerClosed = false;
 
 /** 화면 틀: 상태 표시줄·아래 막대 여백, 머리(뒤로 + 제목), 내용 스크롤. */
 export function Screen({
@@ -36,15 +32,6 @@ export function Screen({
 }) {
   const inset = useSafeAreaInsets();
   const app = useApp();
-  const [closed, setClosed] = useState(bannerClosed);
-  // 서버에서 받은 지도가 아니면(인터넷 없음·아직 안 받음) 한 줄 배너. 검색·미리보기마다 따로 적지 않음.
-  const src = app.loaded?.source;
-  const bannerText =
-    closed || !src || src === 'server'
-      ? null
-      : src === 'fixture'
-        ? translate(app.settings.language, 'bundledBanner')
-        : translate(app.settings.language, 'offlineBanner');
   const body = scroll ? (
     <ScrollView contentContainerStyle={[s.body, { paddingBottom: footer ? 16 : inset.bottom + 16 }]} keyboardShouldPersistTaps="handled">
       {children}
@@ -84,16 +71,6 @@ export function Screen({
       ) : (
         <View style={{ height: inset.top }} />
       )}
-      {bannerText ? (
-        <Banner
-          text={bannerText}
-          closeLabel={translate(app.settings.language, 'closeNotice')}
-          onClose={() => {
-            bannerClosed = true;
-            setClosed(true);
-          }}
-        />
-      ) : null}
       <View style={{ flex: 1 }}>{body}</View>
       {footer ? <FooterPanel>{footer}</FooterPanel> : null}
     </View>

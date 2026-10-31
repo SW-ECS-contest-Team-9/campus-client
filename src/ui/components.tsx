@@ -402,14 +402,14 @@ export function MapPackCard({
 }: {
   title: string;
   detail: string;
-  action: string;
+  action?: string;
   state: 'stored' | 'queued';
 }) {
   return (
     <View style={b.pack}>
       <Text style={b.packT}>{title}</Text>
       <Text style={b.packD}>{detail}</Text>
-      <Text style={[b.packA, { color: state === 'queued' ? color.warning : color.primary }]}>{action}</Text>
+      {action ? <Text style={[b.packA, { color: state === 'queued' ? color.warning : color.primary }]}>{action}</Text> : null}
     </View>
   );
 }

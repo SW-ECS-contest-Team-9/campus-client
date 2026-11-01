@@ -10,11 +10,10 @@ import { startFromFix } from '../location/start';
 import { placeSubtitle } from '../map/labels';
 import { localizedEntityName } from '../map/names-i18n';
 import { describeUnsupported, planFromRequest, publicSearchWarnings } from '../nlp/apply';
-import { mergeWithGemma } from '../nlp/gemma';
 import { cancelInterpret, interpretWithGemma } from '../nlp/gemmaRuntime';
 import { note3dStat } from '../map3d/diag';
-import { buildLexicon } from '../nlp/lexicon';
-import { parseRouteRequest } from '../nlp/parse';
+import { buildSearchIndex } from '../nlp/resolveIntent';
+import { runSearchPipeline, routeRequestForIntent, type ResolvedCandidate } from '../nlp/searchPipeline';
 import type { RouteRequest } from '../nlp/types';
 import directory from '../data/facility-directory.draft.json';
 import { searchFacilities } from '../search/facilities';
@@ -54,6 +53,7 @@ export default function SearchScreen() {
   // 되물음에서 고른 후보를 반영한 요청(같은 문장일 때만)
   const [picked, setPicked] = useState<{ text: string; req: RouteRequest } | null>(null);
   const [ai, setAi] = useState<{ text: string; state: 'running' | 'done' | 'failed' } | null>(null);
+  const [analysis, setAnalysis] = useState<({ text: string } & ReturnType<typeof runSearchPipeline>) | null>(null);
   const [expandedBuilding, setExpandedBuilding] = useState<string | null>(null);
   const [showAllResults, setShowAllResults] = useState(false);
   const [readingLocation, setReadingLocation] = useState(false);
@@ -65,16 +65,16 @@ export default function SearchScreen() {
     () => (pkg && !naturalSearch ? searchResults(pkg, q) : { buildingHits: [], placeHits: [] }),
     [pkg, q, naturalSearch],
   );
-  const facilityHits = useMemo(() => (!choosingStart ? searchFacilities(q) : []), [q, choosingStart]);
-  const lex = useMemo(() => (pkg && naturalSearch ? buildLexicon(pkg) : null), [pkg, naturalSearch]);
-  const parsed = useMemo(() => (pkg && lex && q.trim().length >= 2 ? parseRouteRequest(q, pkg, lex) : null), [pkg, lex, q]);
-  const req = naturalSearch ? (picked && picked.text === q ? picked.req : parsed) : null;
+  const facilityHits = useMemo(() => (!choosingStart && !naturalSearch ? searchFacilities(q) : []), [q, choosingStart, naturalSearch]);
+  const index = useMemo(() => (pkg ? buildSearchIndex(pkg) : null), [pkg]);
+  const activeAnalysis = naturalSearch && analysis?.text === q ? analysis : null;
+  const req = naturalSearch ? (picked?.text === q ? picked.req : (activeAnalysis?.request ?? null)) : null;
   // 자연어 검색은 기기 안 LLM 해석과 한 세트다. 입력 중에는 실행하지 않는다.
   useEffect(() => {
     if (req) note3dStat(`NLP ${req.unsupported.map((u) => describeUnsupported(u, app.settings.language)).join(' | ') || '-'}`);
   }, [req, app.settings.language]);
   const aiDone = ai?.text === q && ai.state === 'done';
-  const canAskAi = naturalSearch && app.aiModel && !!parsed && !aiDone && ai?.state !== 'running';
+  const canAskAi = naturalSearch && app.aiModel && !!q.trim() && !aiDone && ai?.state !== 'running';
   const stopAi = () => {
     aiRun.current += 1;
     setAi(null);
@@ -89,23 +89,27 @@ export default function SearchScreen() {
     [],
   );
   const runAi = async () => {
-    if (!canAskAi || !pkg || !parsed) return;
+    if (!canAskAi || !pkg) return;
     const text = q;
-    const baseRequest = req ?? parsed;
     const run = ++aiRun.current;
     setAi({ text, state: 'running' });
     try {
-      const g = await interpretWithGemma(text, pkg);
+      const g = await interpretWithGemma(text);
       if (run !== aiRun.current) return;
       note3dStat(
         `GEMMA ${g.loadMs != null ? `load ${g.loadMs} ms, ` : ''}total ${g.totalMs} ms, prompt ${g.promptN ?? '-'} tok ${Math.round(g.promptMs ?? 0)} ms, gen ${g.genN ?? '-'} tok ${Math.round(g.genMs ?? 0)} ms`,
       );
-      if (!g.req) {
-        note3dStat(`GEMMA_ERR 해석 실패(JSON 아님): ${g.raw.slice(0, 120)}`);
+      if (!g.intent) {
+        note3dStat('GEMMA_ERR intent JSON invalid');
         return setAi({ text, state: 'failed' });
       }
-      setPicked({ text, req: mergeWithGemma(baseRequest, g.req) });
-      setAi({ text, state: 'done' });
+      const result = runSearchPipeline(text, g.intent, pkg, app.settings.language);
+      note3dStat(
+        `NLP_RESULT ${JSON.stringify({ valid: result.resolution.valid, status: result.resolution.status, count: result.resolution.candidates.length, issues: result.resolution.issues })}`,
+      );
+      setAnalysis({ text, ...result });
+      setPicked(null);
+      setAi({ text, state: result.resolution.valid ? 'done' : 'failed' });
     } catch (e) {
       if (run !== aiRun.current) return;
       note3dStat(`GEMMA_ERR 오류: ${String((e as Error)?.message ?? e).slice(0, 160)}`);
@@ -114,9 +118,34 @@ export default function SearchScreen() {
   };
   const plan = useMemo(() => (pkg && req ? planFromRequest(req, pkg, app.settings.language) : null), [pkg, req, app.settings.language]);
 
+  const candidateDetails = (candidate: ResolvedCandidate) => {
+    const building = pkg?.buildings.find((b) => b.key === candidate.buildingKey);
+    return [
+      building ? localizedEntityName(building, app.settings.language) : null,
+      candidate.floorCode,
+      candidate.room,
+      candidate.notice,
+    ].filter(Boolean);
+  };
+  const chooseIntentCandidate = (candidate: ResolvedCandidate) => {
+    if (!pkg || !index || !activeAnalysis) return;
+    const result = routeRequestForIntent(activeAnalysis.intent, candidate, pkg, q, index);
+    if (!result.request) {
+      Alert.alert(
+        candidate.name,
+        [...candidateDetails(candidate), t(result.originIssue ? 'searchOriginMissing' : 'facilityRouteUnlinked')]
+          .filter(Boolean)
+          .join('\n'),
+      );
+      return;
+    }
+    setPicked({ text: q, req: result.request });
+  };
+
   const resetResults = () => {
     if (ai) stopAi();
     setPicked(null);
+    setAnalysis(null);
     setExpandedBuilding(null);
     setShowAllResults(false);
   };
@@ -229,6 +258,53 @@ export default function SearchScreen() {
         </View>
       ) : null}
       {canAskAi ? <Button label={t('naturalInterpret')} onPress={() => void runAi()} /> : null}
+      {ai?.text === q && ai.state === 'running' ? (
+        <View style={s.aiRow} accessibilityLiveRegion="polite">
+          <Text style={s.aiT}>{t('searchWorking')}</Text>
+          <Button variant="quiet" label={t('cancel')} onPress={stopAi} />
+        </View>
+      ) : ai?.text === q && ai.state === 'failed' ? (
+        <P>{t('intentFailed')}</P>
+      ) : null}
+      {activeAnalysis?.resolution.valid ? (
+        <View style={s.intentResults}>
+          {!activeAnalysis.resolution.candidates.length ? (
+            <P>{t('searchDataInsufficient')}</P>
+          ) : (
+            <>
+              <Section>{t('searchResultsCount', { count: String(activeAnalysis.resolution.candidates.length) })}</Section>
+              {activeAnalysis.resolution.candidates.slice(0, showAllResults ? undefined : INITIAL_PLACES).map((candidate) => (
+                <ResultRow
+                  key={candidate.id}
+                  icon={candidate.kind === 'building' ? Building : MapPin}
+                  title={candidate.name}
+                  sub={candidateDetails(candidate).join(' · ')}
+                  onPress={() => chooseIntentCandidate(candidate)}
+                />
+              ))}
+              {activeAnalysis.resolution.candidates.length > INITIAL_PLACES ? (
+                <Button
+                  variant="quiet"
+                  label={t(showAllResults ? 'collapseResults' : 'moreResults', {
+                    count: String(activeAnalysis.resolution.candidates.length - INITIAL_PLACES),
+                  })}
+                  onPress={() => setShowAllResults((value) => !value)}
+                />
+              ) : null}
+            </>
+          )}
+          {activeAnalysis.resolution.status === 'unroutable' ? <P>{t('facilityRouteUnlinked')}</P> : null}
+          {activeAnalysis.resolution.ranking === 'unavailable' ? <P>{t('nearestUnavailable')}</P> : null}
+          {activeAnalysis.intent.dest.kind === 'person' ||
+          (activeAnalysis.resolution.candidates.length > 0 &&
+            activeAnalysis.resolution.candidates.every((c) => c.category === 'faculty_office')) ? (
+            <P>{t('officeNotPresence')}</P>
+          ) : null}
+          {activeAnalysis.intent.currentInfo ? <P>{t('currentInfoUnavailable')}</P> : null}
+          {activeAnalysis.originIssue ? <P>{t('searchOriginMissing')}</P> : null}
+        </View>
+      ) : null}
+
       {choosingStart ? (
         <View style={s.locationAction} accessibilityLiveRegion="polite">
           <Button
@@ -242,14 +318,6 @@ export default function SearchScreen() {
       ) : null}
       {naturalSearch && req && pkg && plan ? (
         <Card tone="primary" style={s.nlp}>
-          {ai?.text === q && ai.state === 'running' ? (
-            <View style={s.aiRow} accessibilityLiveRegion="polite">
-              <Text style={s.aiT}>{t('aiWorking')}</Text>
-              <Button variant="quiet" label={t('cancel')} onPress={stopAi} />
-            </View>
-          ) : ai?.text === q && ai.state === 'failed' ? (
-            <P tone="muted">{t('aiFailed')}</P>
-          ) : null}
           {plan.kind === 'ask' ? (
             <>
               <Text style={s.q} accessibilityLiveRegion="polite">
@@ -416,6 +484,7 @@ const s = StyleSheet.create({
   childResult: { marginLeft: 16 },
   childMore: { marginLeft: 16 },
   nlp: { gap: 10 },
+  intentResults: { gap: 8 },
   q: { fontSize: type.body, fontWeight: '800', color: color.text },
   // 연한 남보라 카드 위에서도 단추로 보이게 흰 바탕 + 옅은 테두리
   choice: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: 'rgba(79,70,229,0.18)' },

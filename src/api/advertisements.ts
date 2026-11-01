@@ -1,4 +1,4 @@
-// 예정 API: GET /v1/advertisements → { count, items }. 계약은 docs/advertisements-api.md 참고.
+// backend feat/advertisements-api: GET /v1/advertisements → { count, items }.
 export interface Advertisement {
   id: number;
   title: string;
@@ -66,7 +66,7 @@ export function currentAdvertisement(items: Advertisement[], now = Date.now()): 
   );
 }
 
-/** API 미구현(404), 광고 없음, 취소·시간 초과·응답 오류는 모두 빈 목록으로 처리한다. */
+/** 광고 없음, 취소·시간 초과·응답 오류는 모두 빈 목록으로 처리한다. */
 export async function fetchAdvertisements(
   base: string,
   { signal, fetch: request = fetch }: { signal?: AbortSignal; fetch?: (url: string, init?: RequestInit) => Promise<Response> } = {},
@@ -81,7 +81,16 @@ export async function fetchAdvertisements(
     const response = await request(`${server}v1/advertisements`, { signal: controller.signal });
     if (!response.ok) return [];
     const body: unknown = await response.json();
-    if (controller.signal.aborted || !body || typeof body !== 'object' || !('items' in body) || !Array.isArray(body.items)) return [];
+    if (
+      controller.signal.aborted ||
+      !body ||
+      typeof body !== 'object' ||
+      !('items' in body) ||
+      !Array.isArray(body.items) ||
+      !('count' in body) ||
+      body.count !== body.items.length
+    )
+      return [];
     return body.items.flatMap((value: unknown) => {
       const ad = parseAdvertisement(value, server);
       return ad ? [ad] : [];

@@ -32,7 +32,23 @@ describe('광고 API', () => {
     expect(request).not.toHaveBeenCalled();
   });
 
-  it.each([404, 500, 503])('API 미구현·서버 실패(%s)는 빈 목록', async (status) => {
+  it('백엔드의 PostgreSQL 시간대·소수 초와 null 경계를 처리하고 서버 순서를 유지한다', async () => {
+    const items = [
+      { ...ad, startsAt: '2026-10-31T11:00:00.123456+00:00', endsAt: null },
+      { ...ad, id: 2, startsAt: null, endsAt: '2026-10-31T22:00:00+09:00' },
+    ];
+    const result = await fetchAdvertisements(BASE, { fetch: fake(() => response(items)) });
+    expect(result).toEqual(items);
+    expect(currentAdvertisement(result, NOW)).toEqual(items[0]);
+  });
+
+  it('count가 누락되거나 항목 수와 다르면 잘못된 응답으로 처리한다', async () => {
+    for (const body of [{ items: [ad] }, { count: '1', items: [ad] }, { count: 0, items: [ad] }, { count: -1, items: [] }]) {
+      expect(await fetchAdvertisements(BASE, { fetch: fake(() => Response.json(body)) })).toEqual([]);
+    }
+  });
+
+  it.each([404, 500, 503])('HTTP 오류(%s)는 빈 목록', async (status) => {
     expect(await fetchAdvertisements(BASE, { fetch: fake(() => new Response(null, { status })) })).toEqual([]);
   });
 

@@ -137,7 +137,6 @@ export default function GuideScreen() {
               step: String(i + 1),
               total: String(r.steps.length),
               destination: dest ? localizedEntityName(dest, app.settings.language) : '',
-              minutes: String(minutesOf(leftS)),
             })}
           </Text>
         </Pulse>

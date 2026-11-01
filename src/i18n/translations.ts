@@ -82,6 +82,15 @@ export const messages = {
     '自然文検索を標準で使用',
     'Use natural language search by default',
   ],
+  rainAvoidance: ['비 회피', '避雨', '雨を避ける', 'Rain avoidance'],
+  rainInfoLimited: ['비 회피 정보 부족', '避雨信息不足', '雨よけ情報が不足しています', 'Limited rain-cover information'],
+  searchRequestLimited: [
+    '일부 요청은 반영할 수 없어요',
+    '部分请求无法满足',
+    '一部の希望は反映できません',
+    'Some requests cannot be applied',
+  ],
+  naturalInput: ['문장으로 입력하세요', '请输入您的需求', '希望を文章で入力してください', 'Enter your request'],
   naturalInterpret: ['문장으로 검색', '自然语言搜索', '文章で検索', 'Search with natural language'],
   aiAssist: ['기기 안 AI 보조(실험)', '本机 AI 辅助（实验功能）', '端末内AIアシスト（試験機能）', 'On-device AI assistance (experimental)'],
   modelReady: [
@@ -743,10 +752,10 @@ export const messages = {
   nlpChooseDestination: ['어느 목적지인가요?', '请选择目的地。', '目的地を選んでください。', 'Which destination?'],
   nlpChooseOrigin: ['어느 출발지인가요?', '请选择出发地。', '出発地を選んでください。', 'Which starting point?'],
   nlpMissingPlace: [
-    '그 장소는 지도에 아직 없습니다. 건물 이름으로 말해 주세요.',
-    '该地点尚未收录在地图中，请输入建筑名称。',
-    'その場所は地図にまだありません。建物名を入力してください。',
-    'That place is not on the map yet. Please enter a building name.',
+    '해당 장소 정보를 찾지 못했어요. 이름이나 건물을 확인해 주세요.',
+    '未找到该地点的信息，请确认名称或建筑。',
+    '場所の情報が見つかりません。名前や建物を確認してください。',
+    'No matching place information was found. Please check the name or building.',
   ],
   nlpConfirmDestination: [
     '말한 장소가 지도에 없습니다. {name}(으)로 갈까요?',

@@ -56,8 +56,13 @@ const words: Record<string, readonly [string, string, string]> = {
   북쪽: ['北侧', '北側', 'North side'],
 };
 
+// 사용자 승인: 북악관 입구(1)는 건물 정문. 다른 번호 입구는 추정하지 않는다.
+const approvedDisplayName = (name: string) => (/^북악관\s*입구\s*\(1\)(?:\s*=\s*정문)?$/.test(name.trim()) ? '북악관 정문' : null);
+
 /** Remove internal annotation without cutting '=' inside parenthetical notes. */
 export function cleanMapName(name: string): string {
+  const approved = approvedDisplayName(name);
+  if (approved) return approved;
   let out = '';
   let depth = 0;
   let note = '';
@@ -87,6 +92,7 @@ export function cleanMapName(name: string): string {
 }
 
 export function localizedMapName(name: string, language: Language): string {
+  name = cleanMapName(name);
   if (language === 'ko') return name;
   const i = index[language];
   if (buildings[name]) return buildings[name][i];
@@ -134,6 +140,8 @@ export function localizedMapName(name: string, language: Language): string {
 
 /** Prefer publisher-provided translations for new or renamed map entities. */
 export function localizedEntityName(entity: { name: string; localizedNames?: LocalizedNames }, language: Language): string {
+  const approved = approvedDisplayName(entity.name);
+  if (approved) return localizedMapName(approved, language);
   const supplied = entity.localizedNames?.[language];
   return typeof supplied === 'string' && supplied.trim() ? supplied.trim() : localizedMapName(cleanMapName(entity.name), language);
 }

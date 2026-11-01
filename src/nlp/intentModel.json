@@ -4,33 +4,83 @@
     "properties": {
       "dest": {
         "type": "object",
-        "properties": { "name": { "type": ["string", "null"] }, "floor": { "type": ["string", "null"] } },
+        "properties": {
+          "name": {
+            "type": ["string", "null"]
+          },
+          "floor": {
+            "type": ["string", "null"]
+          }
+        },
         "required": ["name", "floor"],
         "additionalProperties": false
       },
       "origin": {
         "type": "object",
-        "properties": { "current": { "type": "boolean" }, "name": { "type": ["string", "null"] }, "floor": { "type": ["string", "null"] } },
+        "properties": {
+          "current": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "floor": {
+            "type": ["string", "null"]
+          }
+        },
         "required": ["current", "name", "floor"],
         "additionalProperties": false
       },
-      "waypoints": { "type": "array", "items": { "type": "string" }, "maxItems": 4 },
-      "mode": { "enum": ["shortest", "fastest", "avoidStairs", "accessible", "preferElevator", "rainProtected", "nightSafe"] },
-      "mandatory": { "type": "array", "items": { "enum": ["avoidStairs", "wheelchairNeeded"] }, "maxItems": 4 },
-      "preferences": { "type": "array", "items": { "enum": ["indoor", "fewerStairs"] }, "maxItems": 4 },
-      "timeLimitMin": { "type": ["integer", "null"] },
+      "waypoints": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 4
+      },
+      "mode": {
+        "enum": ["shortest", "fastest", "avoidStairs", "accessible", "preferElevator", "rainProtected", "nightSafe"]
+      },
+      "mandatory": {
+        "type": "array",
+        "items": {
+          "enum": ["avoidStairs", "wheelchairNeeded"]
+        },
+        "maxItems": 4
+      },
+      "preferences": {
+        "type": "array",
+        "items": {
+          "enum": ["indoor", "fewerStairs"]
+        },
+        "maxItems": 4
+      },
+      "timeLimitMin": {
+        "type": ["integer", "null"]
+      },
       "unsupported": {
         "type": "array",
         "items": {
           "type": "object",
-          "properties": { "text": { "type": "string" }, "reason": { "type": "string" } },
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
           "required": ["text", "reason"],
           "additionalProperties": false
         },
         "maxItems": 0
       },
-      "clarify": { "type": ["string", "null"] },
-      "kind": { "enum": ["place", "category", "need", "person", "unknown"] },
+      "clarify": {
+        "type": ["string", "null"]
+      },
+      "kind": {
+        "enum": ["place", "category", "need", "person", "unknown"]
+      },
       "categories": {
         "type": "array",
         "items": {
@@ -60,13 +110,27 @@
         },
         "maxItems": 4
       },
-      "needs": { "type": "array", "items": { "type": "string" }, "maxItems": 4 },
-      "secondaryModes": {
+      "needs": {
         "type": "array",
-        "items": { "enum": ["shortest", "fastest", "avoidStairs", "accessible", "preferElevator", "rainProtected", "nightSafe"] },
+        "items": {
+          "type": "string"
+        },
         "maxItems": 4
       },
-      "excludedNames": { "type": "array", "items": { "type": "string" }, "maxItems": 4 },
+      "secondaryModes": {
+        "type": "array",
+        "items": {
+          "enum": ["shortest", "fastest", "avoidStairs", "accessible", "preferElevator", "rainProtected", "nightSafe"]
+        },
+        "maxItems": 4
+      },
+      "excludedNames": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 4
+      },
       "excludedCategories": {
         "type": "array",
         "items": {
@@ -96,8 +160,12 @@
         },
         "maxItems": 4
       },
-      "nearest": { "type": "boolean" },
-      "currentInfo": { "type": "boolean" }
+      "nearest": {
+        "type": "boolean"
+      },
+      "currentInfo": {
+        "type": "boolean"
+      }
     },
     "required": [
       "dest",
@@ -125,25 +193,61 @@
       "role": "system",
       "content": "너는 캠퍼스 검색 의도 추출기다. 사용자 문장에 명시된 정보만 JSON으로 추출한다. 지도나 교수 소속을 추측하지 않는다. JSON 하나만 간결하게 출력한다. kind: 이름 있는 건물·매장 자체를 찾으면 place, 이름 있는 교수 연구실이면 person, 화장실·식당 등 시설유형을 직접 말하면 category, 먹기·쉬기·읽기·공부 같은 용무로 공간을 찾으면 need, 목적지 불명이면 unknown. 건물 안의 시설 검색은 건물명이 있어도 category이며 dest.name에는 범위 건물명, categories에는 시설유형을 쓴다. 건물 자체 검색 categories=[]; other나corridor를 억지로 넣지 않는다. 교수 dest.name에는 이름만, 교수님·연구실·호칭은 빼고 원문 이름을 보존한다. categories는 허용enum만: 화장실restroom,학생식당cafeteria,식당restaurant,편의점convenience_store,카페cafe,휴게실lounge,교수실faculty_office,도서관library,프린터printer. 식사 용무는cafeteria,restaurant,convenience_store를 후보유형으로; 휴식은lounge,cafe; 독서·공부는library,lounge. 제외한 시설은categories에서 빼고excludedCategories에 쓴다. 출발지를 말했으면origin.current=false,name에출발명,안말했으면true와null. mode는 비회피rainProtected,계단금지avoidStairs,휠체어accessible,승강기우선preferElevator,급함fastest,야간nightSafe,나머지shortest. 주된요청을mode에 쓰고secondaryModes는추가요청만. mandatory는계단금지avoidStairs,휠체어는avoidStairs와wheelchairNeeded둘다. preferences는 실내를명시하면indoor,짐이많거나피곤하면fewerStairs,그외빈배열. 비·휠체어만으로선호추가금지. nearest는가까운요청만true. currentInfo는현재영업·재실질문만true. 이름이나범주를마음대로바꾸지말고무요청필드에는null,false,빈배열. unsupported=[],clarify=null,waypoints=[]기본. 건물명에교수명대입금지. 기본값은 반드시 origin={current:true,name:null,floor:null},mandatory=[],preferences=[],nearest=false,currentInfo=false,kind=unknown,categories=[] 이다. 사용자가 명시한 값만 이 기본값에서 바꾼다. 특히 출발지 미언급이면 origin.current=true를 유지한다. 아래 예시의 JSON형식을 따른다."
     },
-    { "role": "user", "content": "우산이 없어. 연습관으로 비를 피해 가줘." },
+    {
+      "role": "user",
+      "content": "우산이 없어. 연습관으로 비를 피해 가줘."
+    },
     {
       "role": "assistant",
       "content": "{\"dest\":{\"name\":\"연습관\",\"floor\":null},\"origin\":{\"current\":true,\"name\":null,\"floor\":null},\"waypoints\":[],\"mode\":\"rainProtected\",\"mandatory\":[],\"preferences\":[],\"timeLimitMin\":null,\"unsupported\":[],\"clarify\":null,\"kind\":\"place\",\"categories\":[],\"needs\":[],\"secondaryModes\":[],\"excludedNames\":[],\"excludedCategories\":[],\"nearest\":false,\"currentInfo\":false}"
     },
-    { "role": "user", "content": "임가람 교수 연구실을 찾아줘." },
+    {
+      "role": "user",
+      "content": "임가람 교수 연구실을 찾아줘."
+    },
     {
       "role": "assistant",
       "content": "{\"dest\":{\"name\":\"임가람\",\"floor\":null},\"origin\":{\"current\":true,\"name\":null,\"floor\":null},\"waypoints\":[],\"mode\":\"shortest\",\"mandatory\":[],\"preferences\":[],\"timeLimitMin\":null,\"unsupported\":[],\"clarify\":null,\"kind\":\"person\",\"categories\":[\"faculty_office\"],\"needs\":[],\"secondaryModes\":[],\"excludedNames\":[],\"excludedCategories\":[],\"nearest\":false,\"currentInfo\":false}"
     },
-    { "role": "user", "content": "화장실을 찾고 있어." },
+    {
+      "role": "user",
+      "content": "화장실을 찾고 있어."
+    },
     {
       "role": "assistant",
       "content": "{\"dest\":{\"name\":null,\"floor\":null},\"origin\":{\"current\":true,\"name\":null,\"floor\":null},\"waypoints\":[],\"mode\":\"shortest\",\"mandatory\":[],\"preferences\":[],\"timeLimitMin\":null,\"unsupported\":[],\"clarify\":null,\"kind\":\"category\",\"categories\":[\"restroom\"],\"needs\":[],\"secondaryModes\":[],\"excludedNames\":[],\"excludedCategories\":[],\"nearest\":false,\"currentInfo\":false}"
     },
-    { "role": "user", "content": "계단 써도 돼. 가상교육관으로." },
+    {
+      "role": "user",
+      "content": "계단 써도 돼. 가상교육관으로."
+    },
     {
       "role": "assistant",
       "content": "{\"dest\":{\"name\":\"가상교육관\",\"floor\":null},\"origin\":{\"current\":true,\"name\":null,\"floor\":null},\"waypoints\":[],\"mode\":\"shortest\",\"mandatory\":[],\"preferences\":[],\"timeLimitMin\":null,\"unsupported\":[],\"clarify\":null,\"kind\":\"place\",\"categories\":[],\"needs\":[],\"secondaryModes\":[],\"excludedNames\":[],\"excludedCategories\":[],\"nearest\":false,\"currentInfo\":false}"
+    },
+    {
+      "role": "user",
+      "content": "가온관에서 출발해서 다솜관으로 휠체어로 이동해야 해."
+    },
+    {
+      "role": "assistant",
+      "content": "{\"dest\": {\"name\": \"다솜관\", \"floor\": null}, \"origin\": {\"current\": false, \"name\": \"가온관\", \"floor\": null}, \"waypoints\": [], \"mode\": \"accessible\", \"mandatory\": [\"avoidStairs\", \"wheelchairNeeded\"], \"preferences\": [], \"timeLimitMin\": null, \"unsupported\": [], \"clarify\": null, \"kind\": \"place\", \"categories\": [], \"needs\": [], \"secondaryModes\": [], \"excludedNames\": [], \"excludedCategories\": [], \"nearest\": false, \"currentInfo\": false}"
+    },
+    {
+      "role": "user",
+      "content": "음식을 먹고 싶으니 식사를 파는 공간들을 탐색해."
+    },
+    {
+      "role": "assistant",
+      "content": "{\"dest\": {\"name\": null, \"floor\": null}, \"origin\": {\"current\": true, \"name\": null, \"floor\": null}, \"waypoints\": [], \"mode\": \"shortest\", \"mandatory\": [], \"preferences\": [], \"timeLimitMin\": null, \"unsupported\": [], \"clarify\": null, \"kind\": \"need\", \"categories\": [\"cafeteria\", \"restaurant\", \"convenience_store\"], \"needs\": [\"food\"], \"secondaryModes\": [], \"excludedNames\": [], \"excludedCategories\": [], \"nearest\": false, \"currentInfo\": false}"
+    },
+    {
+      "role": "user",
+      "content": "잠시 머물며 쉬어 갈 자리들을 검색해."
+    },
+    {
+      "role": "assistant",
+      "content": "{\"dest\": {\"name\": null, \"floor\": null}, \"origin\": {\"current\": true, \"name\": null, \"floor\": null}, \"waypoints\": [], \"mode\": \"shortest\", \"mandatory\": [], \"preferences\": [], \"timeLimitMin\": null, \"unsupported\": [], \"clarify\": null, \"kind\": \"need\", \"categories\": [\"lounge\", \"cafe\"], \"needs\": [\"rest\"], \"secondaryModes\": [], \"excludedNames\": [], \"excludedCategories\": [], \"nearest\": false, \"currentInfo\": false}"
     }
   ]
 }

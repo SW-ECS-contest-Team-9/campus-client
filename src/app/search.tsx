@@ -2,14 +2,14 @@
 // mode=start 는 출발 장소 선택, mode=natural 은 저장된 기본값과 관계없이 자연어로 조건 변경.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Building, Info, MapPin, MessageCircleQuestion, Navigation, Search, X } from 'lucide-react-native';
+import { Building, Info, MapPin, Navigation, Search, X } from 'lucide-react-native';
 import { Alert, Keyboard, StyleSheet, Switch, Text, View } from 'react-native';
 import { currentLocationLabel } from '../location/fix';
 import { beginRoute } from '../location/goRoute';
 import { startFromFix } from '../location/start';
 import { placeSubtitle } from '../map/labels';
 import { localizedEntityName } from '../map/names-i18n';
-import { describe as describeRequest, describeUnsupported, planFromRequest } from '../nlp/apply';
+import { describeUnsupported, planFromRequest, publicSearchWarnings } from '../nlp/apply';
 import { mergeWithGemma } from '../nlp/gemma';
 import { cancelInterpret, interpretWithGemma } from '../nlp/gemmaRuntime';
 import { note3dStat } from '../map3d/diag';
@@ -23,7 +23,7 @@ import { useApp } from '../state/AppState';
 import { Button, IconButton, ResultRow, SearchInput, StatusChip } from '../ui/components';
 import { useToast } from '../ui/feedback';
 import { Card, P, Screen, Section } from '../ui/kit';
-import { color, shape, type } from '../ui/theme';
+import { color, type } from '../ui/theme';
 import { Character } from '../ui/v3';
 import { translate, type MessageKey } from '../i18n/translations';
 
@@ -70,6 +70,9 @@ export default function SearchScreen() {
   const parsed = useMemo(() => (pkg && lex && q.trim().length >= 2 ? parseRouteRequest(q, pkg, lex) : null), [pkg, lex, q]);
   const req = naturalSearch ? (picked && picked.text === q ? picked.req : parsed) : null;
   // 자연어 검색은 기기 안 LLM 해석과 한 세트다. 입력 중에는 실행하지 않는다.
+  useEffect(() => {
+    if (req) note3dStat(`NLP ${req.unsupported.map((u) => describeUnsupported(u, app.settings.language)).join(' | ') || '-'}`);
+  }, [req, app.settings.language]);
   const aiDone = ai?.text === q && ai.state === 'done';
   const canAskAi = naturalSearch && app.aiModel && !!parsed && !aiDone && ai?.state !== 'running';
   const stopAi = () => {
@@ -204,32 +207,27 @@ export default function SearchScreen() {
   const resultCount = results.buildingHits.length + results.placeHits.length;
   return (
     <Screen title={t(choosingStart ? 'chooseStartPlace' : 'searchPlaces')}>
-      {!choosingStart ? (
-        <Card style={s.modeCard}>
-          <View style={s.modeCopy}>
-            <Text style={s.modeTitle}>{t('searchNatural')}</Text>
-            <P tone="muted">{t(naturalSearch ? 'naturalPrompt' : 'nameSearchPrompt')}</P>
-            {naturalSearch ? <P tone="muted">{t('naturalKoreanOnly')}</P> : null}
-          </View>
-          <Switch
-            value={naturalSearch}
-            onValueChange={changeSearchMode}
-            trackColor={{ false: color.border, true: color.primary }}
-            ios_backgroundColor={color.border}
-            accessibilityLabel={t('naturalMode')}
-            accessibilityHint={t('naturalHint')}
-          />
-        </Card>
-      ) : null}
       <SearchInput
         value={q}
         onChangeText={changeQuery}
         autoFocus={!params.q}
         returnKeyType="search"
         accessibilityLabel={t(naturalSearch ? 'naturalQuery' : choosingStart ? 'startQuery' : 'placeQuery')}
-        placeholder={t(choosingStart ? 'startName' : naturalSearch ? 'naturalExample' : 'placePlaceholder')}
+        placeholder={t(choosingStart ? 'startName' : naturalSearch ? 'naturalInput' : 'placePlaceholder')}
         onSubmitEditing={() => (canAskAi ? void runAi() : naturalSearch && aiDone && plan?.kind === 'go' ? go() : undefined)}
       />
+      {!choosingStart ? (
+        <View style={s.modeRow}>
+          <Text style={s.modeTitle}>{t('searchNatural')}</Text>
+          <Switch
+            value={naturalSearch}
+            onValueChange={changeSearchMode}
+            trackColor={{ false: color.border, true: color.primary }}
+            ios_backgroundColor={color.border}
+            accessibilityLabel={t('naturalMode')}
+          />
+        </View>
+      ) : null}
       {canAskAi ? <Button label={t('naturalInterpret')} onPress={() => void runAi()} /> : null}
       {choosingStart ? (
         <View style={s.locationAction} accessibilityLiveRegion="polite">
@@ -244,32 +242,13 @@ export default function SearchScreen() {
       ) : null}
       {naturalSearch && req && pkg && plan ? (
         <Card tone="primary" style={s.nlp}>
-          <View style={s.head}>
-            <MessageCircleQuestion size={18} color={color.primary} />
-            <Text style={s.headT}>{t('recognized')}</Text>
-          </View>
-          <View style={s.chips}>
-            {describeRequest(req, pkg, app.settings.language).map((c) => (
-              <View key={c} style={[s.chip, c.startsWith(t('nlpRequired', { value: '' })) && s.chipMust]}>
-                <Text style={[s.chipT, c.startsWith(t('nlpRequired', { value: '' })) && s.chipMustT]}>{c}</Text>
-              </View>
-            ))}
-          </View>
-          {req.unsupported.length ? (
-            <P tone="caution">
-              {req.unsupported
-                .map((u) => describeUnsupported(u, app.settings.language))
-                .filter((x, i, a) => a.indexOf(x) === i)
-                .join(', ')}
-            </P>
-          ) : null}
           {ai?.text === q && ai.state === 'running' ? (
             <View style={s.aiRow} accessibilityLiveRegion="polite">
               <Text style={s.aiT}>{t('aiWorking')}</Text>
               <Button variant="quiet" label={t('cancel')} onPress={stopAi} />
             </View>
-          ) : ai?.text === q && ai.state !== 'running' ? (
-            <P tone="muted">{t(ai.state === 'done' ? 'aiAdded' : 'aiFailed')}</P>
+          ) : ai?.text === q && ai.state === 'failed' ? (
+            <P tone="muted">{t('aiFailed')}</P>
           ) : null}
           {plan.kind === 'ask' ? (
             <>
@@ -289,6 +268,11 @@ export default function SearchScreen() {
             </>
           ) : (
             <>
+              {publicSearchWarnings(req, app.settings.language).map((warning) => (
+                <P key={warning} tone="caution">
+                  {warning}
+                </P>
+              ))}
               {plan.notes
                 .filter((n) => !req.unsupported.some((u) => n === describeUnsupported(u, app.settings.language)))
                 .map((n) => (
@@ -367,7 +351,7 @@ export default function SearchScreen() {
           onPress={() => setShowAllResults((v) => !v)}
         />
       ) : null}
-      {!q && app.recentSearches.length ? (
+      {!naturalSearch && !q && app.recentSearches.length ? (
         <View style={s.recentHead}>
           <Section>{t('recentSearches')}</Section>
           <Button
@@ -389,7 +373,7 @@ export default function SearchScreen() {
           />
         </View>
       ) : null}
-      {!q
+      {!naturalSearch && !q
         ? app.recentSearches.map((r) => (
             <ResultRow
               key={r}
@@ -424,22 +408,14 @@ export default function SearchScreen() {
 
 const s = StyleSheet.create({
   locationAction: { gap: 8 },
-  modeCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  modeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 48 },
   recentHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   empty: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
-  modeCopy: { flex: 1, gap: 2 },
   modeTitle: { fontSize: type.small, fontWeight: '800', color: color.text },
   buildingGroup: { gap: 6 },
   childResult: { marginLeft: 16 },
   childMore: { marginLeft: 16 },
   nlp: { gap: 10 },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  headT: { fontSize: type.small, fontWeight: '800', color: color.primary },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { borderRadius: shape.pill, backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 6 },
-  chipT: { fontSize: type.caption + 1, fontWeight: '700', color: color.text },
-  chipMust: { backgroundColor: color.primary },
-  chipMustT: { color: '#FFFFFF' },
   q: { fontSize: type.body, fontWeight: '800', color: color.text },
   // 연한 남보라 카드 위에서도 단추로 보이게 흰 바탕 + 옅은 테두리
   choice: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: 'rgba(79,70,229,0.18)' },

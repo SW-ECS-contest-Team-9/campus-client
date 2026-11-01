@@ -8,6 +8,8 @@ import { Button, FloorItem } from '../ui/components';
 import { color, type } from '../ui/theme';
 import { Card, P, Screen, Section } from '../ui/kit';
 import { translate } from '../i18n/translations';
+import { Redirect } from 'expo-router';
+import { isDeveloperAccessUnlocked } from '../settings/developerAccess';
 
 export default function DeveloperScreen() {
   const app = useApp();
@@ -16,6 +18,7 @@ export default function DeveloperScreen() {
   const [tracker, setTracker] = useState(app.settings.trackerUrl);
   const [stats] = useState(get3dStats);
   const t = (key: Parameters<typeof translate>[1], values?: Record<string, string>) => translate(app.settings.language, key, values);
+  if (!isDeveloperAccessUnlocked()) return <Redirect href="/settings" />;
   return (
     <Screen title={t('developerOptions')}>
       <Section>{t('diagnostics')}</Section>

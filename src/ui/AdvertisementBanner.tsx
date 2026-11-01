@@ -16,13 +16,23 @@ export function AdvertisementBanner({ serverUrl }: { serverUrl: string }) {
       const update = () => {
         clearTimeout(boundaryTimer);
         const now = Date.now();
-        setAd(currentAdvertisement(items, now));
+        const selected = currentAdvertisement(items, now);
+        setAd(selected);
         const boundaries = items
           .filter((item) => item.isActive)
           .flatMap((item) =>
             [item.startsAt, item.endsAt].flatMap((date) => (date !== null && Date.parse(date) > now ? [Date.parse(date)] : [])),
           );
-        if (boundaries.length) boundaryTimer = setTimeout(update, Math.min(Math.min(...boundaries) - now, 2_147_483_647));
+        if (boundaries.length) {
+          boundaryTimer = setTimeout(
+            () => {
+              // 서버는 현재 활성 광고만 반환하므로 만료 뒤의 광고는 다시 조회해야 한다.
+              if (selected?.endsAt && Date.parse(selected.endsAt) <= Date.now()) load();
+              else update();
+            },
+            Math.min(Math.min(...boundaries) - now, 2_147_483_647),
+          );
+        }
       };
       const load = () => {
         controller?.abort();

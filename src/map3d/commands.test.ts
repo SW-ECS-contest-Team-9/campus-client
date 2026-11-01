@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest';
 import fixture from '../map/fixture/campus-fixture.json';
 import type { MapPackage } from '../map/package';
 import { buildGraph, findRoute } from '../route/route';
-import { floorCommand, localizedNamesCommand, locationCommand, packagePlaceKey, pageUrl, parseEvent, routeCommand, sceneBuildingId } from './commands';
+import {
+  floorCommand,
+  localizedNamesCommand,
+  locationCommand,
+  packagePlaceKey,
+  pageUrl,
+  parseEvent,
+  routeCommand,
+  sceneBuildingId,
+} from './commands';
 import { toFix } from '../location/fix';
 
 const pkg = fixture as unknown as MapPackage;
@@ -78,12 +87,24 @@ describe('3D 페이지 메시지', () => {
   });
 });
 
-
 describe('publisher names for web 3D', () => {
   it('uses stable IDs, ignores missing translations and supports clearing', () => {
-    const pkg = { buildings: [{ key: 'b:building', localizedNames: { en: '  New Hall  ' } }], places: [{ key: 'p:place', localizedNames: { ja: '新しい場所' } }] } as any;
-    expect(localizedNamesCommand(pkg, 'en')).toEqual({ v: 1, type: 'setLocalizedNames', buildings: [{ id: 'building', name: 'New Hall' }], places: [] });
-    expect(localizedNamesCommand(pkg, 'ja')).toEqual({ v: 1, type: 'setLocalizedNames', buildings: [], places: [{ id: 'place', name: '新しい場所' }] });
+    const pkg = {
+      buildings: [{ key: 'b:building', localizedNames: { en: '  New Hall  ' } }],
+      places: [{ key: 'p:place', localizedNames: { ja: '新しい場所' } }],
+    } as any;
+    expect(localizedNamesCommand(pkg, 'en')).toEqual({
+      v: 1,
+      type: 'setLocalizedNames',
+      buildings: [{ id: 'building', name: 'New Hall' }],
+      places: [],
+    });
+    expect(localizedNamesCommand(pkg, 'ja')).toEqual({
+      v: 1,
+      type: 'setLocalizedNames',
+      buildings: [],
+      places: [{ id: 'place', name: '新しい場所' }],
+    });
     expect(localizedNamesCommand(null, 'en')).toEqual({ v: 1, type: 'setLocalizedNames', buildings: [], places: [] });
   });
 });

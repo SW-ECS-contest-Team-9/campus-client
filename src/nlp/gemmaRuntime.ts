@@ -1,24 +1,29 @@
-// 기기 안 Gemma 3 270M(미세조정, Q4_K_M 253 MB)을 llama.rn 으로. 처음 쓸 때 불러오고, 앱이 뒤로 가면 놓음.
-// 모델은 APK 에 넣지 않음. v1.0 시험: PC 에서 adb push 로 앱 외부 파일 폴더에 둠(README "AI 문장 해석").
-// 나중: 백엔드(FastAPI) 정적 파일로 받아 sha256 확인 뒤 같은 자리에 저장(백엔드는 아직 안 바꿈).
+// APK 자산의 Gemma를 로컬 캐시로 풀어 읽는다. 외부 복사나 서버 다운로드 불필요.
+import { Asset } from 'expo-asset';
 import { initLlama, loadLlamaModelInfo, type LlamaContext } from 'llama.rn';
 import { AppState, Platform } from 'react-native';
 import { messages, jsonSchema, toRouteRequest, type ModelOutput } from './gemma';
 import type { MapPackage, RouteRequest } from './types';
 
 export const MODEL_FILE = 'gemma3-270m-route-Q4_K_M.gguf';
-/** 앱 외부 파일 폴더(권한 없이 앱이 읽음, adb push 가능) */
-export const MODEL_URI = `file:///storage/emulated/0/Android/data/kr.ac.skuniv.campusclient/files/${MODEL_FILE}`;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const MODEL_ASSET = require('../../assets/models/gemma3-270m-route-Q4_K_M.gguf');
+async function modelUri(): Promise<string> {
+  const asset = Asset.fromModule(MODEL_ASSET);
+  await asset.downloadAsync();
+  if (!asset.localUri) throw new Error('Bundled model is unavailable');
+  return asset.localUri;
+}
 
 let ctx: LlamaContext | null = null;
 let loading: Promise<LlamaContext> | null = null;
 let lastLoadMs: number | null = null;
 
-/** 모델 파일이 있고 읽히는가. expo-file-system 은 앱 밖 경로를 못 봐서 llama.rn 으로 머리말만 읽어 봄. */
+/** 내장 모델을 로컬 파일로 준비하고 GGUF 머리말을 확인한다(추론 검증과 별도). */
 export async function checkModel(): Promise<boolean> {
   if (Platform.OS !== 'android') return false;
   try {
-    await loadLlamaModelInfo(MODEL_URI);
+    await loadLlamaModelInfo(await modelUri());
     return true;
   } catch {
     return false;
@@ -30,7 +35,8 @@ async function load(): Promise<LlamaContext> {
   if (!loading) {
     const t0 = Date.now();
     // S21 실측(llama-bench): 4 스레드가 가장 빠름. 문맥 2048, CPU 만(GPU 층 0)
-    loading = initLlama({ model: MODEL_URI, n_ctx: 2048, n_threads: 4, n_gpu_layers: 0, use_mlock: false })
+    loading = modelUri()
+      .then((model) => initLlama({ model, n_ctx: 2048, n_threads: 4, n_gpu_layers: 0, use_mlock: false }))
       .then((c) => {
         ctx = c;
         lastLoadMs = Date.now() - t0;

@@ -16,7 +16,11 @@ export const floorCode = (pkg: Pick<MapPackage, 'floors'>, floorKey: string | nu
   (floorKey ? pkg.floors.find((f) => f.key === floorKey)?.code : null) ?? null;
 
 /** "북악관 B1"(건물 이름 + 층 코드). 층을 모르면 ''. */
-export function floorLabel(pkg: Pick<MapPackage, 'buildings' | 'floors'>, floorKey: string | null | undefined, language: Language = 'ko'): string {
+export function floorLabel(
+  pkg: Pick<MapPackage, 'buildings' | 'floors'>,
+  floorKey: string | null | undefined,
+  language: Language = 'ko',
+): string {
   const f = floorKey ? pkg.floors.find((x) => x.key === floorKey) : null;
   return f ? `${buildingName(pkg, f.buildingKey, language)} ${f.code}`.trim() : '';
 }
@@ -36,7 +40,9 @@ export function placeSubtitle(pkg: Pkg, placeKey: string, language: Language = '
   const p = pkg.places.find((x) => x.key === placeKey);
   if (!p) return '';
   if (p.location === 'outdoor') return translate(language, 'outdoor');
-  return [buildingName(pkg, p.buildingKey, language), floorCode(pkg, p.floorKey) ?? translate(language, 'unknownFloor')].filter(Boolean).join(' ');
+  return [buildingName(pkg, p.buildingKey, language), floorCode(pkg, p.floorKey) ?? translate(language, 'unknownFloor')]
+    .filter(Boolean)
+    .join(' ');
 }
 
 /** 출발점 이름: 장소면 장소 이름, 현재 위치·노드면 그때 붙인 이름. 없으면 ''. */
@@ -58,7 +64,11 @@ export function localizedStartLabel(label: string, language: Language): string {
   return localizedMapName(label, language);
 }
 
-export function startLabel(pkg: Pick<MapPackage, 'places'> & Partial<Pick<MapPackage, 'buildings' | 'floors'>>, st: StartPoint | null, language: Language = 'ko'): string {
+export function startLabel(
+  pkg: Pick<MapPackage, 'places'> & Partial<Pick<MapPackage, 'buildings' | 'floors'>>,
+  st: StartPoint | null,
+  language: Language = 'ko',
+): string {
   if (!st) return '';
   if (st.type === 'place') return placeName(pkg, st.placeKey, language);
   if (st.labelSource && pkg.buildings && pkg.floors)

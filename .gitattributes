@@ -6,3 +6,4 @@
 *.apk binary
 *.jar binary
 *.bat text eol=crlf
+assets/models/gemma3-270m-route-Q4_K_M.gguf filter=lfs diff=lfs merge=lfs -text

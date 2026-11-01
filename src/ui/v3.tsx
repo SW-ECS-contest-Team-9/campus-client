@@ -246,7 +246,9 @@ export function Sheet({
   collapseSignal?: number;
 }) {
   const reduce = !useLook().moving;
-  const { settings: { language } } = useApp();
+  const {
+    settings: { language },
+  } = useApp();
   const max = snaps[snaps.length - 1];
   const toY = (i: number) => max - snaps[i];
   const y = useSharedValue(toY(initial));

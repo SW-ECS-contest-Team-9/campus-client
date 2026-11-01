@@ -7,7 +7,13 @@ import type { Fix } from './fix';
 import { startFromCurrentFix, type StartPoint } from './start';
 import type { Language } from '../i18n/translations';
 
-export function beginRoute(pkg: MapPackage, graph: Graph | null, fix: Fix | null, set: { start: (s: StartPoint | null) => void }, language: Language = 'ko'): void {
+export function beginRoute(
+  pkg: MapPackage,
+  graph: Graph | null,
+  fix: Fix | null,
+  set: { start: (s: StartPoint | null) => void },
+  language: Language = 'ko',
+): void {
   const st = startFromCurrentFix(pkg, graph, fix, language);
   set.start(st);
   router.push(st ? '/preview' : '/start');

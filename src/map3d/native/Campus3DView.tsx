@@ -5,8 +5,10 @@ import { Asset } from 'expo-asset';
 import { File } from 'expo-file-system';
 import { GLView, type ExpoWebGLRenderingContext } from 'expo-gl';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Animated, Image, PanResponder, PixelRatio, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { AppState as RNAppState, Animated, Image, PanResponder, PixelRatio, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import * as THREE from 'three';
+import { useReducedMotion } from 'react-native-reanimated';
+import type { MapTheme } from './mapTheme';
 import { createCampusScene, type CampusScene } from './campusScene';
 import type { PageEvent } from './protocol';
 import type { Language } from '../../i18n/translations';
@@ -42,6 +44,9 @@ type Label = { key: string; kind: 'building' | 'place' | 'change'; text: string;
 const labelWidth = (t: string) => Math.min(150, 14 + t.length * 13);
 
 export interface Campus3DProps {
+  mapTheme?: MapTheme;
+  backgroundMotion?: boolean;
+  active?: boolean;
   onEvent?: (e: PageEvent) => void;
   places?: Campus3DPlace[];
   buildingNames?: Readonly<Record<string, BuildingLabel>>;
@@ -69,8 +74,19 @@ async function loadGlb(): Promise<ArrayBuffer> {
   }
 }
 
-export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function Campus3DView({ onEvent, places, buildingNames, language = 'ko', padding, light = false, style, logFrames = false, onStats }, ref) {
+export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function Campus3DView({ onEvent, places, buildingNames, language = 'ko', padding, light = false, mapTheme = 'default', backgroundMotion = true, active = true, style, logFrames = false, onStats }, ref) {
   const sceneRef = useRef<CampusScene | null>(null);
+  const reduceMotion = useReducedMotion();
+  const [foreground, setForeground] = useState(RNAppState.currentState === 'active');
+  useEffect(() => {
+    const subscription = RNAppState.addEventListener('change', (state) => setForeground(state === 'active'));
+    return () => subscription.remove();
+  }, []);
+  const decorOptions = useRef({ mapTheme, motion: backgroundMotion && active && foreground && !reduceMotion });
+  decorOptions.current = { mapTheme, motion: backgroundMotion && active && foreground && !reduceMotion };
+  useEffect(() => {
+    sceneRef.current?.setDecoration(mapTheme, decorOptions.current.motion);
+  }, [mapTheme, backgroundMotion, active, foreground, reduceMotion]);
   const renderRun = useRef<{ stop: () => void } | null>(null);
   useEffect(() => () => {
     renderRun.current?.stop();
@@ -90,6 +106,11 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
   // ---------- 이름표(campus-client 추가): 건물 이름·장소 점·층 바뀜 글을 RN 으로 화면 위에. 화면에서 겹치면 뒤 순서를 뺌 ----------
   const [labels, setLabels] = useState<Label[]>([]);
   const labelXY = useRef(new Map<string, Animated.ValueXY>()).current;
+  // 이름표 위치 갱신은 메인 스레드에서 이름표 뷰마다 적용됨 → 0.5 px 넘게 바뀐 것만, 끄는 동안은 두 프레임에 한 번(손 떼면 한 번 맞춤)
+  const labelLast = useRef(new Map<string, [number, number]>()).current;
+  const dragging = useRef(false);
+  const dragFrame = useRef(0);
+  const labelsSkipped = useRef(false);
   const labelKeys = useRef('');
   const labelsDirty = useRef(true);
   const placeList = useRef(places);
@@ -132,10 +153,17 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
     // 장소 점은 가까이 볼 때만(멀면 건물 이름만)
     if (sc.cameraDistance() < 520) for (const a of placeAnchors.current) { const at = put({ key: `p:${a.pl.id}`, kind: 'place', text: a.pl.name, w: 18, id: a.pl.id, tm: a.pl }, a.p, 18, 9); if (at) shown.push({ pl: a.pl, ...at }); }
     shownPlaces.current = shown;
-    for (const [key, x, y] of pos) { let v = labelXY.get(key); if (!v) { v = new Animated.ValueXY({ x, y }); labelXY.set(key, v); } else v.setValue({ x, y }); }
+    for (const [key, x, y] of pos) {
+      let v = labelXY.get(key);
+      if (!v) { v = new Animated.ValueXY({ x, y }); labelXY.set(key, v); labelLast.set(key, [x, y]); continue; }
+      const last = labelLast.get(key);
+      if (last && Math.abs(last[0] - x) < 0.5 && Math.abs(last[1] - y) < 0.5) continue;
+      labelLast.set(key, [x, y]);
+      v.setValue({ x, y });
+    }
     const keys = JSON.stringify(out.map((l) => [l.key, l.text, l.w]));
     if (keys !== labelKeys.current) { labelKeys.current = keys; setLabels(out); }
-  }, [labelXY]);
+  }, [labelXY, labelLast]);
 
   const post = useCallback((msg: unknown) => {
     let m: any = msg;
@@ -186,6 +214,7 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       dispose = () => { scene.dispose(); renderer.dispose(); };
       if (stopped) { dispose(); return; }
       sceneRef.current = scene;
+      scene.setDecoration(decorOptions.current.mapTheme, decorOptions.current.motion);
       // campus-client: 앱은 3D 보기 하나를 화면마다 다른 크기 자리로 옮김 → 보기 크기에 맞춰 다시 맞춤
       if (layoutSize.current) scene.resize(Math.round(layoutSize.current.w * scale.current), Math.round(layoutSize.current.h * scale.current));
       applyPad();
@@ -196,8 +225,22 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       let first = true;
       const frames: number[] = [];
       let lastLog = Date.now();
+      // 고주사율 기기에서도 지도·이름표·마커 갱신은 약 60fps로 제한.
+      const frameIntervalMs = 1000 / 60;
+      let lastTick: number | null = null;
       const loop = () => {
         if (stopped) return;
+        const now = performance.now();
+        if (lastTick !== null) {
+          const elapsed = now - lastTick;
+          if (elapsed < frameIntervalMs) {
+            frameId = requestAnimationFrame(loop);
+            return;
+          }
+          lastTick = now - (elapsed % frameIntervalMs);
+        } else {
+          lastTick = now;
+        }
         const drew = scene.frameTick();
         if (drew) {
           gl.endFrameEXP();
@@ -209,7 +252,9 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
           }
           if (logFrames) frames.push(Date.now());
         }
-        if (drew || labelsDirty.current) { labelsDirty.current = false; layoutLabels(scene); }
+        // 끄는 중 건너뛴 배치는 다음에 그리는 프레임(또는 손 뗀 뒤)에 함
+        if (drew && dragging.current && dragFrame.current++ % 2 === 1) labelsSkipped.current = true;
+        else if (drew || labelsDirty.current || (labelsSkipped.current && !dragging.current)) { labelsDirty.current = false; labelsSkipped.current = false; layoutLabels(scene); }
         // 위치 표시는 장면이 다시 그려질 때만 바뀜(위치·카메라 변경은 모두 dirty) → 유휴 프레임에는 계산·갱신 안 함
         if (drew) {
           const p = scene.markerScreen();
@@ -238,7 +283,7 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
   const pan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: (e) => { const t = e.nativeEvent.touches; g.n = t.length; g.x = t[0].pageX; g.y = t[0].pageY; g.moved = 0; g.t = Date.now(); if (t.length > 1) two(t); },
+    onPanResponderGrant: (e) => { dragging.current = true; dragFrame.current = 0; const t = e.nativeEvent.touches; g.n = t.length; g.x = t[0].pageX; g.y = t[0].pageY; g.moved = 0; g.t = Date.now(); if (t.length > 1) two(t); },
     onPanResponderMove: (e) => {
       const s = sceneRef.current; const t = e.nativeEvent.touches;
       if (!s || !t.length) return;
@@ -259,7 +304,9 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
         g.d = d; g.a = a; g.my = my; g.moved += 10;
       }
     },
+    onPanResponderTerminate: () => { dragging.current = false; labelsDirty.current = true; },
     onPanResponderRelease: (e) => {
+      dragging.current = false; labelsDirty.current = true;
       if (g.moved < 8 && Date.now() - g.t < 350 && sceneRef.current) {
         // 장소 점 가까이(22 dp)를 누르면 그 장소
         const lx = e.nativeEvent.locationX, ly = e.nativeEvent.locationY;

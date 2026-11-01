@@ -9,7 +9,6 @@ import { languageNames, translate, type Language } from '../../i18n/translations
 
 export default function SettingsScreen() {
   const app = useApp();
-  const aiOn = app.settings.aiParse;
   const t = (key: Parameters<typeof translate>[1], values?: Record<string, string>) => translate(app.settings.language, key, values);
   return (
     <TabScreen>
@@ -30,7 +29,6 @@ export default function SettingsScreen() {
         <Card style={s.row}>
           <View style={{ flex: 1 }}>
             <P>{t('naturalDefault')}</P>
-            <P tone="muted">{t('naturalDescription')}</P>
           </View>
           <Switch
             value={app.settings.naturalSearchDefault}
@@ -40,25 +38,10 @@ export default function SettingsScreen() {
             accessibilityLabel={t('naturalDefault')}
           />
         </Card>
-        <Card style={s.row}>
-          <View style={{ flex: 1 }}>
-            <P>{t('aiAssist')}</P>
-            <P tone="muted">{t('aiDescription')}</P>
-            <P tone="muted">{app.aiModel ? t('modelReady', { state: t(aiOn ? 'enabled' : 'disabled') }) : t('modelMissing')}</P>
-          </View>
-          <Switch
-            value={aiOn}
-            onValueChange={(v) => app.updateSettings({ aiParse: v })}
-            trackColor={{ false: color.border, true: color.primary }}
-            ios_backgroundColor={color.border}
-            accessibilityLabel={t('aiAssist')}
-          />
-        </Card>
         <Section>{t('displaySettings')}</Section>
         <Card style={s.row}>
           <View style={{ flex: 1 }}>
             <P>{t('lightMode')}</P>
-            <P tone="muted">{t('lightDescription')}</P>
           </View>
           <Switch
             value={app.settings.light}
@@ -66,6 +49,37 @@ export default function SettingsScreen() {
             trackColor={{ false: color.border, true: color.primary }}
             ios_backgroundColor={color.border}
             accessibilityLabel={t('lightMode')}
+          />
+        </Card>
+        <Section>{t('mapTheme')}</Section>
+        <View style={s.chips}>
+          {(
+            [
+              ['default', 'mapThemeDefault'],
+              ['island', 'mapThemeIsland'],
+              ['trek', 'mapThemeTrek'],
+              ['pirate', 'mapThemePirate'],
+            ] as const
+          ).map(([value, label]) => (
+            <FloorItem
+              key={value}
+              label={t(label)}
+              state={app.settings.mapTheme === value ? 'selected' : 'idle'}
+              onPress={() => void app.updateSettings({ mapTheme: value })}
+            />
+          ))}
+        </View>
+        <P tone="muted">{t('mapThemeNotice')}</P>
+        <Card style={s.row}>
+          <View style={{ flex: 1 }}>
+            <P>{t('backgroundMotion')}</P>
+          </View>
+          <Switch
+            value={app.settings.backgroundMotion}
+            onValueChange={(v) => void app.updateSettings({ backgroundMotion: v })}
+            trackColor={{ false: color.border, true: color.primary }}
+            ios_backgroundColor={color.border}
+            accessibilityLabel={t('backgroundMotion')}
           />
         </Card>
         <Section>{t('locationPermission')}</Section>

@@ -13,8 +13,15 @@ const pkg = {
 
 describe('saved current-position language', () => {
   it('keeps the location identity when creating a start so labels can be translated later', () => {
-    const fix = { x: 0, y: 0, accuracyM: 3, timestamp: 0, uncertain: false, reason: null,
-      match: { floorKey: 'f', buildingKey: 'b', edgeKey: null, areaKey: null, z: null, onNetwork: true } };
+    const fix = {
+      x: 0,
+      y: 0,
+      accuracyM: 3,
+      timestamp: 0,
+      uncertain: false,
+      reason: null,
+      match: { floorKey: 'f', buildingKey: 'b', edgeKey: null, areaKey: null, z: null, onNetwork: true },
+    };
     const start = startFromCurrentFix(pkg, null, fix, 'en');
     expect(start).not.toBeNull();
     expect(startLabel(pkg, start, 'en')).toBe('New Hall 2F (estimated)');

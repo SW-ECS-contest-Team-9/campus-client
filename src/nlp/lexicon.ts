@@ -1,10 +1,11 @@
+import { localizedEntityName } from '../map/names-i18n';
 // 꾸러미에서 장소 사전을 만든다. 장소를 지어내지 않는다: 모든 목표는 꾸러미 key.
 import type { Candidate, MapPackage, PkgPlace } from './types';
 
 export interface LexEntry { surface: string; kind: 'building' | 'place'; targets: Candidate[]; namePrefix: string | null }
 export interface Lexicon { entries: LexEntry[]; unknownPlaces: { surface: string; label: string }[] }
 
-const sq = (s: string) => s.toLowerCase().replace(/\s+/g, '');
+const sq = (s: string) => s.toLowerCase().replace(/[\s?!.,~…\"'·()\[\]]/g, '');
 
 // 일반어 → 꾸러미 장소 고르기(이름·분류 조건). 결과가 0이면 사전에 넣지 않는다.
 const FACILITY: [string[], (p: PkgPlace) => boolean][] = [
@@ -43,6 +44,7 @@ export function buildLexicon(pkg: MapPackage): Lexicon {
   for (const b of pkg.buildings) {
     const t = { placeKey: null, buildingKey: b.key, name: b.name };
     add(b.name, 'building', t);
+    for (const language of ['en', 'ja', 'zh'] as const) add(localizedEntityName(b, language), 'building', t);
     const stem = sq(b.name).replace(/관$/, '');
     if (stem.length >= 2 && stem !== sq(b.name)) add(stem, 'building', t);
     for (const a of b.aliases) {
@@ -55,6 +57,7 @@ export function buildLexicon(pkg: MapPackage): Lexicon {
     const head = p.name.split('=')[0].replace(/\(.*?\)/g, '').replace(/:.*/, '');
     if (p.category !== 'entrance' || /지하통로/.test(p.name) === false) add(head, 'place', t);
     for (const a of p.aliases) add(a, 'place', t);
+    for (const language of ['en', 'ja', 'zh'] as const) add(localizedEntityName(p, language), 'place', t);
     const en = /^(\S+)\s*입구\((\d)\)/.exec(p.name);
     if (en) { add(en[1] + '입구' + en[2], 'place', t); add(en[1] + en[2] + '번입구', 'place', t); add(en[1] + '입구' + en[2] + '번', 'place', t); }
   }

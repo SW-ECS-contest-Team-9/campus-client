@@ -18,6 +18,9 @@ export default function DeveloperScreen() {
   const t = (key: Parameters<typeof translate>[1], values?: Record<string, string>) => translate(app.settings.language, key, values);
   return (
     <Screen title={t('developerOptions')}>
+      <Section>{t('diagnostics')}</Section>
+      <P tone={app.aiModel ? 'muted' : 'caution'}>{t(app.aiModel ? 'modelReady' : 'modelMissing')}</P>
+      <P tone="muted">{app.settings.serverUrl}</P>
       <Section>{t('guideSettings')}</Section>
       <Card style={s.row}>
         <View style={{ flex: 1 }}>
@@ -104,6 +107,17 @@ export default function DeveloperScreen() {
       />
       <Button variant="secondary" label={t('checkMapUpdate')} onPress={app.checkUpdate} />
       {app.updateStatus ? <P tone="caution">{app.updateStatus}</P> : null}
+      {app.loaded ? (
+        <Card>
+          <P>{t('diagnostics')}</P>
+          {app.loaded.source !== 'server' ? (
+            <P tone="caution">{t(app.loaded.source === 'fixture' ? 'bundledBanner' : 'offlineBanner')}</P>
+          ) : null}
+          <P tone="muted">
+            {t(app.loaded.source === 'server' ? 'justDownloaded' : app.loaded.source === 'stored' ? 'storedOnDevice' : 'bundledMap')}
+          </P>
+        </Card>
+      ) : null}
       {stats.length ? (
         <>
           <Section>{t('diagnostics')}</Section>

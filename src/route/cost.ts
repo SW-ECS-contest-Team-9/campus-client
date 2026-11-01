@@ -47,7 +47,7 @@ export const DEFAULT_MODE_SPEC: Record<string, ModeSpec> = {
   fastest: { label: '가장 빠른 길', base: 'walkS', exclude: [], mult: { ...COMMON }, elevatorWaitS: ELEVATOR_WAIT_S },
   avoidStairs: { label: '계단 없이', base: 'lengthM', exclude: ['stairs'], mult: { ...COMMON } },
   accessible: {
-    label: '휠체어·유모차',
+    label: '휠체어, 유모차',
     base: 'lengthM',
     exclude: ['stairs', 'wheelchairNo'],
     mult: { ...COMMON, wheelchairSteep: 2.0, wheelchairUnknown: 1.5 },

@@ -5,7 +5,9 @@ import { translate } from '../../i18n/translations';
 
 /** 메뉴와 3D는 앱 루트에서 유지하고, 탭 콘텐츠만 즉시 바꾼다. */
 export default function TabLayout() {
-  const { settings: { language } } = useApp();
+  const {
+    settings: { language },
+  } = useApp();
   return (
     <Tabs
       initialRouteName="index"

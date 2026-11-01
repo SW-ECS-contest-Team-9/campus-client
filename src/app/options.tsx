@@ -38,9 +38,7 @@ export default function OptionsScreen() {
       title={t('routeReview')}
       footer={
         <>
-          <P tone="muted">
-            {t('routeCalculationNotice', { version: String(pkg.release.version) })}
-          </P>
+          <P tone="muted">{t('routeCalculationNotice', { version: String(pkg.release.version) })}</P>
           <Button label={t('viewRoute')} disabled={!st || !dest} onPress={go} />
         </>
       }
@@ -53,7 +51,7 @@ export default function OptionsScreen() {
         <View style={s.line}>
           <Text style={[s.k, { color: color.primary }]}>{t('destinationShort')}</Text>
           <Text style={[s.v, { color: color.primary }]}>
-            {dest ? `${localizedEntityName(dest, app.settings.language)}${destFloor ? ` · ${destFloor}` : ''}` : t('notSelected')}
+            {dest ? `${localizedEntityName(dest, app.settings.language)}${destFloor ? `, ${destFloor}` : ''}` : t('notSelected')}
           </Text>
         </View>
         {st ? (

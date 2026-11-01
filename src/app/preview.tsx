@@ -55,7 +55,13 @@ export default function PreviewScreen() {
             label={t('startGuidance')}
             onPress={() => {
               if (dest && startLabel)
-                app.addRecentRoute({ startLabel, start: st ?? undefined, destKey: dest.key, condition: app.condition, at: new Date().toISOString() });
+                app.addRecentRoute({
+                  startLabel,
+                  start: st ?? undefined,
+                  destKey: dest.key,
+                  condition: app.condition,
+                  at: new Date().toISOString(),
+                });
               router.navigate('/guide');
             }}
             style={{ flex: 2 }}
@@ -80,12 +86,11 @@ export default function PreviewScreen() {
                   <Text style={s.note}>{modeInfo(app.condition, app.settings.language).note}</Text>
                 </View>
                 <Text style={s.t}>
-                  {t('approxMinutes', { minutes: String(minutesOf(r.durationS)) })} <Text style={s.len}>· {Math.round(r.totalLengthM)} m</Text>
+                  {t('approxMinutes', { minutes: String(minutesOf(r.durationS)) })}{' '}
+                  <Text style={s.len}>, {Math.round(r.totalLengthM)} m</Text>
                 </Text>
                 <RouteDrawBar />
-                <P tone="muted">
-                  {t('routeCounts', { stairs: String(stairs), floors: String(changes.length) })}
-                </P>
+                <P tone="muted">{t('routeCounts', { stairs: String(stairs), floors: String(changes.length) })}</P>
               </Glass>
             </>
           }

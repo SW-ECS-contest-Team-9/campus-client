@@ -25,7 +25,7 @@ export function noRouteCopy(input: {
       title: '출발점과 목적지가\n같은 곳이에요.',
       body: `지금 ${dest} 근처에 있어요. 다른 곳으로 가려면 목적지를 바꿔 주세요.`,
       primary: { action: 'change_dest', label: '목적지 바꾸기' },
-      secondary: { action: 'arrive', label: '여기가 맞아요 · 도착 확인' },
+      secondary: { action: 'arrive', label: '여기가 맞아요, 도착 확인' },
     };
   if (input.reason === 'unknown_node')
     return input.destAttached
@@ -48,10 +48,10 @@ export function noRouteCopy(input: {
       cause: 'stairs',
       title:
         input.condition === 'accessible'
-          ? '휠체어·유모차로 갈 수 있는 경로가\n연결되어 있지 않아요.'
+          ? '휠체어, 유모차로 갈 수 있는 경로가\n연결되어 있지 않아요.'
           : '계단을 피하는 경로가\n연결되어 있지 않아요.',
       body: `${dest}까지 계단 없이 이어지는 길이 지금 지도에 없어요. 실제로는 길이 있어도 아직 지도에 그려지지 않았을 수 있어요.`,
-      primary: { action: 'change_start', label: '출발점·목적지 변경' },
+      primary: { action: 'change_start', label: '출발점, 목적지 변경' },
       secondary: { action: 'change_condition', label: '자연어로 조건 변경' },
     };
   return {

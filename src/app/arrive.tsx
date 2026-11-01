@@ -52,9 +52,7 @@ export default function ArriveScreen() {
         <View style={s.halo} />
         <Character name="arrive" size={132} />
       </View>
-      <H>
-        {t('arrivedQuestion', { destination: dest ? localizedEntityName(dest, app.settings.language) : t('destination') })}
-      </H>
+      <H>{t('arrivedQuestion', { destination: dest ? localizedEntityName(dest, app.settings.language) : t('destination') })}</H>
       <P>{t('nearDestination')}</P>
       {dest ? (
         <Card>

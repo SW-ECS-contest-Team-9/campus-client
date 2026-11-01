@@ -71,7 +71,7 @@ describe('자연어 경로 요청 → 앱 흐름', () => {
     const p = go(planFromRequest(r, pkg));
     expect(p.condition).toBe('nightSafe');
     expect(p.notes.join(' ')).toMatch(/비 안 맞는 길, 빠른 길/);
-    expect(describeRequest(r, pkg)).toEqual(expect.arrayContaining(['밤에 밝은 길', '함께 · 비 안 맞는 길', '함께 · 빠른 길']));
+    expect(describeRequest(r, pkg)).toEqual(expect.arrayContaining(['밤에 밝은 길', '함께: 비 안 맞는 길', '함께: 빠른 길']));
   });
 
   it('휠체어로 정문까지 → "정문" 두 곳을 되묻고, 고르면 계단 없이(필수) + 휠체어 자료 없음 알림', () => {
@@ -84,7 +84,7 @@ describe('자연어 경로 요청 → 앱 흐름', () => {
     expect(p.mandatory).toEqual(['avoidStairs', 'wheelchairNeeded']);
     expect(p.condition).toBe('accessible');
     expect(p.notes.join(' ')).toMatch(/휠체어/);
-    expect(describeRequest(parse('휠체어로 정문까지'), pkg)).toContain('필수 · 휠체어·유모차');
+    expect(describeRequest(parse('휠체어로 정문까지'), pkg)).toContain('필수: 휠체어, 유모차');
   });
 
   it('계단 없이 + 계단으로 → 되물음(두 단추), "계단 피하기"를 고르면 필수 유지', () => {

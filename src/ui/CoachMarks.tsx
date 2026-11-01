@@ -19,7 +19,13 @@ export function CoachMarks({ visible, onDone, language = 'ko' }: { visible: bool
   return (
     <Modal transparent animationType="fade" visible onRequestClose={onDone}>
       <View style={s.dim}>
-        <Pressable accessibilityRole="button" accessibilityLabel={translate(language, 'skipIntro')} onPress={onDone} style={s.skip} hitSlop={12}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={translate(language, 'skipIntro')}
+          onPress={onDone}
+          style={s.skip}
+          hitSlop={12}
+        >
           <Text style={s.skipT}>{translate(language, 'skip')}</Text>
         </Pressable>
         <View style={s.card} accessibilityLiveRegion="polite">

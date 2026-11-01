@@ -46,7 +46,12 @@ export default function RecheckScreen() {
           <Section>{t('building')}</Section>
           <View style={s.chips}>
             {withFloors.map((b) => (
-              <FloorItem key={b.key} label={localizedEntityName(b, app.settings.language)} state={building === b.key ? 'selected' : 'idle'} onPress={() => setBuilding(b.key)} />
+              <FloorItem
+                key={b.key}
+                label={localizedEntityName(b, app.settings.language)}
+                state={building === b.key ? 'selected' : 'idle'}
+                onPress={() => setBuilding(b.key)}
+              />
             ))}
           </View>
         </>

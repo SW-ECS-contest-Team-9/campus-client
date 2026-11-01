@@ -3,7 +3,9 @@ import type { MapPackage, RouteRequest } from './types';
 
 export const MODEL_FILE = 'gemma3-270m-route-Q4_K_M.gguf';
 export const MODEL_URI = '';
-export async function checkModel(): Promise<boolean> { return false; }
+export async function checkModel(): Promise<boolean> {
+  return false;
+}
 export async function freeModel(): Promise<void> {}
 export async function cancelInterpret(): Promise<void> {}
 export interface GemmaResult {

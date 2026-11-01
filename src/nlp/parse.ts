@@ -1,5 +1,6 @@
 // 방식 A: 규칙 + 사전. 말 → 경로 조건(JSON). 길은 만들지 않는다.
 // Hermes 호환: ES2019 문법만, Intl·normalize·정규식 lookbehind·\p{} 를 쓰지 않는다.
+import { routeLanguage } from './multilingual';
 import type { Candidate, Mandatory, MapPackage, Mode, Preference, RouteRequest, Target } from './types';
 import { buildLexicon, Lexicon, LexEntry } from './lexicon';
 
@@ -161,6 +162,7 @@ const UNSUP: [RegExp, string, string][] = [
 ];
 
 export function parseRouteRequest(text: string, pkg: MapPackage, lexicon?: Lexicon): RouteRequest {
+  text = routeLanguage(text);
   const lex = lexicon || buildLexicon(pkg);
   const c = normalize(text);
   const unsupported: RouteRequest['unsupported'] = [];

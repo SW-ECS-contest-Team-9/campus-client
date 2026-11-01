@@ -20,8 +20,8 @@ import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurTargetView } from 'expo-blur';
 import { BlurTargetCtx } from './look';
-import { Character } from './v3';
 import { Button } from './components';
+import { Character } from './v3';
 import { localizedNamesCommand, parseEvent, sceneBuildingId, type Map3dCommand, type Map3dEvent } from '../map3d/commands';
 import { CHARACTER_OK, CHARACTER_UNCERTAIN } from './characterImages';
 import { color } from './theme';
@@ -120,7 +120,13 @@ export function Map3DHost({
 }) {
   const app = useApp();
   const language = app.settings.language;
-  const buildingNames = useMemo(() => Object.fromEntries((app.pkg?.buildings ?? []).map((b) => [sceneBuildingId(b.key), { original: b.name, localized: localizedEntityName(b, language) }])), [app.pkg, language]);
+  const buildingNames = useMemo(
+    () =>
+      Object.fromEntries(
+        (app.pkg?.buildings ?? []).map((b) => [sceneBuildingId(b.key), { original: b.name, localized: localizedEntityName(b, language) }]),
+      ),
+    [app.pkg, language],
+  );
   const [t0] = useState(() => Date.now());
   const firstReady = useRef(false);
   const blurTarget = useRef<View | null>(null);
@@ -362,6 +368,9 @@ export function Map3DHost({
                           key={`${source}:${attempt}`}
                           ref={native}
                           light={light}
+                          mapTheme={app.settings.mapTheme}
+                          backgroundMotion={app.settings.backgroundMotion}
+                          active={shown}
                           places={places}
                           buildingNames={buildingNames}
                           language={language}
@@ -454,7 +463,9 @@ export function MapSlot({
   overlay?: ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
-  const { settings: { language } } = useApp();
+  const {
+    settings: { language },
+  } = useApp();
   const api = useContext(ApiCtx);
   const status = useContext(StatusCtx);
   const { key: routeKey } = useRoute();

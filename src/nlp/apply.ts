@@ -2,7 +2,7 @@
 // 원칙(campus-nlp 통합 안내): 장소를 지어내지 않음, 지원 안 하는 조건은 늘 알림, 필수 조건(계단 없이)은 하드 필터라 스스로 풀지 않음.
 // 화면·RN 에 의존하지 않음(시험 가능).
 import type { MapPackage } from '../map/package';
-import { localizedEntityName, localizedMapName } from '../map/names-i18n';
+import { cleanMapName, localizedEntityName, localizedMapName } from '../map/names-i18n';
 import { translate, type Language, type MessageKey } from '../i18n/translations';
 import { modeInfo } from '../route/modes';
 import type { RouteCondition } from '../route/route';
@@ -29,7 +29,7 @@ export type Plan =
 /** 단추·칩용 짧은 이름: "= 설명"과 숫자가 아닌 괄호 설명을 뺌("북악관 입구(4) = GS25 출입구" → "북악관 입구(4)"). */
 export function shortName(name: string): string {
   return (
-    name
+    cleanMapName(name)
       .split('=')[0]
       .replace(/\s*\((?!\d+\))[^)]*\)/g, '')
       .trim() || name
@@ -54,7 +54,15 @@ export function conditionOf(r: RouteRequest): RouteCondition {
 /** 주 방식에 밀린 방식(경로에는 한 방식만 넣음). 선호로 남은 계단 피하기는 "계단 적게". */
 function secondaryLabels(r: RouteRequest, language: Language): string[] {
   const c = conditionOf(r);
-  return (r.secondaryModes ?? []).filter((m) => m !== c).map((m) => (m === 'avoidStairs' ? translate(language, 'nlpFewerStairs') : modeInfo(m, language).label));
+  return (r.secondaryModes ?? [])
+    .filter((m) => m !== c)
+    .map((m) =>
+      m === 'avoidStairs'
+        ? translate(language, 'nlpFewerStairs')
+        : m === 'rainProtected'
+          ? translate(language, 'rainAvoidance')
+          : modeInfo(m, language).label,
+    );
 }
 
 function targetName(target: Target, pkg: MapPackage, language: Language): string {
@@ -65,7 +73,7 @@ function targetName(target: Target, pkg: MapPackage, language: Language): string
   }
   if (target.buildingKey) {
     const building = pkg.buildings.find((b) => b.key === target.buildingKey);
-    const name = building ? localizedEntityName(building, language) : target.text ?? '';
+    const name = building ? localizedEntityName(building, language) : (target.text ?? '');
     const floor = target.floorKey ? pkg.floors.find((f) => f.key === target.floorKey)?.code : null;
     return [name, floor].filter(Boolean).join(' ');
   }
@@ -81,9 +89,17 @@ export function describe(r: RouteRequest, pkg: MapPackage, language: Language = 
   out.push(t('nlpOrigin', { value: r.origin.useCurrentLocation ? t('currentLocation') : name(r.origin) }));
   for (const w of r.waypoints) out.push(t('nlpWaypoint', { value: name(w) }));
   const cond = conditionOf(r);
-  if (isMandatory(r)) out.push(language === 'ko' ? (cond === 'accessible' ? '필수 · 휠체어·유모차' : '필수 · 계단 없이') : t('nlpRequired', { value: modeInfo(cond === 'accessible' ? 'accessible' : 'avoidStairs', language).label }));
-  else if (cond === 'preferElevator') out.push(r.mode === 'preferElevator' ? modeInfo('preferElevator', language).label : t('nlpFewerStairsPref'));
-  else if (cond !== 'shortest') out.push(modeInfo(cond, language).label);
+  if (isMandatory(r))
+    out.push(
+      language === 'ko'
+        ? cond === 'accessible'
+          ? '필수: 휠체어, 유모차'
+          : '필수: 계단 없이'
+        : t('nlpRequired', { value: modeInfo(cond === 'accessible' ? 'accessible' : 'avoidStairs', language).label }),
+    );
+  else if (cond === 'preferElevator')
+    out.push(r.mode === 'preferElevator' ? modeInfo('preferElevator', language).label : t('nlpFewerStairsPref'));
+  else if (cond !== 'shortest') out.push(cond === 'rainProtected' ? t('rainAvoidance') : modeInfo(cond, language).label);
   for (const l of secondaryLabels(r, language)) out.push(t('nlpAlso', { value: l }));
   if (r.preferences.includes('indoor')) out.push(t('nlpIndoor'));
   if (r.timeLimitMin != null) out.push(t('nlpWithinMinutes', { minutes: String(r.timeLimitMin) }));
@@ -112,25 +128,49 @@ function placesIn(pkg: MapPackage, buildingKey: string, floorKey: string | null)
 }
 
 const unsupportedLabels: Record<string, MessageKey> = {
-  '조용한 길': 'nlpQuiet', '사람 적은 길': 'nlpLessCrowded', '경치 좋은 길': 'nlpScenic',
-  '휠체어': 'nlpWheelchair', '그늘': 'nlpShade', '오르막 피하기': 'nlpAvoidUphill', '흡연 구역': 'nlpSmoking', '편의시설 경유': 'nlpFacilities',
+  '조용한 길': 'nlpQuiet',
+  '사람 적은 길': 'nlpLessCrowded',
+  '경치 좋은 길': 'nlpScenic',
+  휠체어: 'nlpWheelchair',
+  그늘: 'nlpShade',
+  '오르막 피하기': 'nlpAvoidUphill',
+  '흡연 구역': 'nlpSmoking',
+  '편의시설 경유': 'nlpFacilities',
 };
 export function describeUnsupported(u: RouteRequest['unsupported'][number], language: Language = 'ko'): string {
   if (language === 'ko') return `${u.text}: ${u.reason}`;
   const text = unsupportedLabels[u.text] ? translate(language, unsupportedLabels[u.text]) : localizedMapName(u.text, language);
-  const key: MessageKey = u.reason.startsWith('지도에 그 정보가 아직 없음') ? 'nlpNoData'
-    : u.reason === '지도에 그 장소가 아직 없음' ? 'nlpNoPlace'
-      : u.reason === '지도에 그 입구 번호가 없음' ? 'nlpNoEntrance'
-        : u.reason === '지도에 그 층이 없음' ? 'nlpNoFloor'
-          : u.reason === '오르막만 피하는 경로 방식이 아직 없음' ? 'nlpNoSlopeRoute'
-            : u.reason === '휠체어 통행 가능 여부가 지도에 아직 없음' ? 'nlpWheelchairUnverified' : 'nlpUnsupportedGeneric';
+  const key: MessageKey = u.reason.startsWith('지도에 그 정보가 아직 없음')
+    ? 'nlpNoData'
+    : u.reason === '지도에 그 장소가 아직 없음'
+      ? 'nlpNoPlace'
+      : u.reason === '지도에 그 입구 번호가 없음'
+        ? 'nlpNoEntrance'
+        : u.reason === '지도에 그 층이 없음'
+          ? 'nlpNoFloor'
+          : u.reason === '오르막만 피하는 경로 방식이 아직 없음'
+            ? 'nlpNoSlopeRoute'
+            : u.reason === '휠체어 통행 가능 여부가 지도에 아직 없음'
+              ? 'nlpWheelchairUnverified'
+              : 'nlpUnsupportedGeneric';
   return `${text}: ${translate(language, key)}${key === 'nlpUnsupportedGeneric' && u.reason ? ` (${u.reason})` : ''}`;
+}
+
+/** 결과에는 경로 선택에 필요한 짧은 제한만. 내부 사유는 개발자 진단에서 확인. */
+export function publicSearchWarnings(r: RouteRequest, language: Language = 'ko'): string[] {
+  const rain = r.unsupported.filter((u) => /비|지붕|rain|roof|雨/i.test(u.text) && !u.reason.includes('장소'));
+  const warnings: string[] = [];
+  if (rain.length) warnings.push(translate(language, 'rainInfoLimited'));
+  if (r.unsupported.length > rain.length) warnings.push(translate(language, 'searchRequestLimited'));
+  return warnings;
 }
 
 export function planFromRequest(r: RouteRequest, pkg: MapPackage, language: Language = 'ko'): Plan {
   const t = (key: MessageKey, values?: Record<string, string>) => translate(language, key, values);
   const candidateName = (candidate: { name: string; placeKey: string | null; buildingKey: string | null }) => {
-    const entity = candidate.placeKey ? pkg.places.find((p) => p.key === candidate.placeKey) : pkg.buildings.find((b) => b.key === candidate.buildingKey);
+    const entity = candidate.placeKey
+      ? pkg.places.find((p) => p.key === candidate.placeKey)
+      : pkg.buildings.find((b) => b.key === candidate.buildingKey);
     return entity ? localizedEntityName(entity, language) : shortName(candidate.name);
   };
   const q = r.needsClarification?.question;
@@ -161,7 +201,7 @@ export function planFromRequest(r: RouteRequest, pkg: MapPackage, language: Lang
     if (d.text && !d.placeKey && !d.buildingKey && d.candidates.length)
       return {
         kind: 'ask',
-        question: language === 'ko' ? q : t('nlpChooseDestination'),
+        question: t('nlpChooseDestination'),
         choices: d.candidates.map((c) => ({
           label: candidateName(c),
           apply: (x) => ({ ...clear(x), destination: pickTarget(x.destination, c.placeKey, c.buildingKey) }),
@@ -171,19 +211,26 @@ export function planFromRequest(r: RouteRequest, pkg: MapPackage, language: Lang
     if (!o.useCurrentLocation && !o.placeKey && !o.buildingKey && o.candidates.length)
       return {
         kind: 'ask',
-        question: language === 'ko' ? q : t('nlpChooseOrigin'),
+        question: t('nlpChooseOrigin'),
         choices: o.candidates.map((c) => ({
           label: candidateName(c),
           apply: (x) => ({ ...clear(x), origin: { ...pickTarget(x.origin, c.placeKey, c.buildingKey), useCurrentLocation: false } }),
         })),
       };
     // "말한 장소가 지도에 없습니다. X(으)로 갈까요?" → 확인 단추. 목적지가 없으면 질문만.
-    if (d.placeKey || d.buildingKey)
-      {
+    if (d.placeKey || d.buildingKey) {
       const name = targetName(d, pkg, language);
-      return { kind: 'ask', question: language === 'ko' ? q : t('nlpConfirmDestination', { name }), choices: [{ label: t('nlpYesDestination', { name }), apply: clear }] };
+      return {
+        kind: 'ask',
+        question: t('nlpConfirmDestination', { name }),
+        choices: [{ label: t('nlpYesDestination', { name }), apply: clear }],
+      };
     }
-    return { kind: 'ask', question: language === 'ko' ? q : t(q.includes('지도에 아직 없습니다') ? 'nlpMissingPlace' : 'whereTo'), choices: [] };
+    return {
+      kind: 'ask',
+      question: t(q.includes('지도에 아직 없습니다') ? 'nlpMissingPlace' : 'whereTo'),
+      choices: [],
+    };
   }
 
   const notes = r.unsupported.map((u) => describeUnsupported(u, language));
@@ -195,13 +242,17 @@ export function planFromRequest(r: RouteRequest, pkg: MapPackage, language: Lang
     if (floorMissed) notes.push(t('nlpFloorMissing'));
     if (list.length === 1) destKey = list[0].key;
     else if (!list.length)
-      return { kind: 'ask', question: t('nlpNoBuildingRoute', { name: b ? localizedEntityName(b, language) : t('nlpThatBuilding') }), choices: [] };
+      return {
+        kind: 'ask',
+        question: t('nlpNoBuildingRoute', { name: b ? localizedEntityName(b, language) : t('nlpThatBuilding') }),
+        choices: [],
+      };
     else
       return {
         kind: 'ask',
         question: t('nlpWhereInBuilding', { name: b ? localizedEntityName(b, language) : t('nlpThatBuilding') }),
         choices: list.slice(0, 6).map((p) => ({
-          label: language === 'ko' ? shortName(p.name) : localizedEntityName(p, language),
+          label: localizedEntityName(p, language),
           apply: (x) => ({ ...x, destination: pickTarget(x.destination, p.key, p.buildingKey) }),
         })),
       };
@@ -221,7 +272,7 @@ export function planFromRequest(r: RouteRequest, pkg: MapPackage, language: Lang
           kind: 'ask',
           question: t('nlpFromBuilding', { name: b ? localizedEntityName(b, language) : t('nlpThatBuilding') }),
           choices: list.slice(0, 6).map((p) => ({
-            label: language === 'ko' ? shortName(p.name) : localizedEntityName(p, language),
+            label: localizedEntityName(p, language),
             apply: (x) => ({ ...x, origin: { ...pickTarget(x.origin, p.key, p.buildingKey), useCurrentLocation: false } }),
           })),
         };
@@ -233,8 +284,7 @@ export function planFromRequest(r: RouteRequest, pkg: MapPackage, language: Lang
   if (r.preferences.includes('indoor') && condition !== 'rainProtected') notes.push(t('nlpIndoorUnsupported'));
   if (r.timeLimitMin != null) notes.push(t('nlpTimeNotice', { minutes: String(r.timeLimitMin) }));
   const sec = secondaryLabels(r, language);
-  if (sec.length)
-    notes.push(t('nlpSecondaryNotice', { conditions: sec.join(', '), mode: modeInfo(condition, language).label }));
+  if (sec.length) notes.push(t('nlpSecondaryNotice', { conditions: sec.join(', '), mode: modeInfo(condition, language).label }));
   if (condition === 'accessible') notes.push(t('nlpAccessibleNotice'));
   return { kind: 'go', destKey, origin, condition, mandatory: r.mandatory.slice(), notes };
 }

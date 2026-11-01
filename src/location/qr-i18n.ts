@@ -2,9 +2,7 @@ import { translate, type Language } from '../i18n/translations';
 import { localizedEntityName, localizedMapName } from '../map/names-i18n';
 import type { MapPackage } from '../map/package';
 
-export type QrMessage =
-  | { kind: 'success'; label: string }
-  | { kind: 'invalid' | 'missing' | 'error' };
+export type QrMessage = { kind: 'success'; label: string } | { kind: 'invalid' | 'missing' | 'error' };
 
 /** Keep the outcome structured so it can be re-rendered in a different language. */
 export function localizedQrMessage(message: QrMessage, language: Language, pkg: Pick<MapPackage, 'places' | 'buildings'> | null): string {

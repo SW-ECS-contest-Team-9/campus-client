@@ -5,7 +5,9 @@ describe('ordered settings persistence', () => {
   it('writes later language selections after earlier slow writes', async () => {
     const saved: string[] = [];
     let releaseFirst!: () => void;
-    const firstDone = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const firstDone = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
     const persist = createSerializedWriter(async (language: string) => {
       if (language === 'ja') await firstDone;
       saved.push(language);

@@ -26,7 +26,12 @@ export default function NoRouteScreen() {
     destName: dest ? displayName(dest.name) : null,
     destAttached: !!dest?.nodeKey,
   });
-  const copy = localizedNoRoute(rawCopy, app.condition, dest ? localizedEntityName(dest, app.settings.language) : null, app.settings.language);
+  const copy = localizedNoRoute(
+    rawCopy,
+    app.condition,
+    dest ? localizedEntityName(dest, app.settings.language) : null,
+    app.settings.language,
+  );
   const building = dest?.buildingKey ? app.pkg?.buildings.find((b) => b.key === dest.buildingKey)?.name : undefined;
   const run = (a: NoRouteAction) => {
     if (a === 'change_start') router.replace('/start');
@@ -60,9 +65,7 @@ export default function NoRouteScreen() {
       <H>{copy.title}</H>
       <P>{copy.body}</P>
       <P tone="muted">{t('currentPreference', { condition: modeInfo(app.condition, app.settings.language).label })}</P>
-      {app.condition === 'avoidStairs' ? (
-        <P tone="muted">{t('stairsAccessibilityCaution')}</P>
-      ) : null}
+      {app.condition === 'avoidStairs' ? <P tone="muted">{t('stairsAccessibilityCaution')}</P> : null}
     </Screen>
   );
 }

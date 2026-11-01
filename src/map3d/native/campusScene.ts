@@ -1,6 +1,8 @@
 // 캠퍼스 3D 장면(three.js, expo-gl). 이 저장소가 관리한다(campus-3d-lab 에서 가져온 뒤 앱에 맞게 고쳤고, 다시 복사하지 않음).
 // 자료: export/build-glb.mjs 가 만든 campus.glb(웹 모델링을 그대로 구운 것). 명령·사건은 client3d 메시지 형식 v1 과 같음.
 import * as THREE from 'three';
+import { createDecorations } from './decorations';
+import type { MapTheme } from './mapTheme';
 import { createLocationHeightMemory } from './locationHeight';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { makeFrame, tmForward } from './geo';
@@ -39,7 +41,9 @@ export async function createCampusScene(o: SceneOptions) {
   sun.position.set(-0.55, 0.75, 0.65); // 남서쪽 위에서(웹과 같은 방향의 고정 빛)
   scene.add(sun);
 
+  const parseStart = performance.now();
   const gltf: any = await new Promise((res, rej) => new GLTFLoader().parse(o.glb, '', res, rej));
+  const parseEnd = performance.now();
   const root: THREE.Object3D = gltf.scene;
   scene.add(root);
   // 선(알파 150)은 섞어 그림 — 불투명으로 그리면 알파가 그리기 버퍼에 남아 TextureView 뒤가 비침
@@ -241,12 +245,28 @@ export async function createCampusScene(o: SceneOptions) {
   const here = new THREE.Group(); here.add(disc, ring); here.visible = false; scene.add(here);
   let loc: (Extract<Command, { type: 'setLocation' }> & { p: THREE.Vector3 }) | null = null;
   const follow = { paused: false, candidate: null as string | null, count: 0, since: 0 };
+  // 위치 점 이동: 위치는 1 s 마다 오므로 새 자리까지 MARKER_GLIDE_MS 동안 미끄러지듯 옮김(순간이동하면 끊겨 보임).
+  // 멀리 튄 위치(수평 30 m·수직 2.5 m 넘음)와 처음 보일 때는 바로 옮김.
+  const MARKER_GLIDE_MS = 900;
+  const glide = { from: new THREE.Vector3(), to: new THREE.Vector3(), t0: 0, on: false, shown: false };
   function placeMarker() {
-    if (!loc) return;
+    if (!loc) { glide.shown = false; glide.on = false; return; }
     const p = loc.p.clone();
     const b = loc.building ? buildings.get(loc.building) : null;
     if (b && floorState?.building === b.id && floorState.index !== null && loc.state === 'ok') p.y = b.floors[floorState.index].m + floorOffset(b, floorState.index) + 0.1;
-    here.position.copy(p);
+    if (glide.shown && p.equals(glide.to)) return;
+    const far = Math.hypot(p.x - here.position.x, p.z - here.position.z) > 30 || Math.abs(p.y - here.position.y) > 2.5;
+    if (!glide.shown || far) { here.position.copy(p); glide.on = false; }
+    else { glide.from.copy(here.position); glide.t0 = now(); glide.on = true; }
+    glide.to.copy(p); glide.shown = true;
+  }
+  /** 미끄러지는 중이면 위치 점을 한 걸음 옮기고 true(다음 프레임도 그려야 함). */
+  function stepGlide() {
+    if (!glide.on) return false;
+    const k = Math.min(1, (now() - glide.t0) / MARKER_GLIDE_MS);
+    here.position.lerpVectors(glide.from, glide.to, 1 - (1 - k) * (1 - k));
+    if (k >= 1) glide.on = false;
+    return true;
   }
   const locationHeight = createLocationHeightMemory();
   function setLocation(c: Extract<Command, { type: 'setLocation' }>) {
@@ -335,11 +355,19 @@ export async function createCampusScene(o: SceneOptions) {
 
   function resize(w: number, h: number) { o.width = w; o.height = h; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false); if (pad.top || pad.bottom || pad.left || pad.right) applyPadding(); dirty(); }
   /** 그릴 것이 있으면 그리고 true. 앱의 rAF 고리가 매 프레임 부름. */
+  const decorations = createDecorations(scene, root, { lowSpec });
+  function setDecoration(name: MapTheme, motion: boolean) {
+    decorations.setTheme(name);
+    decorations.setMotion(motion);
+    dirty();
+  }
   function frameTick() {
+    if (decorations.tick(now())) needs = true;
     if (!needs) return false;
     needs = false;
     applyCamera();
     placeMarker();
+    if (stepGlide()) needs = true;
     draw();
     return true;
   }
@@ -402,6 +430,7 @@ export async function createCampusScene(o: SceneOptions) {
 
   /** 재시도·엔진 변경으로 장면을 버릴 때 GPU 자원을 함께 정리. */
   function dispose() {
+    decorations.dispose();
     const geometries = new Set<THREE.BufferGeometry>();
     const materials = new Set<THREE.Material>();
     for (const group of [scene, blitScene]) group.traverse((n) => {
@@ -417,7 +446,8 @@ export async function createCampusScene(o: SceneOptions) {
   resize(o.width, o.height);
   const info = () => ({ ...lastInfo, geometries: renderer.info.memory.geometries });
   emit({ type: 'ready', buildings: [...buildings.values()].filter((b) => baseId(b.id) === b.id).map((b) => ({ id: b.id, name: b.name })), light });
-  return { dispose, command, frameTick, resize, pan, zoom, rotate, tilt, tap, home, markerScreen, info, redraw: dirty,
+  const loadTiming = { parseMs: parseEnd - parseStart, setupMs: performance.now() - parseEnd };
+  return { loadTiming, dispose, setDecoration, command, frameTick, resize, pan, zoom, rotate, tilt, tap, home, markerScreen, info, redraw: dirty,
     buildingAnchors: () => anchors, screenOf, toScene, cameraDistance: () => cam.dist, setPadding, toggleExplode, focusMe };
 }
 

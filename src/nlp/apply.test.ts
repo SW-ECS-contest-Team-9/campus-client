@@ -70,21 +70,21 @@ describe('자연어 경로 요청 → 앱 흐름', () => {
     const r = parse('밤인데 비 오고 급해 북악관 편의점');
     const p = go(planFromRequest(r, pkg));
     expect(p.condition).toBe('nightSafe');
-    expect(p.notes.join(' ')).toMatch(/비 안 맞는 길, 빠른 길/);
-    expect(describeRequest(r, pkg)).toEqual(expect.arrayContaining(['밤에 밝은 길', '함께 · 비 안 맞는 길', '함께 · 빠른 길']));
+    expect(p.notes.join(' ')).toMatch(/비 회피, 빠른 길/);
+    expect(describeRequest(r, pkg)).toEqual(expect.arrayContaining(['밤에 밝은 길', '함께: 비 회피', '함께: 빠른 길']));
   });
 
   it('휠체어로 정문까지 → "정문" 두 곳을 되묻고, 고르면 계단 없이(필수) + 휠체어 자료 없음 알림', () => {
     const r = parse('휠체어로 정문까지');
     const ask = planFromRequest(r, pkg);
     expect(ask.kind).toBe('ask');
-    if (ask.kind === 'ask') expect(ask.choices.map((c) => c.label)).toEqual(['정문', '북악관 입구(1)']);
+    if (ask.kind === 'ask') expect(ask.choices.map((c) => c.label)).toEqual(['정문', '북악관 정문']);
     const p = go(planFromRequest(choose(r, '정문'), pkg));
     expect(placeName(p.destKey)).toBe('정문');
     expect(p.mandatory).toEqual(['avoidStairs', 'wheelchairNeeded']);
     expect(p.condition).toBe('accessible');
     expect(p.notes.join(' ')).toMatch(/휠체어/);
-    expect(describeRequest(parse('휠체어로 정문까지'), pkg)).toContain('필수 · 휠체어·유모차');
+    expect(describeRequest(parse('휠체어로 정문까지'), pkg)).toContain('필수: 휠체어, 유모차');
   });
 
   it('계단 없이 + 계단으로 → 되물음(두 단추), "계단 피하기"를 고르면 필수 유지', () => {
@@ -99,7 +99,7 @@ describe('자연어 경로 요청 → 앱 흐름', () => {
     const p = plan('도서관 어디야');
     expect(p.kind).toBe('ask');
     if (p.kind === 'ask') {
-      expect(p.question).toMatch(/지도에 아직 없습니다/);
+      expect(p.question).toMatch(/정보를 찾지 못했어요/);
       expect(p.choices).toEqual([]);
     }
   });

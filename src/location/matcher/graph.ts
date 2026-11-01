@@ -1,4 +1,5 @@
-// 지도 꾸러미(map-package-v1) → 맞춤용 길 그래프. 네트워크(방향 있는) 최단거리를 노드 쌍마다 미리 계산한다.
+// 지도 꾸러미(map-package-v1) → 맞춤용 길 그래프. 최단거리는 요청된 출발점마다 계산해 재사용한다.
+import { PairHeap } from "../../route/mesh/heap";
 
 export type XYZ = [number, number, number];
 
@@ -39,7 +40,7 @@ export interface Graph {
   edges: GEdge[];
   areas: GArea[];
   outdoorNodes: number[];
-  dist: Float64Array; // n*n, dist[a*n+b] = a→b
+  dist: (from: number, to: number) => number; // 방향 있는 최단거리(출발점별 지연 계산)
   n: number;
   footprints: [number, number][][];
   /** 외곽선이 있는 건물(키와 함께). 건물별 GPS 믿음·층 사전 점수 조건에 쓴다. */
@@ -77,26 +78,37 @@ export function buildGraph(pkg: MapPackage): Graph {
     });
   }
   const n = nodes.length;
-  const dist = new Float64Array(n * n).fill(Infinity);
   const adj: [number, number][][] = nodes.map(() => []);
   for (const e of edges) {
     if (e.fwd) adj[e.from].push([e.to, e.len]);
     if (e.back) adj[e.to].push([e.from, e.len]);
   }
-  for (let s = 0; s < n; s++) {
-    // n 이 수백이라 단순 O(n^2) 다익스트라로 충분
-    const d = dist.subarray(s * n, s * n + n);
-    const done = new Uint8Array(n);
-    d[s] = 0;
-    for (;;) {
-      let u = -1;
-      let best = Infinity;
-      for (let k = 0; k < n; k++) if (!done[k] && d[k] < best) { best = d[k]; u = k; }
-      if (u < 0) break;
-      done[u] = 1;
-      for (const [v, w] of adj[u]) if (best + w < d[v]) d[v] = best + w;
+  // 그래프 인스턴스별 캐시: 새 지도에는 이전 지도의 거리표를 재사용하지 않는다.
+  const rows = new Map<number, Float64Array>();
+  const dist = (from: number, to: number): number => {
+    if (from === to) return 0;
+    let d = rows.get(from);
+    if (!d) {
+      d = new Float64Array(n).fill(Infinity);
+      d[from] = 0;
+      const heap = new PairHeap();
+      heap.push(0, from);
+      while (heap.size) {
+        heap.pop();
+        const u = heap.popV, best = heap.popC;
+        if (best !== d[u]) continue;
+        for (const [v, w] of adj[u]) {
+          const next = best + w;
+          if (next < d[v]) {
+            d[v] = next;
+            heap.push(next, v);
+          }
+        }
+      }
+      rows.set(from, d);
     }
-  }
+    return d[to];
+  };
   const areaNodes = new Map<string, number[]>();
   for (const wn of pkg.walkAreaNodes) {
     const k = idx.get(wn.nodeKey);

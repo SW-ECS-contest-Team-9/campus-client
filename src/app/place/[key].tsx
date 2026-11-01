@@ -96,14 +96,13 @@ export default function PlaceScreen() {
       <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 4 }}>
         <Text style={s.name}>{localizedEntityName(p, app.settings.language)}</Text>
         <P tone="muted">
-          {t(CATEGORY[p.category] ?? 'otherCategory')} ·{' '}
-          {buildingName(pkg, p.buildingKey, app.settings.language) ? `${buildingName(pkg, p.buildingKey, app.settings.language)} ${floorName ?? t('unknownFloor')}` : placeSubtitle(pkg, p.key, app.settings.language)}
+          {t(CATEGORY[p.category] ?? 'otherCategory')},{' '}
+          {buildingName(pkg, p.buildingKey, app.settings.language)
+            ? `${buildingName(pkg, p.buildingKey, app.settings.language)} ${floorName ?? t('unknownFloor')}`
+            : placeSubtitle(pkg, p.key, app.settings.language)}
         </P>
         {p.nodeKey ? (
-          <StatusChip
-            tone="confirmed"
-            label={t(app.loaded?.source === 'fixture' ? 'bundledRoutable' : 'savedRoutable')}
-          />
+          <StatusChip tone="confirmed" label={t(app.loaded?.source === 'fixture' ? 'bundledRoutable' : 'savedRoutable')} />
         ) : (
           <StatusChip tone="warning" label={t('placeNotRoutable')} />
         )}
@@ -111,7 +110,11 @@ export default function PlaceScreen() {
           <Card>
             <P tone="muted">{t('viewingFloorNotice')}</P>
             <Pulse trigger={viewing} style={s.chips}>
-              <FloorItem label={t('allFloors')} state={viewing === 'all' ? 'selected' : 'idle'} onPress={() => app.setFloor(p.buildingKey!, 'all')} />
+              <FloorItem
+                label={t('allFloors')}
+                state={viewing === 'all' ? 'selected' : 'idle'}
+                onPress={() => app.setFloor(p.buildingKey!, 'all')}
+              />
               {floors.map((f) => (
                 <FloorItem
                   key={f.key}

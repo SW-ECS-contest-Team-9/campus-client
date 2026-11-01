@@ -90,7 +90,11 @@ describe('searchResults', () => {
 
 describe('translated map name search', () => {
   it('searches publisher-provided translations of new places and buildings', () => {
-    const custom = { ...pkg, buildings: [{ ...pkg.buildings[0], localizedNames: { en: 'Observatory' } }], places: [{ ...pkg.places[0], localizedNames: { en: 'Star Room' } }] };
+    const custom = {
+      ...pkg,
+      buildings: [{ ...pkg.buildings[0], localizedNames: { en: 'Observatory' } }],
+      places: [{ ...pkg.places[0], localizedNames: { en: 'Star Room' } }],
+    };
     expect(searchResults(custom, 'Observatory').buildingHits[0].building.key).toBe('b:북악관');
     expect(searchPlaces(custom, 'Star Room')[0].place.key).toBe('p1');
   });

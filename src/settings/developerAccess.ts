@@ -8,3 +8,14 @@ export function matchesDeveloperCode(input: string, configured: string): boolean
 export function nextKoreanTap(count: number, isKorean: boolean): number {
   return isKorean ? Math.min(count + 1, 10) : 0;
 }
+
+let unlocked = false;
+export function unlockDeveloperAccess(input: string): boolean {
+  if (!matchesDeveloperCode(input, DEVELOPER_ACCESS_CODE)) return false;
+  unlocked = true;
+  return true;
+}
+
+export function isDeveloperAccessUnlocked(): boolean {
+  return unlocked;
+}

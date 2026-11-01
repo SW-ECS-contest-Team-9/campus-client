@@ -71,14 +71,19 @@ export default function Home() {
   // 위치 보정 상태(통로에 맞춘 점). 불확실은 꼬리표일 뿐 점은 계속 통로 위에 있음.
   const fix = app.fix;
   const fixWhere =
-    floorLabel(pkg, fix?.match?.floorKey, app.settings.language) || (fix?.match?.buildingKey ? buildingName(pkg, fix.match.buildingKey, app.settings.language) || t('indoorUnknown') : t('outdoorPath'));
+    floorLabel(pkg, fix?.match?.floorKey, app.settings.language) ||
+    (fix?.match?.buildingKey ? buildingName(pkg, fix.match.buildingKey, app.settings.language) || t('indoorUnknown') : t('outdoorPath'));
   const fixText = !fix
-    ? (locMsg ? t(locMsg) : null)
+    ? locMsg
+      ? t(locMsg)
+      : null
     : fix.uncertain
       ? t('locationUncertainPath')
       : fix.match?.onNetwork
         ? t('estimatedLocation', { place: fixWhere })
-        : fix.accuracyM == null ? t('accuracyUnknown') : t('locationAccuracy', { accuracy: String(Math.round(fix.accuracyM)) });
+        : fix.accuracyM == null
+          ? t('accuracyUnknown')
+          : t('locationAccuracy', { accuracy: String(Math.round(fix.accuracyM)) });
   const noBaro = !!app.sensors && !app.sensors.baro;
   const bottom = inset.bottom + TAB_BAR_HEIGHT;
   // 지도 단추 세로 묶음(오른쪽, 하단 메뉴 위): 층 펼치기·처음 시점, 내 위치

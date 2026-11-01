@@ -54,6 +54,7 @@ function Screens() {
       }}
     >
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="developer" />
     </Stack>
   );
 }

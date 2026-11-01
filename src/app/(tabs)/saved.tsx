@@ -42,7 +42,7 @@ export default function SavedScreen() {
             <ResultRow
               key={r.at}
               title={`${r.start ? startLabel(pkg, r.start, app.settings.language) : localizedStartLabel(r.startLabel, app.settings.language)} → ${d ? localizedEntityName(d, app.settings.language) : t('missingPlace')}`}
-              sub={`${modeInfo(r.condition, app.settings.language).label} · ${r.at.slice(0, 10)}`}
+              sub={`${modeInfo(r.condition, app.settings.language).label}, ${r.at.slice(0, 10)}`}
               onPress={
                 d
                   ? () => {

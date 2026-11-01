@@ -58,8 +58,12 @@ describe('지도 꾸러미 받기', () => {
   it('keeps published translations through download, restart, and map commands', async () => {
     const translated = {
       ...newPkg,
-      buildings: newPkg.buildings.map((b, i) => i === 0 ? { ...b, localizedNames: { en: 'Published Hall', ja: '公開館', zh: '发布楼' } } : b),
-      places: newPkg.places.map((p, i) => i === 0 ? { ...p, localizedNames: { en: 'Published Place', ja: '公開場所', zh: '发布地点' } } : p),
+      buildings: newPkg.buildings.map((b, i) =>
+        i === 0 ? { ...b, localizedNames: { en: 'Published Hall', ja: '公開館', zh: '发布楼' } } : b,
+      ),
+      places: newPkg.places.map((p, i) =>
+        i === 0 ? { ...p, localizedNames: { en: 'Published Place', ja: '公開場所', zh: '发布地点' } } : p,
+      ),
     };
     const contents = JSON.stringify(translated);
     const release = await info({ sha256: await sha(contents), sizeBytes: contents.length });

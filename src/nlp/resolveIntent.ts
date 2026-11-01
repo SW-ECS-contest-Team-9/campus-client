@@ -105,7 +105,7 @@ function mentioned(text: string, alias: string): boolean {
     const escaped = alias.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     if (
       new RegExp(
-        `(^|[\\s.,!?。，！？:;()（）「」])${escaped}(?=$|[\\s.,!?。，！？:;()（）「」]|으로|에서|까지|부터|교수|인데|이야|이고|은|는|을|를|에|로)`,
+        `(^|[\\s.,!?。，！？:;()（）「」])${escaped}(?=$|[\\s.,!?。，！？:;()（）「」]|으로|에서|까지|부터|교수|인데|은|는|을|를|에|로)`,
       ).test(text)
     )
       return true;

@@ -1,6 +1,8 @@
 // 캠퍼스 3D 장면(three.js, expo-gl). 이 저장소가 관리한다(campus-3d-lab 에서 가져온 뒤 앱에 맞게 고쳤고, 다시 복사하지 않음).
 // 자료: export/build-glb.mjs 가 만든 campus.glb(웹 모델링을 그대로 구운 것). 명령·사건은 client3d 메시지 형식 v1 과 같음.
 import * as THREE from 'three';
+import { createDecorations } from './decorations';
+import type { MapTheme } from './mapTheme';
 import { createLocationHeightMemory } from './locationHeight';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { makeFrame, tmForward } from './geo';
@@ -353,7 +355,14 @@ export async function createCampusScene(o: SceneOptions) {
 
   function resize(w: number, h: number) { o.width = w; o.height = h; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false); if (pad.top || pad.bottom || pad.left || pad.right) applyPadding(); dirty(); }
   /** 그릴 것이 있으면 그리고 true. 앱의 rAF 고리가 매 프레임 부름. */
+  const decorations = createDecorations(scene, root, { lowSpec });
+  function setDecoration(name: MapTheme, motion: boolean) {
+    decorations.setTheme(name);
+    decorations.setMotion(motion);
+    dirty();
+  }
   function frameTick() {
+    if (decorations.tick(now())) needs = true;
     if (!needs) return false;
     needs = false;
     applyCamera();
@@ -421,6 +430,7 @@ export async function createCampusScene(o: SceneOptions) {
 
   /** 재시도·엔진 변경으로 장면을 버릴 때 GPU 자원을 함께 정리. */
   function dispose() {
+    decorations.dispose();
     const geometries = new Set<THREE.BufferGeometry>();
     const materials = new Set<THREE.Material>();
     for (const group of [scene, blitScene]) group.traverse((n) => {
@@ -437,7 +447,7 @@ export async function createCampusScene(o: SceneOptions) {
   const info = () => ({ ...lastInfo, geometries: renderer.info.memory.geometries });
   emit({ type: 'ready', buildings: [...buildings.values()].filter((b) => baseId(b.id) === b.id).map((b) => ({ id: b.id, name: b.name })), light });
   const loadTiming = { parseMs: parseEnd - parseStart, setupMs: performance.now() - parseEnd };
-  return { loadTiming, dispose, command, frameTick, resize, pan, zoom, rotate, tilt, tap, home, markerScreen, info, redraw: dirty,
+  return { loadTiming, dispose, setDecoration, command, frameTick, resize, pan, zoom, rotate, tilt, tap, home, markerScreen, info, redraw: dirty,
     buildingAnchors: () => anchors, screenOf, toScene, cameraDistance: () => cam.dist, setPadding, toggleExplode, focusMe };
 }
 

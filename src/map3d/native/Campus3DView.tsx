@@ -5,8 +5,10 @@ import { Asset } from 'expo-asset';
 import { File } from 'expo-file-system';
 import { GLView, type ExpoWebGLRenderingContext } from 'expo-gl';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Animated, Image, PanResponder, PixelRatio, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { AppState as RNAppState, Animated, Image, PanResponder, PixelRatio, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import * as THREE from 'three';
+import { useReducedMotion } from 'react-native-reanimated';
+import type { MapTheme } from './mapTheme';
 import { createCampusScene, type CampusScene } from './campusScene';
 import type { PageEvent } from './protocol';
 import type { Language } from '../../i18n/translations';
@@ -42,6 +44,9 @@ type Label = { key: string; kind: 'building' | 'place' | 'change'; text: string;
 const labelWidth = (t: string) => Math.min(150, 14 + t.length * 13);
 
 export interface Campus3DProps {
+  mapTheme?: MapTheme;
+  backgroundMotion?: boolean;
+  active?: boolean;
   onEvent?: (e: PageEvent) => void;
   places?: Campus3DPlace[];
   buildingNames?: Readonly<Record<string, BuildingLabel>>;
@@ -69,8 +74,19 @@ async function loadGlb(): Promise<ArrayBuffer> {
   }
 }
 
-export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function Campus3DView({ onEvent, places, buildingNames, language = 'ko', padding, light = false, style, logFrames = false, onStats }, ref) {
+export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function Campus3DView({ onEvent, places, buildingNames, language = 'ko', padding, light = false, mapTheme = 'default', backgroundMotion = true, active = true, style, logFrames = false, onStats }, ref) {
   const sceneRef = useRef<CampusScene | null>(null);
+  const reduceMotion = useReducedMotion();
+  const [foreground, setForeground] = useState(RNAppState.currentState === 'active');
+  useEffect(() => {
+    const subscription = RNAppState.addEventListener('change', (state) => setForeground(state === 'active'));
+    return () => subscription.remove();
+  }, []);
+  const decorOptions = useRef({ mapTheme, motion: backgroundMotion && active && foreground && !reduceMotion });
+  decorOptions.current = { mapTheme, motion: backgroundMotion && active && foreground && !reduceMotion };
+  useEffect(() => {
+    sceneRef.current?.setDecoration(mapTheme, decorOptions.current.motion);
+  }, [mapTheme, backgroundMotion, active, foreground, reduceMotion]);
   const renderRun = useRef<{ stop: () => void } | null>(null);
   useEffect(() => () => {
     renderRun.current?.stop();
@@ -198,6 +214,7 @@ export const Campus3DView = forwardRef<Campus3DHandle, Campus3DProps>(function C
       dispose = () => { scene.dispose(); renderer.dispose(); };
       if (stopped) { dispose(); return; }
       sceneRef.current = scene;
+      scene.setDecoration(decorOptions.current.mapTheme, decorOptions.current.motion);
       // campus-client: 앱은 3D 보기 하나를 화면마다 다른 크기 자리로 옮김 → 보기 크기에 맞춰 다시 맞춤
       if (layoutSize.current) scene.resize(Math.round(layoutSize.current.w * scale.current), Math.round(layoutSize.current.h * scale.current));
       applyPad();

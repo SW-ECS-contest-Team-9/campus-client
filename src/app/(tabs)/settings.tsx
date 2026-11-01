@@ -51,6 +51,37 @@ export default function SettingsScreen() {
             accessibilityLabel={t('lightMode')}
           />
         </Card>
+        <Section>{t('mapTheme')}</Section>
+        <View style={s.chips}>
+          {(
+            [
+              ['default', 'mapThemeDefault'],
+              ['island', 'mapThemeIsland'],
+              ['trek', 'mapThemeTrek'],
+              ['pirate', 'mapThemePirate'],
+            ] as const
+          ).map(([value, label]) => (
+            <FloorItem
+              key={value}
+              label={t(label)}
+              state={app.settings.mapTheme === value ? 'selected' : 'idle'}
+              onPress={() => void app.updateSettings({ mapTheme: value })}
+            />
+          ))}
+        </View>
+        <P tone="muted">{t('mapThemeNotice')}</P>
+        <Card style={s.row}>
+          <View style={{ flex: 1 }}>
+            <P>{t('backgroundMotion')}</P>
+          </View>
+          <Switch
+            value={app.settings.backgroundMotion}
+            onValueChange={(v) => void app.updateSettings({ backgroundMotion: v })}
+            trackColor={{ false: color.border, true: color.primary }}
+            ios_backgroundColor={color.border}
+            accessibilityLabel={t('backgroundMotion')}
+          />
+        </Card>
         <Section>{t('locationPermission')}</Section>
         <Card>
           <P tone="muted">{t('locationPrivacy')}</P>

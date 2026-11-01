@@ -368,6 +368,9 @@ export function Map3DHost({
                           key={`${source}:${attempt}`}
                           ref={native}
                           light={light}
+                          mapTheme={app.settings.mapTheme}
+                          backgroundMotion={app.settings.backgroundMotion}
+                          active={shown}
                           places={places}
                           buildingNames={buildingNames}
                           language={language}

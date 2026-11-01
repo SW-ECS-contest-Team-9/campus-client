@@ -88,6 +88,7 @@ export default function SearchScreen() {
   const runAi = async () => {
     if (!canAskAi || !pkg || !parsed) return;
     const text = q;
+    const baseRequest = req ?? parsed;
     const run = ++aiRun.current;
     setAi({ text, state: 'running' });
     try {
@@ -100,7 +101,7 @@ export default function SearchScreen() {
         note3dStat(`GEMMA_ERR 해석 실패(JSON 아님): ${g.raw.slice(0, 120)}`);
         return setAi({ text, state: 'failed' });
       }
-      setPicked({ text, req: mergeWithGemma(parsed, g.req) });
+      setPicked({ text, req: mergeWithGemma(baseRequest, g.req) });
       setAi({ text, state: 'done' });
     } catch (e) {
       if (run !== aiRun.current) return;
@@ -278,6 +279,7 @@ export default function SearchScreen() {
               {plan.choices.map((c) => (
                 <Button
                   key={c.label}
+                  disabled={ai?.state === 'running'}
                   variant="secondary"
                   label={c.label}
                   style={s.choice}

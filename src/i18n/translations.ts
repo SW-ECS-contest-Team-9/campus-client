@@ -2,6 +2,18 @@
 export type Language = 'ko' | 'zh' | 'ja' | 'en';
 export const languageNames: Record<Language, string> = { ko: '한국어', zh: '简体中文', ja: '日本語', en: 'English' };
 export const messages = {
+  mapTheme: ['캠퍼스 꾸미기', '校园主题', 'キャンパステーマ', 'Campus theme'],
+  mapThemeDefault: ['기본', '默认', '標準', 'Default'],
+  mapThemeIsland: ['공중섬', '浮空岛', '空中の島', 'Floating island'],
+  mapThemeTrek: ['함선', '星舰', '宇宙船', 'Starship'],
+  mapThemePirate: ['해적선', '海盗船', '海賊船', 'Pirate ship'],
+  backgroundMotion: ['배경 움직임', '背景动画', '背景の動き', 'Background motion'],
+  mapThemeNotice: [
+    '앱의 기본 3D 지도에 적용돼요. 저사양 모드나 동작 줄이기 설정에서는 배경이 멈춰요.',
+    '适用于应用默认的3D地图。低性能模式或减少动态效果时暂停背景动画。',
+    'アプリ標準の3D地図に適用。軽量モードや視差効果の低減時は背景が停止します。',
+    'Applies to the app’s native 3D map. Background motion pauses in light mode or with reduced motion.',
+  ],
   appName: ['서경 캠퍼스 길찾기', 'Seokyeong 校园导航', 'Seokyeongキャンパス案内', 'Seokyeong Campus'],
   language: ['언어', '语言', '言語', 'Language'],
   mapTranslationNotice: [

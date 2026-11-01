@@ -24,9 +24,13 @@ import { resolveQrAnchor } from '../location/qr';
 import { createSerializedWriter } from './serializedWrite';
 import { translate, type Language } from '../i18n/translations';
 
+import { normalizeMapTheme, type MapTheme } from '../map3d/native/mapTheme';
+
 const fixture = fixtureJson as unknown as MapPackage;
 
 export interface Settings {
+  mapTheme: MapTheme;
+  backgroundMotion: boolean;
   language: Language;
   serverUrl: string;
   trackerUrl: string;
@@ -58,6 +62,8 @@ export interface Settings {
 /** 개발 기본값. 운영 주소는 나중에 정함. */
 export const DEFAULT_SERVER_URL = `http://${DEV_HOST}:8010`;
 const DEFAULT_SETTINGS: Settings = {
+  mapTheme: 'default',
+  backgroundMotion: true,
   language: 'ko',
   serverUrl: DEFAULT_SERVER_URL,
   trackerUrl: process.env.EXPO_PUBLIC_TRACKER_URL || `http://${DEV_HOST}:3000`,
@@ -239,6 +245,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         st.autoTier3dChecked = false;
         void persistSettings(st).catch((error) => console.warn('Could not save settings', error));
       }
+      st.mapTheme = normalizeMapTheme(st.mapTheme);
+      st.backgroundMotion = st.backgroundMotion !== false;
       setSettings(st);
       setSettingsLoaded(true);
       if (f) setFavorites(JSON.parse(f) as string[]);

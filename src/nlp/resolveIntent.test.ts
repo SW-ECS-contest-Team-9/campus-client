@@ -155,3 +155,9 @@ it('does not mistake the generic professor office category for a named person', 
   expect(result.valid).toBe(true);
   expect(result.candidates).toHaveLength(156);
 });
+
+it('accepts a building followed by the Korean connective copula', () => {
+  const result = resolveSearchIntent(request('place', '북악관'), index, '다음 수업은 북악관인데 거기로 가줘');
+  expect(result.valid).toBe(true);
+  expect(result.candidates[0]?.id).toBe('b:북악관');
+});
